@@ -146,7 +146,22 @@ $PY -m orion_eval.cli leaderboard
 
 # or one model at a time
 $PY -m orion_eval.cli all --model qwen3-14b-4bit --judge mlx:mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit
+
+# review answers by hand (regenerate after each grade pass)
+$PY -m orion_eval.cli report          # -> results/review.html, open in any browser
 ```
+
+### `results/review.html` — the manual review UI
+
+A single self-contained HTML file (no server, works offline, regenerate with `report`).
+Left: every question with per-model composite pips and filters — **disagreements only**
+(composite delta ≥ 0.25), **hallucination < 2**, **schema invalid**, **not reviewed by me**,
+category / difficulty / text search. Right: the question, the full ground truth (expected
+answer, required concepts, misconceptions in red, evidence anchors, grading notes), then each
+model's parsed answer + auto-grade badges + judge rationale + raw completion + the context
+files it saw + perf. Each (question, model) has a **My review** block — 0/1/2 per axis + a
+note — saved to `localStorage`; **Export my review** writes `orion_task3_human_review.json`
+for the rubric's ≥ 20% human spot-check. Keys `j`/`k` move between questions.
 
 `qwen3-30b-a3b-4bit` will likely need `sudo sysctl iogpu.wired_limit_mb=20000` first on the
 24 GB machine.

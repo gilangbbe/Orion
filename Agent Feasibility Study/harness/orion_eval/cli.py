@@ -274,6 +274,12 @@ def cmd_grade(args: argparse.Namespace) -> None:
 
 # ---------------------------------------------------------------- leaderboard
 
+def cmd_report(args: argparse.Namespace) -> None:
+    from .report import build_report
+    path = build_report(STUDY_DIR, args.out)
+    print(f"wrote {path}  (open in a browser; no server needed)")
+
+
 def cmd_leaderboard(args: argparse.Namespace) -> None:
     from .leaderboard import build_leaderboard
     run_dirs = [RESULTS / d for d in args.runs] if args.runs else sorted(
@@ -291,8 +297,8 @@ def cmd_all(args: argparse.Namespace) -> None:
     cmd_run(args)
     gargs = argparse.Namespace(runs=None, judge=args.judge, no_mlflow=args.no_mlflow)
     cmd_grade(gargs)
-    largs = argparse.Namespace(runs=None, out=None)
-    cmd_leaderboard(largs)
+    cmd_leaderboard(argparse.Namespace(runs=None, out=None))
+    cmd_report(argparse.Namespace(out=None))
 
 
 # ---------------------------------------------------------------- argparse
@@ -324,6 +330,10 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--runs", nargs="*", help="results subdir names (default: all graded)")
     sp.add_argument("--out", default=None)
     sp.set_defaults(func=cmd_leaderboard)
+
+    sp = sub.add_parser("report", help="build the self-contained HTML answer-review page")
+    sp.add_argument("--out", default=None, help="output path (default results/review.html)")
+    sp.set_defaults(func=cmd_report)
 
     sp = sub.add_parser("all", help="run + grade + leaderboard")
     sp.add_argument("--model", default="seed")
