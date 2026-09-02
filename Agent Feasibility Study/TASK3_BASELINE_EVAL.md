@@ -130,6 +130,27 @@ Deterministic axes need no model. Subjective axes use a **pluggable judge**:
 
 ## 6. How to run the rest
 
+### On a clean machine — one command
+
+Copy the whole `Agent Feasibility Study/` directory (`harness/`, `benchmark/`, the `.md` files,
+`run_study.sh`) to the target Mac (Apple Silicon, macOS, Python ≥ 3.9 with a venv — nothing
+else) and run:
+
+```bash
+./run_study.sh                 # provision + seed models (llama-3.2-3b, qwen3-8b)
+MODELS=all ./run_study.sh      # full 10-model matrix (~40 GB of downloads)
+SKIP_EVAL=1 ./run_study.sh     # just provision (venv + deps + pinned repo), run eval later
+```
+
+`run_study.sh` does preflight → venv (reuses `$VIRTUAL_ENV`/`./.venv`/`../.venv` or creates
+one) → `pip install harness/requirements.txt` (pinned) → clone Starlette at the tag → resolve
+anchors → `run → grade → leaderboard → report`. Judge auto-selects: Anthropic if
+`ANTHROPIC_API_KEY` is set, else the local `mlx:Qwen3-8B` judge. Knobs: `MODELS`, `JUDGE`,
+`STARLETTE_TAG`, `VENV`, `REQ_RELAX`, `SKIP_INSTALL`, `SKIP_CLONE`, `SKIP_EVAL` (see the header
+of the script).
+
+### Manual / piecemeal
+
 ```bash
 cd "Agent Feasibility Study"
 export PYTHONPATH=harness
