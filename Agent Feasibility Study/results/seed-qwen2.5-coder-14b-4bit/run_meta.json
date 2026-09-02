@@ -1,0 +1,19 @@
+{
+  "harness_version": "0.1.0",
+  "model_id": "qwen2.5-coder-14b-4bit",
+  "hf_repo": "mlx-community/Qwen2.5-Coder-14B-Instruct-4bit",
+  "quant": "q4",
+  "tier": "medium",
+  "role": "mid-coder",
+  "repository": "starlette",
+  "version": "v1.6.0",
+  "commit_sha": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+  "n_questions": 55,
+  "mlx_lm_version": "0.31.3",
+  "hardware": "Apple M3 Ultra / 275GB / macOS 26.6.1",
+  "load_seconds": 57.66,
+  "weights_gb": 8.309,
+  "temperature": 0.0,
+  "created": "2026-09-02T15:52:13",
+  "judge": "mlx:mlx-community/Qwen3-8B-4bit"
+}

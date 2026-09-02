@@ -1,6 +1,5 @@
 .venv/
 vendor/
-results/
 __pycache__/
 *.pyc
 mlruns/
