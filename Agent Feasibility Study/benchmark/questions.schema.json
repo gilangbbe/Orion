@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codebase-mentor.local/schemas/benchmark.json",
+  "title": "Codebase Mentor feasibility benchmark",
+  "description": "Machine-readable benchmark dataset for Task 2 of the Local LLM & Agent Feasibility Study.",
+  "type": "object",
+  "required": ["metadata", "questions"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["repository", "remote", "version", "commit_sha", "language", "authored", "category_counts"],
+      "additionalProperties": true,
+      "properties": {
+        "repository": { "type": "string" },
+        "remote": { "type": "string", "format": "uri" },
+        "version": { "type": "string" },
+        "commit_sha": {
+          "type": "string",
+          "description": "Resolve at clone time via `git rev-parse HEAD`. 'UNRESOLVED' until then.",
+          "pattern": "^([0-9a-f]{7,40}|UNRESOLVED)$"
+        },
+        "language": { "type": "string" },
+        "license": { "type": "string" },
+        "authored": { "type": "string", "format": "date" },
+        "line_hints_verified": {
+          "type": "boolean",
+          "description": "True once tools/resolve_anchors.py has replaced line_hint estimates against the pinned SHA."
+        },
+        "scope_contract": {
+          "type": "object",
+          "properties": {
+            "analyzed": { "type": "array", "items": { "type": "string" } },
+            "not_analyzed": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "category_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/question" }
+    }
+  },
+  "$defs": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "code_understanding",
+        "cross_file_reasoning",
+        "architecture",
+        "dependency_change_impact",
+        "behavioral_reasoning",
+        "contradiction_detection",
+        "evidence",
+        "teaching",
+        "transfer"
+      ]
+    },
+    "evidenceType": {
+      "type": "string",
+      "enum": ["SOURCE", "TEST", "DOC", "GIT_HISTORY", "STATIC_ANALYSIS"]
+    },
+    "evidenceItem": {
+      "type": "object",
+      "required": ["file", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "description": "Repo-relative path." },
+        "symbol": {
+          "type": "string",
+          "description": "Authoritative anchor, form 'path::Qualified.Name' or a docs heading."
+        },
+        "line_hint": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Unverified estimate from authoring branch; resolve against pinned SHA."
+        },
+        "type": { "$ref": "#/$defs/evidenceType" },
+        "note": { "type": "string" }
+      }
+    },
+    "question": {
+      "type": "object",
+      "required": [
+        "id",
+        "category",
+        "question",
+        "expected_answer",
+        "required_concepts",
+        "relevant_files",
+        "relevant_symbols",
+        "evidence",
+        "common_misconceptions",
+        "answerable_from",
+        "difficulty",
+        "points",
+        "grading_notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^(CU|XF|AR|DC|BR|CD|EV|TE|TR)-[0-9]{2}$" },
+        "category": { "$ref": "#/$defs/category" },
+        "question": { "type": "string", "minLength": 1 },
+        "developer_explanation": {
+          "type": "string",
+          "description": "For teaching items: the claim the model must assess."
+        },
+        "expected_answer": { "type": "string", "minLength": 1 },
+        "required_concepts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "relevant_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "relevant_symbols": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceItem" },
+          "minItems": 1
+        },
+        "common_misconceptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "answerable_from": {
+          "type": "string",
+          "enum": ["source_only", "source+docs", "source+tests", "source+docs+tests"]
+        },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+        "points": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "expected_epistemic_status": {
+          "type": "string",
+          "enum": ["VERIFIED", "INFERRED", "UNKNOWN", "CONTRADICTED"],
+          "description": "The status a correct answer should assign to its main claim (Product Spec §14)."
+        },
+        "grading_notes": { "type": "string" }
+      }
+    }
+  }
+}

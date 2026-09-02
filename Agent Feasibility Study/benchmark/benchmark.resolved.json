@@ -1,0 +1,2794 @@
+{
+  "metadata": {
+    "repository": "starlette",
+    "remote": "https://github.com/Kludex/starlette",
+    "version": "v1.6.0",
+    "commit_sha": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+    "language": "Python",
+    "license": "BSD-3-Clause",
+    "authored": "2026-09-02",
+    "line_hints_verified": true,
+    "notes": "line_hint values are unverified estimates captured from the master branch during authoring. Resolve them against the pinned commit with tools/resolve_anchors.py before use. relevant_symbols anchors are authoritative.",
+    "scope_contract": {
+      "analyzed": [
+        "starlette/**",
+        "tests/**",
+        "docs/**",
+        "git metadata"
+      ],
+      "not_analyzed": [
+        "anyio and other third-party internals",
+        "ASGI server (uvicorn/hypercorn) behaviour",
+        "CI/packaging/tooling",
+        "runtime/production deployment"
+      ]
+    },
+    "category_counts": {
+      "code_understanding": 9,
+      "cross_file_reasoning": 8,
+      "architecture": 6,
+      "dependency_change_impact": 6,
+      "behavioral_reasoning": 9,
+      "contradiction_detection": 5,
+      "evidence": 4,
+      "teaching": 4,
+      "transfer": 4
+    },
+    "line_hint_resolution": {
+      "resolved": 85,
+      "unresolved": 42
+    }
+  },
+  "questions": [
+    {
+      "id": "CU-01",
+      "category": "code_understanding",
+      "question": "What does Starlette.build_middleware_stack() do, and in what order are the middleware layers applied to an incoming request?",
+      "expected_answer": "It constructs the ASGI application chain that wraps the Router. It builds a list starting with ServerErrorMiddleware (outermost), then an optional RequestBodyLimitMiddleware when max_body_size is set, then the user-supplied middleware in declaration order, then ExceptionMiddleware (innermost, just outside routing). The list is then reversed and each Middleware is instantiated wrapping the previous app, so the Router ends up wrapped last-to-first. Result: a request passes ServerErrorMiddleware -> user middleware (top to bottom) -> ExceptionMiddleware -> Router. It is built lazily on the first call and cached in self.middleware_stack.",
+      "required_concepts": [
+        "outermost = ServerErrorMiddleware",
+        "user middleware in declaration order",
+        "innermost = ExceptionMiddleware",
+        "list is reversed then folded around the router",
+        "lazy build + cache"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/middleware/__init__.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/applications.py::Starlette.__call__",
+        "starlette/middleware/__init__.py::Middleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 49,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.__call__",
+          "line_hint": 68,
+          "type": "SOURCE",
+          "line": 92
+        }
+      ],
+      "common_misconceptions": [
+        "User middleware runs inside ExceptionMiddleware",
+        "The stack is rebuilt on every request",
+        "ExceptionMiddleware is the outermost layer"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Full credit requires the correct three-way ordering AND that user middleware sits between the two framework middlewares. Mentioning the reverse-then-wrap mechanic is a plus. Claiming user middleware is inside ExceptionMiddleware is a correctness-0 error."
+    },
+    {
+      "id": "CU-02",
+      "category": "code_understanding",
+      "question": "What does ServerErrorMiddleware do when the app it wraps raises an exception, and how does its behaviour differ between debug=True and debug=False?",
+      "expected_answer": "It catches any exception propagating from the inner app. If a response has not started, it sends a 500. With debug=True it returns an HTML page (or plain-text for non-browser clients) containing the formatted traceback; with debug=False it returns a generic 500 ('Internal Server Error') or invokes a user-registered 500/Exception handler if one was passed. In all cases it then re-raises the original exception so the ASGI server can log it and test clients can surface it. If the response had already started it cannot send a 500 and just re-raises.",
+      "required_concepts": [
+        "catches all exceptions from inner app",
+        "sends 500 only if response not started",
+        "debug=True -> traceback (HTML or text)",
+        "debug=False -> generic 500 or user handler",
+        "always re-raises"
+      ],
+      "relevant_files": [
+        "starlette/middleware/errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+        "starlette/middleware/errors.py::ServerErrorMiddleware.debug_response",
+        "starlette/middleware/errors.py::ServerErrorMiddleware.error_response"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/errors.py",
+          "symbol": "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+          "line_hint": 140,
+          "type": "SOURCE",
+          "line": 149
+        },
+        {
+          "file": "starlette/middleware/errors.py",
+          "symbol": "starlette/middleware/errors.py::ServerErrorMiddleware",
+          "line_hint": 169,
+          "type": "SOURCE",
+          "note": "the 'always continue to raise the exception' comment",
+          "line": 127
+        }
+      ],
+      "common_misconceptions": [
+        "It swallows the exception after sending 500",
+        "It formats a traceback even when debug=False",
+        "It can still send a 500 after the response body has started streaming"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must state the re-raise. Must distinguish debug behaviour. Bonus for the 'response already started' edge case."
+    },
+    {
+      "id": "CU-03",
+      "category": "code_understanding",
+      "question": "What is ExceptionMiddleware responsible for, and which exceptions does it handle by default?",
+      "expected_answer": "It catches exceptions raised inside routing/endpoints and maps them to responses using two registries: one keyed by exception class, one keyed by integer HTTP status code. It installs default handlers for HTTPException (returns a PlainTextResponse with the exception's detail and status_code, but an empty body for 204/304) and WebSocketException (closes the socket with the given code/reason). It also stores the handler dictionaries in the ASGI scope so the routing layer can reuse them. It does not handle generic unhandled exceptions / 500s -- those pass through to ServerErrorMiddleware.",
+      "required_concepts": [
+        "two registries: by exception class and by status code",
+        "default handler for HTTPException -> PlainTextResponse (empty for 204/304)",
+        "default handler for WebSocketException -> close",
+        "puts handlers in scope",
+        "does NOT handle 500"
+      ],
+      "relevant_files": [
+        "starlette/middleware/exceptions.py",
+        "starlette/exceptions.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/exceptions.py::ExceptionMiddleware",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.http_exception",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.websocket_exception"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/exceptions.py",
+          "symbol": "starlette/middleware/exceptions.py::ExceptionMiddleware.__init__",
+          "line_hint": 20,
+          "type": "SOURCE",
+          "line": 19
+        },
+        {
+          "file": "starlette/middleware/exceptions.py",
+          "symbol": "starlette/middleware/exceptions.py::ExceptionMiddleware.http_exception",
+          "line_hint": 45,
+          "type": "SOURCE",
+          "line": 65
+        },
+        {
+          "file": "starlette/middleware/exceptions.py",
+          "symbol": "starlette/middleware/exceptions.py::ExceptionMiddleware.websocket_exception",
+          "line_hint": 51,
+          "type": "SOURCE",
+          "line": 71
+        }
+      ],
+      "common_misconceptions": [
+        "ExceptionMiddleware turns any unhandled exception into a 500",
+        "It catches exceptions raised in other middleware",
+        "HTTPException(204) still writes a body"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must name both default-handled exception types and must state it does not handle generic 500s. Empty body for 204/304 is a bonus detail."
+    },
+    {
+      "id": "CU-04",
+      "category": "code_understanding",
+      "question": "What does Route.matches(scope) return, and what specifically does a Match.PARTIAL result indicate?",
+      "expected_answer": "It returns a tuple (Match, child_scope). It regex-matches the request path against the compiled route pattern. If the path does not match it returns (Match.NONE, {}). If the path matches and the request method is in the route's allowed methods it returns (Match.FULL, child_scope) with extracted/converted path_params and the endpoint. If the path matches but the method is not allowed it returns (Match.PARTIAL, child_scope). Match is an ordered enum NONE=0 < PARTIAL=1 < FULL=2, so the Router can prefer the best match. PARTIAL is what ultimately drives a 405 Method Not Allowed.",
+      "required_concepts": [
+        "returns (Match, child_scope)",
+        "NONE = path mismatch",
+        "FULL = path + method match",
+        "PARTIAL = path matches, method does not",
+        "PARTIAL leads to 405"
+      ],
+      "relevant_files": [
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Match",
+        "starlette/routing.py::Route.matches"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Match",
+          "line_hint": 17,
+          "type": "SOURCE",
+          "line": 41
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Route.matches",
+          "line_hint": 238,
+          "type": "SOURCE",
+          "line": 168
+        }
+      ],
+      "common_misconceptions": [
+        "PARTIAL means a prefix of the path matched",
+        "PARTIAL is used for Mount sub-path matching",
+        "matches() raises for a method mismatch"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The distinguishing fact is PARTIAL == path OK but method wrong. Anything about prefixes is wrong."
+    },
+    {
+      "id": "CU-05",
+      "category": "code_understanding",
+      "question": "What does Request.stream() do, and how does it prevent the request body from being consumed twice?",
+      "expected_answer": "stream() is an async generator that yields body byte chunks. If the body was already fully read into self._body it yields that cached value and returns. Otherwise it pulls 'http.request' messages from the ASGI receive channel, yielding each body chunk, until a message with more_body False; it then sets self._stream_consumed = True and yields a final empty bytes. If it is called again after that, the self._stream_consumed guard raises RuntimeError('Stream consumed'). An 'http.disconnect' message raises ClientDisconnect.",
+      "required_concepts": [
+        "async generator yielding chunks",
+        "returns cached self._body if present",
+        "reads from ASGI receive channel",
+        "_stream_consumed guard -> RuntimeError('Stream consumed')",
+        "http.disconnect -> ClientDisconnect"
+      ],
+      "relevant_files": [
+        "starlette/requests.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.stream",
+        "starlette/requests.py::ClientDisconnect"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.stream",
+          "line_hint": 196,
+          "type": "SOURCE",
+          "line": 234
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.stream",
+          "line_hint": 199,
+          "type": "SOURCE",
+          "note": "_stream_consumed guard",
+          "line": 234
+        }
+      ],
+      "common_misconceptions": [
+        "stream() can be iterated repeatedly",
+        "stream() returns the whole body as one bytes object",
+        "consuming the stream twice returns an empty iterator silently"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must mention the 'Stream consumed' RuntimeError guard. Bonus for the cached-_body short-circuit and ClientDisconnect."
+    },
+    {
+      "id": "CU-06",
+      "category": "code_understanding",
+      "question": "How does Request.body() behave differently from Request.stream() when called more than once?",
+      "expected_answer": "body() lazily concatenates all chunks from stream() into self._body on first call, guarded by 'if not hasattr(self, \"_body\")'. Every subsequent call returns the cached self._body without touching the receive channel, so it is safe to call repeatedly. json() and form() cache the same way (self._json, self._form). stream(), by contrast, consumes the receive channel and raises RuntimeError('Stream consumed') on a second iteration unless _body was already populated (e.g. by a prior body() call, in which case stream() re-yields the cache).",
+      "required_concepts": [
+        "body() caches in self._body via hasattr guard",
+        "repeat body()/json()/form() calls are safe",
+        "stream() is not repeatable",
+        "body() then stream() works because _body is cached"
+      ],
+      "relevant_files": [
+        "starlette/requests.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.body",
+        "starlette/requests.py::Request.json",
+        "starlette/requests.py::Request.stream"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.body",
+          "line_hint": 211,
+          "type": "SOURCE",
+          "line": 254
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.json",
+          "line_hint": 218,
+          "type": "SOURCE",
+          "line": 262
+        }
+      ],
+      "common_misconceptions": [
+        "Calling body() twice raises 'Stream consumed'",
+        "body() and stream() share no state",
+        "json() re-reads the socket each call"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Key contrast: body() is idempotent/cached; stream() is single-shot. Bonus for noting body()-then-stream() succeeds via the cache."
+    },
+    {
+      "id": "CU-07",
+      "category": "code_understanding",
+      "question": "What does BackgroundTasks.__call__ do, and how are synchronous vs asynchronous task functions executed?",
+      "expected_answer": "BackgroundTasks holds an ordered list of BackgroundTask objects. Its __call__ awaits each task in order: `for task in self.tasks: await task()`. Each BackgroundTask, at construction, records whether its func is an async callable (is_async_callable). When called, an async func is awaited directly; a sync func is run via run_in_threadpool (anyio) so it does not block the event loop. There is no try/except around the loop, so an exception in one task propagates and the remaining tasks do not run.",
+      "required_concepts": [
+        "ordered sequential execution (await in a for-loop)",
+        "async func awaited directly",
+        "sync func -> run_in_threadpool",
+        "no error isolation between tasks"
+      ],
+      "relevant_files": [
+        "starlette/background.py",
+        "starlette/concurrency.py"
+      ],
+      "relevant_symbols": [
+        "starlette/background.py::BackgroundTasks.__call__",
+        "starlette/background.py::BackgroundTask.__call__",
+        "starlette/concurrency.py::run_in_threadpool"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTasks.__call__",
+          "line_hint": 34,
+          "type": "SOURCE",
+          "line": 19
+        },
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTask.__call__",
+          "line_hint": 19,
+          "type": "SOURCE",
+          "line": 19
+        }
+      ],
+      "common_misconceptions": [
+        "Tasks run concurrently",
+        "A failing task is caught and the rest continue",
+        "Sync tasks block the event loop"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must say sequential AND no error isolation. Threadpool for sync funcs is required for full completeness."
+    },
+    {
+      "id": "CU-08",
+      "category": "code_understanding",
+      "question": "What HTTP status code does RedirectResponse use by default, and why does that particular choice matter?",
+      "expected_answer": "RedirectResponse defaults to status_code=307 (Temporary Redirect). 307 preserves the request method and body across the redirect, unlike 301/302 which historically caused clients to switch to GET. This is why Router's redirect_slashes feature (also a RedirectResponse) can safely redirect a POST to the slash-corrected path without silently downgrading it to a GET. It is also not cacheable-as-permanent the way a 301 is.",
+      "required_concepts": [
+        "default status_code = 307",
+        "307 preserves method and body",
+        "contrast with 301/302 method-switching",
+        "used by redirect_slashes"
+      ],
+      "relevant_files": [
+        "starlette/responses.py",
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::RedirectResponse",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::RedirectResponse.__init__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 33
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 668,
+          "type": "SOURCE",
+          "note": "redirect_slashes branch",
+          "line": 58
+        }
+      ],
+      "common_misconceptions": [
+        "RedirectResponse defaults to 302",
+        "redirect_slashes issues a 301",
+        "307 and 302 are equivalent for a POST"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The number 307 and the method-preservation rationale are both required."
+    },
+    {
+      "id": "CU-09",
+      "category": "code_understanding",
+      "question": "When Config is given both an environment variable and an entry in the .env file for the same key, which value wins, and how does Config.__call__ resolve it?",
+      "expected_answer": "The real environment variable wins. Config first checks os.environ; only if the key is absent there does it fall back to the parsed .env file dict; only if absent in both does it use the supplied default (raising if there is no default). The value string is then passed through the optional cast (e.g. bool, int, or a custom callable) before being returned. Config also records which keys were read so it can warn about unused .env entries.",
+      "required_concepts": [
+        "os.environ takes precedence over .env file",
+        ".env file takes precedence over default",
+        "missing everywhere + no default -> error",
+        "cast applied last"
+      ],
+      "relevant_files": [
+        "starlette/config.py"
+      ],
+      "relevant_symbols": [
+        "starlette/config.py::Config.__call__",
+        "starlette/config.py::Config._perform_cast",
+        "starlette/config.py::Config._read_file"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/config.py",
+          "symbol": "starlette/config.py::Config.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 67
+        },
+        {
+          "file": "starlette/config.py",
+          "symbol": "starlette/config.py::Config.get",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 94
+        }
+      ],
+      "common_misconceptions": [
+        ".env overrides the process environment",
+        "Config raises if a key is in both places",
+        "cast runs before the lookup"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The precedence order environ > file > default is the whole point. Bonus for the cast ordering."
+    },
+    {
+      "id": "XF-01",
+      "category": "cross_file_reasoning",
+      "question": "Trace, across files, how an unhandled ValueError raised inside an HTTP endpoint becomes a 500 response.",
+      "expected_answer": "The endpoint raises ValueError inside the coroutine invoked by Route.handle / request_response (routing.py). ExceptionMiddleware (middleware/exceptions.py) is the next layer out; it only catches exceptions it has handlers for (HTTPException, WebSocketException, or user-registered classes/status codes) -- ValueError is not one, so it re-raises. The exception then propagates to ServerErrorMiddleware (middleware/errors.py), the outermost layer added by Starlette.build_middleware_stack (applications.py). ServerErrorMiddleware catches it, sends a 500 (traceback if debug else generic or a user 500 handler), and re-raises so the ASGI server logs it. User middleware, sitting between the two, sees the exception pass through but does nothing unless it has its own try/except.",
+      "required_concepts": [
+        "endpoint invoked via routing.py request_response/Route.handle",
+        "ExceptionMiddleware only catches registered types -> re-raises ValueError",
+        "ServerErrorMiddleware (outermost) catches it -> 500",
+        "re-raise for logging",
+        "user middleware is in between and passive by default"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/errors.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::request_response",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+        "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+        "starlette/applications.py::Starlette.build_middleware_stack"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/exceptions.py",
+          "symbol": "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+          "line_hint": 35,
+          "type": "SOURCE",
+          "line": 47
+        },
+        {
+          "file": "starlette/middleware/errors.py",
+          "symbol": "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+          "line_hint": 140,
+          "type": "SOURCE",
+          "line": 149
+        },
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 49,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "tests/middleware/test_errors.py",
+          "symbol": "tests/middleware/test_errors.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "ExceptionMiddleware converts the ValueError to a 500",
+        "The 500 is produced inside routing.py",
+        "ServerErrorMiddleware swallows the exception"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Full credit needs the correct layer that produces the 500 (ServerErrorMiddleware, not ExceptionMiddleware) and the fact that ExceptionMiddleware passes non-registered exceptions through. Attributing the 500 to ExceptionMiddleware is the defining error for this item."
+    },
+    {
+      "id": "XF-02",
+      "category": "cross_file_reasoning",
+      "question": "How do ExceptionMiddleware and routing.py cooperate to turn a raised HTTPException into an HTTP response?",
+      "expected_answer": "ExceptionMiddleware.__call__ writes its two handler dicts (by-status and by-class) into the ASGI scope, then wraps the downstream call in the shared helper from _exception_handler.py (wrap_app_handling_exceptions). The routing layer uses the same helper when it invokes endpoints, so a handler lookup can happen close to where the exception is raised. When an HTTPException propagates, the helper looks up a handler by exact status code, then by class MRO; the default HTTPException handler builds a PlainTextResponse(detail, status_code) (empty body for 204/304) and sends it. WebSocketException is handled analogously by closing the socket. Because the handler dicts live in scope, both ExceptionMiddleware and routing see the same registered handlers.",
+      "required_concepts": [
+        "handler dicts stored in scope",
+        "_exception_handler.wrap_app_handling_exceptions shared by middleware and routing",
+        "lookup by status code then by class",
+        "default HTTPException -> PlainTextResponse"
+      ],
+      "relevant_files": [
+        "starlette/middleware/exceptions.py",
+        "starlette/_exception_handler.py",
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+        "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+        "starlette/_exception_handler.py::_lookup_exception_handler"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/exceptions.py",
+          "symbol": "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+          "line_hint": 38,
+          "type": "SOURCE",
+          "note": "puts handlers in scope",
+          "line": 47
+        },
+        {
+          "file": "starlette/_exception_handler.py",
+          "symbol": "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 23
+        },
+        {
+          "file": "tests/test_exceptions.py",
+          "symbol": "tests/test_exceptions.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Only ExceptionMiddleware ever looks up handlers",
+        "Handlers are stored as attributes on the app object and imported by routing",
+        "Status-code handlers and class handlers are the same dict"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The shared-helper-via-scope mechanism is the crux. Naming _exception_handler.py earns the architectural-reasoning points."
+    },
+    {
+      "id": "XF-03",
+      "category": "cross_file_reasoning",
+      "question": "How does Mount interact with Router so that a mounted sub-application only sees its own sub-path?",
+      "expected_answer": "Mount.matches regex-matches its prefix against the path. On a match it computes the remaining unmatched path and returns Match.FULL with a child_scope that sets path to the remainder, appends the matched prefix to root_path (accumulating across nested Mounts), preserves app_root_path, and sets endpoint to the mounted app. Router.app updates scope with child_scope and calls Mount.handle, which invokes the sub-app with the rewritten scope. The sub-app's own Router therefore matches routes against the stripped path, while root_path carries the full prefix so URL generation (request.url_for) can reconstruct absolute paths.",
+      "required_concepts": [
+        "Mount.matches strips its prefix from path",
+        "root_path accumulates the prefix",
+        "child_scope passed down via Router.app",
+        "sub-app routes match the remainder",
+        "root_path used for url_for"
+      ],
+      "relevant_files": [
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Mount.matches",
+        "starlette/routing.py::Mount.handle",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Mount.matches",
+          "line_hint": 399,
+          "type": "SOURCE",
+          "line": 168
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "note": "mount / sub-app tests",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The sub-app must declare full paths including the mount prefix",
+        "Mount uses Match.PARTIAL",
+        "root_path is discarded after matching"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must state that the sub-app sees the stripped path and that root_path carries the prefix. Ties into TE-04 and TR-04."
+    },
+    {
+      "id": "XF-04",
+      "category": "cross_file_reasoning",
+      "question": "How does Starlette.add_middleware relate to build_middleware_stack, and why does calling add_middleware after the application has started serving raise a RuntimeError?",
+      "expected_answer": "add_middleware inserts a Middleware(cls, **options) at position 0 of self.user_middleware (so later add_middleware calls wrap earlier ones -- outermost-last-added). build_middleware_stack reads self.user_middleware once, lazily, on the first request (or first __call__), and caches the result in self.middleware_stack. add_middleware checks whether self.middleware_stack is already built and raises RuntimeError('Cannot add middleware after an application has started') if so, because mutating user_middleware then would have no effect on the already-folded stack. add_exception_handler and add_route have analogous ordering considerations but routes are consulted live via the Router.",
+      "required_concepts": [
+        "add_middleware inserts at index 0 of user_middleware",
+        "build_middleware_stack consumes the list once and caches",
+        "raises if middleware_stack already built",
+        "rationale: post-build mutation would be silently ignored"
+      ],
+      "relevant_files": [
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.add_middleware",
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/applications.py::Starlette.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.add_middleware",
+          "line_hint": 78,
+          "type": "SOURCE",
+          "line": 104
+        },
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.__call__",
+          "line_hint": 68,
+          "type": "SOURCE",
+          "line": 92
+        }
+      ],
+      "common_misconceptions": [
+        "Middleware can be added at any time and takes effect on the next request",
+        "add_middleware appends (so first-added is outermost)",
+        "The stack is rebuilt per request so mutation is fine"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must connect the lazy-build-and-cache to the RuntimeError. Insert-at-0 ordering is a bonus."
+    },
+    {
+      "id": "XF-05",
+      "category": "cross_file_reasoning",
+      "question": "How does a class-based HTTPEndpoint end up being invoked by a Route?",
+      "expected_answer": "Route detects at construction whether the endpoint is a function or a class. For a plain function it wraps it with request_response (or websocket_session). For a class (HTTPEndpoint subclass) it treats the class itself as an ASGI-callable: Route.handle calls endpoint(scope, receive, send). HTTPEndpoint.__init__ stores the scope/receive/send; its __await__/dispatch builds a Request, selects the method handler by lowercased HTTP method name (self.get, self.post, ...), falls back to method_not_allowed (405 with Allow header) if missing, runs the handler (async directly, sync via run_in_threadpool), and sends the returned Response. So Route delegates the entire request lifecycle to the class instance.",
+      "required_concepts": [
+        "Route branches on function vs class endpoint",
+        "class endpoint is called as an ASGI app: endpoint(scope, receive, send)",
+        "HTTPEndpoint.dispatch selects handler by method name",
+        "missing method -> 405 via method_not_allowed",
+        "sync handler via threadpool"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/endpoints.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Route.__init__",
+        "starlette/routing.py::request_response",
+        "starlette/endpoints.py::HTTPEndpoint.dispatch",
+        "starlette/endpoints.py::HTTPEndpoint.method_not_allowed"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/endpoints.py",
+          "symbol": "starlette/endpoints.py::HTTPEndpoint.dispatch",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 32
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Route.__init__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 36
+        },
+        {
+          "file": "tests/test_endpoints.py",
+          "symbol": "tests/test_endpoints.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Route instantiates the endpoint class and calls a .handle() method by name",
+        "request_response wraps class endpoints too",
+        "HTTPEndpoint uses reflection over annotations to route methods"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The function-vs-class branch in Route plus method-name dispatch in HTTPEndpoint are both required."
+    },
+    {
+      "id": "XF-06",
+      "category": "cross_file_reasoning",
+      "question": "How does request.state relate to state yielded by a lifespan context and to scope['state']?",
+      "expected_answer": "A lifespan context manager may `yield` a dict; Router stores it and, for every connection, a shallow copy is placed at scope['state'] (so per-request mutations do not leak between requests, but mutable values are shared). HTTPConnection.state (base of Request) lazily wraps scope['state'] in a State object and caches it as self._state, so request.state.foo reads/writes scope['state']['foo']. If no lifespan state was provided, scope['state'] is an empty dict. This is the supported channel for sharing e.g. a DB pool created at startup with request handlers.",
+      "required_concepts": [
+        "lifespan yields a dict -> Router keeps it",
+        "shallow-copied into scope['state'] per connection",
+        "request.state wraps scope['state'] via State",
+        "shared references, isolated top-level keys"
+      ],
+      "relevant_files": [
+        "starlette/requests.py",
+        "starlette/routing.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::HTTPConnection.state",
+        "starlette/routing.py::Router.lifespan",
+        "starlette/datastructures.py::State"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::HTTPConnection.state",
+          "line_hint": 156,
+          "type": "SOURCE",
+          "line": 189
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "note": "copies lifespan state into scope",
+          "line": 177
+        },
+        {
+          "file": "tests/test_applications.py",
+          "symbol": "tests/test_applications.py",
+          "line_hint": null,
+          "type": "TEST",
+          "note": "lifespan state test",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "request.state persists across requests",
+        "scope['state'] is the same object for every request (no copy)",
+        "lifespan state is injected via a global"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The shallow-copy-per-connection detail is what separates a correct answer from a plausible one."
+    },
+    {
+      "id": "XF-07",
+      "category": "cross_file_reasoning",
+      "question": "How does TestClient run the ASGI app, and at what point is the application lifespan actually executed?",
+      "expected_answer": "TestClient is an httpx client with a custom transport that dispatches requests into the ASGI app. It runs the app on an anyio event loop in a separate thread, bridged by a portal, so calling test code stays synchronous. The lifespan (startup/shutdown) is only run when TestClient is used as a context manager: `with TestClient(app) as client:` enters a portal that sends the ASGI 'lifespan' events; a bare `TestClient(app)` never triggers startup/shutdown. By default raise_server_exceptions=True, so exceptions from the app are re-raised in the test rather than only producing a 500.",
+      "required_concepts": [
+        "httpx client + ASGI transport",
+        "app runs on anyio loop in a background thread via a portal",
+        "lifespan runs only inside the `with` block",
+        "raise_server_exceptions=True re-raises app errors"
+      ],
+      "relevant_files": [
+        "starlette/testclient.py"
+      ],
+      "relevant_symbols": [
+        "starlette/testclient.py::TestClient",
+        "starlette/testclient.py::TestClient.__enter__",
+        "starlette/testclient.py::_TestClientTransport"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/testclient.py",
+          "symbol": "starlette/testclient.py::TestClient.__enter__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 115
+        },
+        {
+          "file": "tests/test_testclient.py",
+          "symbol": "tests/test_testclient.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Lifespan runs on TestClient construction",
+        "TestClient uses requests, not httpx",
+        "raise_server_exceptions defaults to False"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The context-manager requirement for lifespan is the load-bearing fact (see EV-04, BR-09)."
+    },
+    {
+      "id": "XF-08",
+      "category": "cross_file_reasoning",
+      "question": "How does CORSMiddleware short-circuit a CORS preflight request before the routing layer runs?",
+      "expected_answer": "CORSMiddleware is user middleware, so it sits outside ExceptionMiddleware and the Router. In __call__ it inspects the request: if method is OPTIONS and an 'access-control-request-method' header is present, it treats it as a preflight and returns a PlainTextResponse (200/204) with the computed Access-Control-Allow-* headers directly, never calling the inner app -- so routing never sees the request. For actual (non-preflight) requests it calls the inner app and then adds the CORS response headers on the way out. Allowed origins/methods/headers are precomputed in __init__.",
+      "required_concepts": [
+        "CORS middleware is outside the router",
+        "preflight = OPTIONS + access-control-request-method header",
+        "preflight response sent directly, inner app not called",
+        "simple requests pass through and get headers added on egress"
+      ],
+      "relevant_files": [
+        "starlette/middleware/cors.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/cors.py::CORSMiddleware.__call__",
+        "starlette/middleware/cors.py::CORSMiddleware.preflight_response"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/cors.py",
+          "symbol": "starlette/middleware/cors.py::CORSMiddleware.preflight_response",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 107
+        },
+        {
+          "file": "tests/middleware/test_cors.py",
+          "symbol": "tests/middleware/test_cors.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Preflight requests are routed to an OPTIONS handler",
+        "CORSMiddleware runs after routing",
+        "It mutates the request rather than returning its own response for preflight"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must say the preflight is answered without invoking the inner app."
+    },
+    {
+      "id": "AR-01",
+      "category": "architecture",
+      "question": "What are the major components of Starlette, and how are they layered when handling an HTTP request?",
+      "expected_answer": "Layers, outermost to innermost: (1) the Starlette application object (applications.py) -- config, holds middleware list + exception handlers + Router, ASGI entrypoint; (2) the middleware stack -- ServerErrorMiddleware (outermost), then user middleware (CORS, GZip, TrustedHost, SessionMiddleware, BaseHTTPMiddleware subclasses, ...), then ExceptionMiddleware (innermost); (3) the Router (routing.py) -- ordered list of Route / WebSocketRoute / Mount / Host, path matching, 404/405/redirect_slashes, lifespan; (4) the endpoint -- a function wrapped by request_response, or an HTTPEndpoint/WebSocketEndpoint class; (5) request/response primitives -- Request (requests.py), Response family (responses.py), BackgroundTask(s), datastructures (Headers/URL/QueryParams/FormData). Supporting modules: templating, staticfiles, schemas, testclient, config, concurrency.",
+      "required_concepts": [
+        "application object as ASGI entrypoint",
+        "middleware stack with fixed outer/inner framework middleware",
+        "Router with Route/Mount/Host",
+        "endpoints (function vs class)",
+        "request/response + datastructures primitives"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/routing.py",
+        "starlette/middleware/errors.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/requests.py",
+        "starlette/responses.py",
+        "starlette/datastructures.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette",
+        "starlette/routing.py::Router",
+        "starlette/middleware/errors.py::ServerErrorMiddleware",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette",
+          "line_hint": 16,
+          "type": "SOURCE",
+          "line": 20
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 573
+        },
+        {
+          "file": "docs/index.md",
+          "symbol": "docs/index.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Routing is a middleware",
+        "There is a single 'app' object doing everything with no layering",
+        "User middleware wraps the framework error handling"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "medium",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Reward correct layering and the fixed position of the two framework middlewares. A flat feature list with no layering scores 1 on architectural reasoning at most."
+    },
+    {
+      "id": "AR-02",
+      "category": "architecture",
+      "question": "Describe the primary data flow from the ASGI scope/receive/send triple to an endpoint and back to the client.",
+      "expected_answer": "The ASGI server calls Starlette.__call__(scope, receive, send). It sets scope['app']=self, lazily builds the middleware stack, and calls it. Each middleware calls the next with the same (scope, receive, send) or wrapped versions. ExceptionMiddleware stores handler dicts in scope and calls Router. Router iterates routes, and on a FULL match updates scope with path_params/route/endpoint and calls Route.handle. request_response builds a Request(scope, receive), calls the endpoint (async awaited, sync via run_in_threadpool), and expects a Response back. Response.__call__ sends {'type':'http.response.start', status, headers} then one or more {'type':'http.response.body'} messages via send, then awaits self.background if present. Control unwinds back through the middleware; ServerErrorMiddleware only acts if something raised.",
+      "required_concepts": [
+        "Starlette.__call__ sets scope['app'] and delegates to the stack",
+        "receive/send threaded through middleware",
+        "Router match -> Route.handle -> request_response builds Request",
+        "endpoint returns Response; Response.__call__ emits start + body events",
+        "background awaited after body",
+        "unwind through middleware"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/routing.py",
+        "starlette/requests.py",
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.__call__",
+        "starlette/routing.py::request_response",
+        "starlette/responses.py::Response.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::Response.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 163
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::request_response",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 47
+        }
+      ],
+      "common_misconceptions": [
+        "The framework parses the body eagerly before calling the endpoint",
+        "Responses are returned up the call stack rather than sent via send()",
+        "Background tasks run before the response body is sent"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must show that responses are emitted via send() as ASGI messages, and that background runs after the body. Lazy body reading is a bonus."
+    },
+    {
+      "id": "AR-03",
+      "category": "architecture",
+      "question": "Where are Starlette's system boundaries? Specifically, what does it delegate to the ASGI server and what does it delegate to anyio?",
+      "expected_answer": "To the ASGI server (uvicorn/hypercorn/etc.): the actual socket/HTTP/WebSocket protocol, the event loop, calling the app with scope/receive/send, driving the 'lifespan' protocol, and setting root_path when mounted behind a path prefix. To anyio (concurrency.py): run_in_threadpool for sync endpoint/task functions, iterate_in_threadpool, task groups used by BaseHTTPMiddleware and by lifespan, and the portal machinery TestClient uses to run the app from sync code. Starlette itself owns only routing, middleware composition, request/response modelling, exception mapping, and helpers (templating, staticfiles, config). It does no I/O multiplexing of its own.",
+      "required_concepts": [
+        "ASGI server owns protocol + event loop + lifespan driving + root_path",
+        "anyio owns threadpool offload + task groups + portals",
+        "Starlette owns routing/middleware/req-resp modelling only",
+        "no direct socket I/O in Starlette"
+      ],
+      "relevant_files": [
+        "starlette/concurrency.py",
+        "starlette/applications.py",
+        "starlette/middleware/base.py"
+      ],
+      "relevant_symbols": [
+        "starlette/concurrency.py::run_in_threadpool",
+        "starlette/concurrency.py::iterate_in_threadpool",
+        "starlette/middleware/base.py::BaseHTTPMiddleware.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/concurrency.py",
+          "symbol": "starlette/concurrency.py::run_in_threadpool",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 32
+        },
+        {
+          "file": "docs/index.md",
+          "symbol": "docs/index.md",
+          "line_hint": null,
+          "type": "DOC",
+          "note": "ASGI framework positioning",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Starlette runs its own event loop",
+        "Starlette opens sockets",
+        "anyio is only used for the test client"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "This requires synthesis. Full credit needs both boundaries correctly attributed. Expected status INFERRED because the precise ASGI-server responsibilities are partly external to the repo (see scope contract)."
+    },
+    {
+      "id": "AR-04",
+      "category": "architecture",
+      "question": "The middleware stack and the routing tree are two different mechanisms. What is each responsible for, and why are they not the same thing?",
+      "expected_answer": "The middleware stack is a linear chain of ASGI wrappers built once at startup; every request passes through every middleware in the same order regardless of path. It is for cross-cutting concerns: error handling, CORS, compression, host validation, sessions, auth. The routing tree is consulted per request: Router picks exactly one Route/Mount based on path+method and dispatches to its endpoint; non-matches yield 404/405. Mounts create nested routers. They are distinct because middleware is path-agnostic and always-on (composition by wrapping), whereas routing is path-dependent selection (dispatch by matching). Putting routing in the middleware chain would force every request through all routes; putting middleware in the routing tree would make cross-cutting behaviour depend on which route matched.",
+      "required_concepts": [
+        "middleware = linear, path-agnostic, built once, cross-cutting",
+        "routing = per-request selection by path+method, one winner",
+        "composition-by-wrapping vs dispatch-by-matching",
+        "why conflating them is wrong"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/routing.py",
+        "starlette/middleware/errors.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/base.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 629,
+          "type": "SOURCE",
+          "line": 58
+        },
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 49,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Routing is just the innermost middleware",
+        "Middleware can be scoped to a route in core Starlette the same way it is scoped to the app",
+        "Both are rebuilt per request"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "medium",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Reward the composition-vs-dispatch framing. Note: Mount does accept a middleware= argument, so 'middleware is only app-level' is a minor imprecision, not a failure."
+    },
+    {
+      "id": "AR-05",
+      "category": "architecture",
+      "question": "How does the WebSocket request path diverge from the HTTP path while going through the same application stack?",
+      "expected_answer": "The scope 'type' is 'websocket' rather than 'http'. The same middleware stack is traversed, but ServerErrorMiddleware and several HTTP-oriented middlewares only act on scope['type']=='http' and pass websocket scopes straight through; ExceptionMiddleware handles WebSocketException by closing the socket instead of sending an HTTP response. Router matches WebSocketRoute (and Mount) entries; there is no 405/redirect_slashes concept -- a non-match closes the connection (or raises). Route.handle for websockets uses websocket_session to build a WebSocket object (requests.py/websockets.py) and call the handler, which must call await websocket.accept() before send/receive. There is no Response object; frames are sent directly via send.",
+      "required_concepts": [
+        "scope type 'websocket'",
+        "HTTP-only middleware passes websocket scopes through",
+        "ExceptionMiddleware: WebSocketException -> close, not HTTP response",
+        "no 405/redirect_slashes; non-match closes",
+        "websocket_session + WebSocket object; must accept() first; no Response"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/websockets.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::websocket_session",
+        "starlette/routing.py::WebSocketRoute",
+        "starlette/websockets.py::WebSocket",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.websocket_exception"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/websockets.py",
+          "symbol": "starlette/websockets.py::WebSocket.accept",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 100
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::websocket_session",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 70
+        },
+        {
+          "file": "tests/test_websockets.py",
+          "symbol": "tests/test_websockets.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "WebSocket routes return a Response",
+        "redirect_slashes applies to websocket routes",
+        "ServerErrorMiddleware renders an HTML traceback into the websocket"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Reward the 'HTTP-only middlewares pass ws through' insight and the WebSocketException->close behaviour."
+    },
+    {
+      "id": "AR-06",
+      "category": "architecture",
+      "question": "Which three or four files should a new maintainer read first to understand Starlette, and why those?",
+      "expected_answer": "applications.py (the Starlette object, how middleware + exception handlers + Router are wired, the ASGI entrypoint, build_middleware_stack) -- it is the map of everything. routing.py (Route/Mount/Host/Router, Match, path matching, 404/405/redirect, lifespan) -- where requests are dispatched. requests.py + responses.py (the request/response model, lazy body, the Response family and how responses are emitted as ASGI messages) -- the primitives every endpoint uses. Then middleware/exceptions.py + middleware/errors.py + _exception_handler.py for the error model. These cover the request lifecycle end to end; the rest (templating, staticfiles, schemas, sessions) are optional add-ons built on these primitives.",
+      "required_concepts": [
+        "applications.py = wiring/entrypoint",
+        "routing.py = dispatch",
+        "requests.py/responses.py = primitives",
+        "exceptions.py/errors.py = error model",
+        "helpers are peripheral"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/routing.py",
+        "starlette/requests.py",
+        "starlette/responses.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette",
+        "starlette/routing.py::Router",
+        "starlette/requests.py::Request",
+        "starlette/responses.py::Response"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette",
+          "line_hint": 16,
+          "type": "SOURCE",
+          "line": 20
+        },
+        {
+          "file": "docs/index.md",
+          "symbol": "docs/index.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Start with staticfiles/templating",
+        "config.py is central",
+        "datastructures.py is the most important file"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Judgement call; accept reasonable variants that centre applications.py + routing.py + the request/response primitives. INFERRED because 'first to read' is advisory."
+    },
+    {
+      "id": "DC-01",
+      "category": "dependency_change_impact",
+      "question": "Suppose Request.__init__ were changed to require a non-empty, always-callable receive channel (today it defaults receive to a stub that is only valid if the body is never read). What in the codebase would break or need updating?",
+      "expected_answer": "Anywhere a Request (or HTTPConnection) is constructed with only a scope: request_response builds Request(scope, receive) so it is fine, but Request(scope) usages elsewhere would break -- notably places that build a Request just to read headers/url/state without a body (some middleware, templating's request context, tests). The default-stub path in requests.py (empty_receive) exists precisely so header-only Request objects work; removing it forces every caller to thread a real receive. TestClient and many tests in tests/ construct Requests directly. Third-party middleware relying on Request(scope) would also break. Mitigation: keep the stub but make it raise only on body access (which is the current design).",
+      "required_concepts": [
+        "request_response passes receive, unaffected",
+        "header-only Request(scope) callers break",
+        "empty_receive stub is the compatibility shim",
+        "tests and templating build Requests directly",
+        "third-party middleware impact"
+      ],
+      "relevant_files": [
+        "starlette/requests.py",
+        "starlette/routing.py",
+        "starlette/templating.py",
+        "starlette/testclient.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.__init__",
+        "starlette/requests.py::empty_receive",
+        "starlette/routing.py::request_response"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::empty_receive",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 206
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.__init__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 86
+        }
+      ],
+      "common_misconceptions": [
+        "Only endpoints construct Request objects",
+        "Nothing constructs Request without receive",
+        "This is a purely internal change with no external impact"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Reward identifying header-only Request construction as the break surface and naming the stub. Enumerating >=2 concrete call sites earns completeness."
+    },
+    {
+      "id": "DC-02",
+      "category": "dependency_change_impact",
+      "question": "If ServerErrorMiddleware stopped re-raising the exception after sending the 500 response, what downstream behaviour would change?",
+      "expected_answer": "ASGI servers (uvicorn etc.) would no longer see the exception and would stop logging tracebacks for 500s -- observability regression in production. TestClient with raise_server_exceptions=True would no longer surface app exceptions to tests; hundreds of tests that assert `with pytest.raises(...)` around a client call would fail, and tests would only be able to assert on the 500 status. Any outer middleware or instrumentation (APM, Sentry ASGI middleware placed outside) that catches exceptions to report them would go blind. Behaviour visible to HTTP clients would be unchanged (still a 500).",
+      "required_concepts": [
+        "ASGI server loses exception visibility / logging",
+        "TestClient raise_server_exceptions relies on the re-raise",
+        "many tests use pytest.raises around client calls",
+        "outer instrumentation middleware breaks",
+        "HTTP-visible behaviour unchanged"
+      ],
+      "relevant_files": [
+        "starlette/middleware/errors.py",
+        "starlette/testclient.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+        "starlette/testclient.py::TestClient"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/errors.py",
+          "symbol": "starlette/middleware/errors.py::ServerErrorMiddleware",
+          "line_hint": 169,
+          "type": "SOURCE",
+          "note": "'always continue to raise' comment",
+          "line": 127
+        },
+        {
+          "file": "tests/middleware/test_errors.py",
+          "symbol": "tests/middleware/test_errors.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Re-raising is a bug and removing it is harmless",
+        "HTTP clients would see a different response",
+        "Only logging is affected, not tests"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must connect the re-raise to BOTH server logging AND TestClient/test behaviour."
+    },
+    {
+      "id": "DC-03",
+      "category": "dependency_change_impact",
+      "question": "What in routing.py depends on Match being an ordered enum where FULL > PARTIAL > NONE?",
+      "expected_answer": "Router.app compares match results to decide what to do: it takes the first FULL match immediately, otherwise remembers the first PARTIAL (for a 405), otherwise falls through to redirect_slashes / not_found. Some code paths compare `match != Match.NONE` (e.g. the redirect_slashes re-scan just needs 'any match'). Mount.matches and Host.matches return FULL/NONE. If Match lost its ordering or the numeric relationship, the `match == Match.FULL` / `match == Match.PARTIAL` / `match != Match.NONE` checks would need auditing; anything doing `>` / `max()` comparisons on Match would break. In current code the checks are mostly equality, so the ordering is more of a readability/intent contract than a hard `<` dependency -- worth verifying against the pinned source.",
+      "required_concepts": [
+        "Router.app branches on FULL vs PARTIAL vs NONE",
+        "redirect_slashes re-scan uses `!= NONE`",
+        "Mount/Host return FULL/NONE only",
+        "risk is in comparison operators if any use `<`/`max`"
+      ],
+      "relevant_files": [
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Match",
+        "starlette/routing.py::Router.app",
+        "starlette/routing.py::Mount.matches"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 629,
+          "type": "SOURCE",
+          "line": 58
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Match",
+          "line_hint": 17,
+          "type": "SOURCE",
+          "line": 41
+        }
+      ],
+      "common_misconceptions": [
+        "Router uses max(matches) to pick the best route",
+        "The enum ordering is load-bearing for correctness everywhere",
+        "PARTIAL is compared with < against FULL in the hot path"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "A strong answer notes the checks are mostly equality and flags that the ordering claim itself needs verification against the pinned source -- epistemic honesty is the point here."
+    },
+    {
+      "id": "DC-04",
+      "category": "dependency_change_impact",
+      "question": "If BackgroundTasks were changed to run its tasks concurrently (e.g. in an anyio task group) instead of sequentially, what could break in existing applications?",
+      "expected_answer": "Apps that rely on ordering (task 2 depends on task 1 having committed a row, sent an email, written a file) would race. Shared non-thread-safe resources touched by multiple sync tasks (each now on its own threadpool worker) could corrupt. Error semantics change: an anyio task group raises an ExceptionGroup and cancels siblings, so a failing task would now also cancel in-flight tasks rather than simply preventing not-yet-started ones -- different partial-completion behaviour. Resource spikes: N tasks now hold connections simultaneously. Any test asserting call order of a mock across tasks would fail. It is a semver-major behavioural change.",
+      "required_concepts": [
+        "ordering assumptions between tasks break",
+        "concurrency over shared mutable/non-thread-safe state",
+        "error semantics: ExceptionGroup + sibling cancellation",
+        "resource/connection spikes",
+        "test order assertions"
+      ],
+      "relevant_files": [
+        "starlette/background.py"
+      ],
+      "relevant_symbols": [
+        "starlette/background.py::BackgroundTasks.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTasks.__call__",
+          "line_hint": 34,
+          "type": "SOURCE",
+          "line": 19
+        },
+        {
+          "file": "tests/test_background.py",
+          "symbol": "tests/test_background.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Concurrent execution is strictly better and backward compatible",
+        "Tasks are already effectively concurrent",
+        "Error behaviour would be identical"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must name ordering dependence AND the changed error/cancellation semantics."
+    },
+    {
+      "id": "DC-05",
+      "category": "dependency_change_impact",
+      "question": "What is the blast radius of changing JSONResponse's default separators (currently compact ',' ':') or its media_type?",
+      "expected_answer": "JSONResponse.render is subclassed/used widely: TemplateResponse is unrelated, but FastAPI and many apps subclass JSONResponse or depend on its exact bytes. Changing separators changes response byte length and Content-Length, breaking snapshot/golden tests across the ecosystem and any client doing byte-exact comparison or signature/HMAC over the body. Changing media_type from application/json breaks content negotiation and clients that check the header. Within Starlette itself: tests/test_responses.py asserts exact JSON bytes; SchemaGenerator and any helper returning JSONResponse inherit the change. UJSONResponse (if present) overrides render and is unaffected by the separators change but not the media_type change. It is a behavioural/semver-major change despite looking cosmetic.",
+      "required_concepts": [
+        "JSONResponse is widely subclassed/depended-on",
+        "byte-exact tests and body signatures break on separator change",
+        "media_type change breaks content negotiation",
+        "Starlette's own response tests assert exact bytes"
+      ],
+      "relevant_files": [
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::JSONResponse.render",
+        "starlette/responses.py::JSONResponse"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::JSONResponse.render",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 48
+        },
+        {
+          "file": "tests/test_responses.py",
+          "symbol": "tests/test_responses.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Whitespace in JSON is cosmetic and safe to change",
+        "Nothing depends on the exact media_type string",
+        "Only pretty-printing consumers would notice"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Reward mention of byte-exact tests / Content-Length / body signatures. Ecosystem impact (FastAPI etc.) is out-of-repo inference -- fine to state as inference."
+    },
+    {
+      "id": "DC-06",
+      "category": "dependency_change_impact",
+      "question": "If build_middleware_stack were changed so ExceptionMiddleware wrapped the OUTSIDE of user middleware (instead of the inside), what would change for application authors?",
+      "expected_answer": "Exceptions raised inside user middleware (including HTTPException and user-registered exception classes) would suddenly be caught and converted to responses by ExceptionMiddleware, instead of falling through to ServerErrorMiddleware as a 500. Apps that currently rely on 'raise HTTPException in middleware => 500' (or that catch their own errors precisely because the framework won't) would change status codes. Middleware that raises HTTPException(401)/(403) for auth -- a common pattern people are surprised doesn't work today -- would start working. Conversely, ServerErrorMiddleware would no longer be the single catch-all for middleware bugs, and debug tracebacks for middleware exceptions would be replaced by handler output. Ordering of response-header mutation by middleware relative to exception responses would also shift. It is a visible behavioural change and would need a migration note.",
+      "required_concepts": [
+        "exceptions in user middleware would become handled responses, not 500s",
+        "auth-in-middleware raising HTTPException would start working",
+        "ServerErrorMiddleware stops being sole catch-all for middleware",
+        "status codes/tracebacks change; migration note needed"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 57,
+          "type": "SOURCE",
+          "note": "user_middleware inserted before ExceptionMiddleware append",
+          "line": 63
+        },
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The position of ExceptionMiddleware relative to user middleware is arbitrary/irrelevant",
+        "This change would be invisible to app authors",
+        "It only affects internal framework code"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must state that middleware-raised HTTPExceptions would become handled responses. Ties directly to TE-01 and BR-01."
+    },
+    {
+      "id": "BR-01",
+      "category": "behavioral_reasoning",
+      "question": "An endpoint raises HTTPException(status_code=404). Separately, a plain-ASGI user middleware above routing raises HTTPException(status_code=400) on some requests. Which case yields a clean 4xx response and which yields a 500, and why?",
+      "expected_answer": "The endpoint's HTTPException(404) yields a clean 404: it is raised inside routing, so ExceptionMiddleware (just outside the Router) catches it and its default HTTPException handler returns PlainTextResponse('Not Found', 404). The middleware's HTTPException(400) is raised OUTSIDE ExceptionMiddleware (user middleware sits between ServerErrorMiddleware and ExceptionMiddleware), so nothing maps it to a response; it propagates to ServerErrorMiddleware, which treats it as an unhandled exception and returns a 500 (traceback in debug), then re-raises. So: HTTPException is only 'special' when raised within the routing/endpoint scope.",
+      "required_concepts": [
+        "ExceptionMiddleware is inside user middleware",
+        "endpoint HTTPException -> caught -> 404",
+        "middleware HTTPException -> not caught -> ServerErrorMiddleware -> 500",
+        "HTTPException specialness is scope-dependent"
+      ],
+      "relevant_files": [
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/errors.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.http_exception",
+        "starlette/middleware/errors.py::ServerErrorMiddleware.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 49,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "docs/exceptions.md",
+          "symbol": "docs/exceptions.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        },
+        {
+          "file": "tests/test_exceptions.py",
+          "symbol": "tests/test_exceptions.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "HTTPException always produces its status code no matter where it is raised",
+        "Both cases produce a 400/404",
+        "ServerErrorMiddleware understands HTTPException status codes"
+      ],
+      "answerable_from": "source+docs+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The defining fact: raising HTTPException in plain middleware yields 500, not the status code. A model that says both yield clean 4xx is confidently wrong (hallucination penalty)."
+    },
+    {
+      "id": "BR-02",
+      "category": "behavioral_reasoning",
+      "question": "A request's path matches a route registered with methods=['GET'], but the request method is DELETE. What status code and what headers are returned, and through which code path?",
+      "expected_answer": "Route.matches returns Match.PARTIAL (path OK, method not allowed). Router.app finds no FULL match, so it uses the remembered PARTIAL: Route.handle sees the method is not permitted and raises HTTPException(status_code=405, headers={'Allow': 'GET, HEAD'}) (HEAD is auto-added alongside GET). That HTTPException is caught by ExceptionMiddleware, whose default handler returns PlainTextResponse('Method Not Allowed', status_code=405) and includes the Allow header. So the client gets 405 with 'Allow: GET, HEAD'.",
+      "required_concepts": [
+        "PARTIAL match -> 405",
+        "Route.handle raises HTTPException(405, Allow header)",
+        "HEAD auto-added with GET",
+        "ExceptionMiddleware default handler renders it",
+        "Allow header lists permitted methods"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/middleware/exceptions.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Route.matches",
+        "starlette/routing.py::Route.handle",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Route.handle",
+          "line_hint": 229,
+          "type": "SOURCE",
+          "line": 174
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 629,
+          "type": "SOURCE",
+          "line": 58
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "A method mismatch returns 404",
+        "No Allow header is sent",
+        "The response is JSON"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "405 + Allow header both required. HEAD in the Allow list is a bonus detail."
+    },
+    {
+      "id": "BR-03",
+      "category": "behavioral_reasoning",
+      "question": "A client requests GET /items but the only route is /items/ (with a trailing slash). With default settings, what does the client get? What changes if the Router is created with redirect_slashes=False?",
+      "expected_answer": "With defaults (redirect_slashes=True): no route FULL-matches /items. Router re-scans with the slash toggled ('/items/'), finds a match, and returns a RedirectResponse to '/items/' with status 307 (method and body preserved). The browser follows it and hits the real route. With redirect_slashes=False: the re-scan is skipped; Router falls through to not_found, which (for a Starlette app, i.e. 'app' in scope) raises HTTPException(404), rendered by ExceptionMiddleware as PlainTextResponse('Not Found', 404).",
+      "required_concepts": [
+        "default redirect_slashes=True",
+        "307 redirect to the slash-corrected path",
+        "method/body preserved (307 not 301/302)",
+        "redirect_slashes=False -> 404",
+        "not_found raises HTTPException(404) when 'app' in scope"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Router.app",
+        "starlette/routing.py::Router.not_found",
+        "starlette/responses.py::RedirectResponse"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 668,
+          "type": "SOURCE",
+          "note": "redirect_slashes branch",
+          "line": 58
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.not_found",
+          "line_hint": 604,
+          "type": "SOURCE",
+          "line": 616
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "It is a 301 permanent redirect",
+        "It 404s even with defaults",
+        "The redirect drops the request body for a POST"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "307 (not 301/302) and the False->404 branch are both required for full credit."
+    },
+    {
+      "id": "BR-04",
+      "category": "behavioral_reasoning",
+      "question": "An endpoint returns a Response with three BackgroundTasks attached. The second task raises an exception. What does the client see, and do the first and third tasks run?",
+      "expected_answer": "The client already received the full response (status + body) before any task ran -- Response.__call__ sends the body, then awaits self.background. So the client sees a normal 200 (or whatever the endpoint set); the failure cannot change it. Task 1 runs and completes. Task 2 raises; BackgroundTasks.__call__ has no try/except around its `for` loop, so the exception propagates and task 3 never runs. The propagating exception surfaces after the response is sent: the ASGI server logs it (and ServerErrorMiddleware, having already let the response through, re-raises it for logging), but the client is unaffected. Under TestClient the exception is raised into the test.",
+      "required_concepts": [
+        "response fully sent before tasks run",
+        "client sees the normal response regardless",
+        "task 1 runs, task 3 does not (no error isolation)",
+        "exception logged by server / re-raised, client unaffected",
+        "TestClient surfaces it"
+      ],
+      "relevant_files": [
+        "starlette/background.py",
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::Response.__call__",
+        "starlette/background.py::BackgroundTasks.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::Response.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "note": "awaits self.background after body",
+          "line": 163
+        },
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTasks.__call__",
+          "line_hint": 34,
+          "type": "SOURCE",
+          "line": 19
+        },
+        {
+          "file": "tests/test_background.py",
+          "symbol": "tests/test_background.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The client gets a 500 because a background task failed",
+        "All three tasks run because failures are isolated",
+        "Tasks run before the response is sent"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Two load-bearing facts: (a) client response is already sent/unchangeable, (b) task 3 does not run. Missing either caps the score."
+    },
+    {
+      "id": "BR-05",
+      "category": "behavioral_reasoning",
+      "question": "Inside one endpoint, the code does `await request.json()` and then later `await request.body()`. Does the second call fail? Separately, what happens if the code iterates `request.stream()` twice?",
+      "expected_answer": "No failure for json()-then-body(): json() internally calls body(), which populates and caches self._body; the later body() call sees hasattr(self, '_body') and returns the cache. Order does not matter (body() then json() also works). Iterating stream() twice: the first iteration consumes the receive channel and sets self._stream_consumed=True; the second iteration hits the guard and raises RuntimeError('Stream consumed'). Exception: if self._body was already cached (e.g. body()/json() ran first), stream() re-yields the cache and can be 'iterated' again from that cache.",
+      "required_concepts": [
+        "json() and body() share the self._body cache -> repeat calls are safe, any order",
+        "stream() twice -> RuntimeError('Stream consumed')",
+        "cached _body lets stream() re-yield"
+      ],
+      "relevant_files": [
+        "starlette/requests.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.json",
+        "starlette/requests.py::Request.body",
+        "starlette/requests.py::Request.stream"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.body",
+          "line_hint": 211,
+          "type": "SOURCE",
+          "line": 254
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.stream",
+          "line_hint": 199,
+          "type": "SOURCE",
+          "line": 234
+        },
+        {
+          "file": "tests/test_requests.py",
+          "symbol": "tests/test_requests.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "json() then body() raises 'Stream consumed'",
+        "stream() can always be re-iterated",
+        "body() must be called before json()"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must correctly say json()+body() is fine and stream()x2 raises."
+    },
+    {
+      "id": "BR-06",
+      "category": "behavioral_reasoning",
+      "question": "A contextvar.ContextVar is set inside a BaseHTTPMiddleware.dispatch() implementation (after calling call_next). Is that value visible to code running outside/above that middleware, or to a later request? Why?",
+      "expected_answer": "No. BaseHTTPMiddleware runs the downstream app inside a separate anyio task (task group), so contextvar mutations made in that task -- or propagated up from call_next -- do not flow back to the parent task/context that invoked the middleware. This is the documented 'Limitations' of BaseHTTPMiddleware: changes to ContextVars do not propagate upwards. Within the same request, code further inside the stack sees the value; code outside the middleware does not. It also does not leak to later requests (each request gets its own context). The workaround is a pure ASGI middleware (no BaseHTTPMiddleware), which runs in the same task and does propagate.",
+      "required_concepts": [
+        "BaseHTTPMiddleware runs downstream in a separate task",
+        "contextvar changes don't propagate upward (documented limitation)",
+        "inner code sees it, outer code does not",
+        "no cross-request leak",
+        "pure ASGI middleware avoids the issue"
+      ],
+      "relevant_files": [
+        "starlette/middleware/base.py",
+        "docs/middleware.md"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+        "docs/middleware.md::BaseHTTPMiddleware - Limitations"
+      ],
+      "evidence": [
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md::BaseHTTPMiddleware - Limitations",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        },
+        {
+          "file": "starlette/middleware/base.py",
+          "symbol": "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 101
+        },
+        {
+          "file": "tests/middleware/test_base.py",
+          "symbol": "tests/middleware/test_base.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Contextvars set in dispatch propagate everywhere like normal",
+        "The value leaks into the next request",
+        "This is a Python asyncio bug, not a Starlette design consequence"
+      ],
+      "answerable_from": "source+docs+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must attribute the behaviour to the separate-task design and cite the documented limitation. Pure-ASGI workaround is a bonus."
+    },
+    {
+      "id": "BR-07",
+      "category": "behavioral_reasoning",
+      "question": "GZipMiddleware is installed with defaults. A handler returns a 120-byte JSON body and the request has 'Accept-Encoding: gzip'. Is the response compressed?",
+      "expected_answer": "No. GZipMiddleware only compresses when the client advertises gzip AND the response body is at least minimum_size, which defaults to 500 bytes. A 120-byte body is below the threshold, so it is sent uncompressed with no Content-Encoding: gzip header. If the body were >= 500 bytes (or streamed past that size) and Accept-Encoding included gzip, it would be compressed and Content-Encoding/Vary headers added. Already-encoded responses (existing Content-Encoding) are also left alone.",
+      "required_concepts": [
+        "needs Accept-Encoding: gzip",
+        "needs body >= minimum_size (default 500)",
+        "120 bytes < 500 -> not compressed",
+        "streaming path compresses once it crosses the threshold"
+      ],
+      "relevant_files": [
+        "starlette/middleware/gzip.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/gzip.py::GZipMiddleware",
+        "starlette/middleware/gzip.py::GZipResponder"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/gzip.py",
+          "symbol": "starlette/middleware/gzip.py::GZipResponder",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 180
+        },
+        {
+          "file": "tests/middleware/test_gzip.py",
+          "symbol": "tests/middleware/test_gzip.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Any response is compressed if the client supports gzip",
+        "minimum_size defaults to 0",
+        "Compression happens regardless of body size"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The 500-byte default threshold is the key fact. 'Yes it's compressed' is wrong."
+    },
+    {
+      "id": "BR-08",
+      "category": "behavioral_reasoning",
+      "question": "CORSMiddleware is configured with allow_origins=['*'] and allow_credentials=True. A browser sends a credentialed cross-origin request from https://app.example.com. What Access-Control-Allow-Origin header does Starlette send, and can the browser use the response?",
+      "expected_answer": "With allow_credentials=True, CORSMiddleware cannot legally send Access-Control-Allow-Origin: * for a credentialed request. Starlette's implementation, when credentials are allowed, echoes the specific request Origin (https://app.example.com) into Access-Control-Allow-Origin and adds Access-Control-Allow-Credentials: true and Vary: Origin -- effectively treating '*' plus credentials as 'reflect any origin'. So the browser can use the response. (Some people expect a literal '*', which the browser would reject for credentialed requests -- Starlette avoids that by reflecting.) Non-credentialed requests with allow_origins=['*'] do get a literal '*'.",
+      "required_concepts": [
+        "'*' + credentials is invalid per CORS spec",
+        "Starlette reflects the specific Origin instead when credentials allowed",
+        "adds Access-Control-Allow-Credentials: true and Vary: Origin",
+        "browser accepts the reflected-origin response"
+      ],
+      "relevant_files": [
+        "starlette/middleware/cors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/cors.py::CORSMiddleware.__init__",
+        "starlette/middleware/cors.py::CORSMiddleware.allow_explicit_origin"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/cors.py",
+          "symbol": "starlette/middleware/cors.py::CORSMiddleware",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 15
+        },
+        {
+          "file": "tests/middleware/test_cors.py",
+          "symbol": "tests/middleware/test_cors.py",
+          "line_hint": null,
+          "type": "TEST",
+          "note": "wildcard + credentials test",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Starlette sends a literal '*' and the request works",
+        "Starlette sends '*' and the browser silently blocks it with no server-side difference",
+        "allow_credentials has no effect on the ACAO value"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Correct answer: Starlette reflects the concrete Origin (not literal '*') when credentials are allowed. Verify exact behaviour against the pinned test file."
+    },
+    {
+      "id": "BR-09",
+      "category": "behavioral_reasoning",
+      "question": "An app is defined with a lifespan async context manager that raises RuntimeError during startup (before its yield). What happens when the app is served by an ASGI server, and what happens under TestClient?",
+      "expected_answer": "During the ASGI 'lifespan' protocol, Router.lifespan runs the context manager; the RuntimeError is caught and reported back to the server as a 'lifespan.startup.failed' message with the error text. A conformant ASGI server (uvicorn) then aborts startup and exits -- the app never serves requests. Under TestClient, the lifespan runs on entering the `with TestClient(app) as client:` block, so the RuntimeError is raised out of the `__enter__` (the `with` statement fails). A bare TestClient(app) with no context manager would not run the lifespan at all, so construction would appear to succeed and requests would run without startup having happened.",
+      "required_concepts": [
+        "lifespan runs under the ASGI 'lifespan' scope",
+        "startup failure -> 'lifespan.startup.failed' -> server aborts",
+        "TestClient runs lifespan in __enter__, so `with` raises",
+        "bare TestClient(app) skips lifespan entirely"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/testclient.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Router.lifespan",
+        "starlette/testclient.py::TestClient.__enter__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.lifespan",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 639
+        },
+        {
+          "file": "tests/test_applications.py",
+          "symbol": "tests/test_applications.py",
+          "line_hint": null,
+          "type": "TEST",
+          "note": "lifespan failure tests",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Startup errors surface as a 500 on the first request",
+        "TestClient always runs lifespan even without `with`",
+        "The server keeps serving with a degraded app"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must state both the server-aborts outcome and the `with`-required behaviour of TestClient."
+    },
+    {
+      "id": "CD-01",
+      "category": "contradiction_detection",
+      "question": "docs/middleware.md presents the execution order as 'ServerErrorMiddleware -> [user middleware] -> ExceptionMiddleware -> Routing -> Endpoint'. Does build_middleware_stack implement exactly that, and is there anything the docs omit?",
+      "expected_answer": "The core ordering matches: build_middleware_stack lists ServerErrorMiddleware first, then user_middleware, then ExceptionMiddleware, then wraps the Router. One omission: current source also conditionally inserts a RequestBodyLimitMiddleware (when max_body_size is set) immediately after ServerErrorMiddleware and before user middleware -- the docs' fixed diagram does not mention it. The docs are otherwise consistent. No outright contradiction, but the doc diagram is incomplete for versions that have the body-limit middleware.",
+      "required_concepts": [
+        "core order matches the docs",
+        "source additionally inserts RequestBodyLimitMiddleware after ServerErrorMiddleware when max_body_size set",
+        "docs diagram omits it",
+        "no contradiction, an omission"
+      ],
+      "relevant_files": [
+        "docs/middleware.md",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "docs/middleware.md::Using middleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 55,
+          "type": "SOURCE",
+          "note": "RequestBodyLimitMiddleware conditional insert",
+          "line": 63
+        },
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md::Using middleware",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The docs are simply wrong about the order",
+        "There is no body-limit middleware in the stack",
+        "Docs and code disagree on where user middleware sits"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "A precise answer distinguishes 'omission' from 'contradiction' and names RequestBodyLimitMiddleware. Verify the middleware's exact name/presence against the pinned checkout; if v1.6.0 lacks it, the correct answer is 'docs and code agree'. Reward the model that flags this dependence on version."
+    },
+    {
+      "id": "CD-02",
+      "category": "contradiction_detection",
+      "question": "Do the Starlette docs anywhere explicitly warn that an exception raised inside a middleware bypasses ExceptionMiddleware and the registered exception handlers? Does the implementation behave that way regardless of whether the docs warn?",
+      "expected_answer": "The docs do not clearly state this. docs/middleware.md gives the ordering diagram (from which an attentive reader could deduce that user middleware is outside ExceptionMiddleware) and docs/exceptions.md focuses on handlers for exceptions raised in endpoints, but neither spells out 'HTTPException raised in your middleware will become a 500, not your handler's response'. The implementation nonetheless behaves that way: build_middleware_stack puts ExceptionMiddleware inside user middleware, so only ServerErrorMiddleware is outside, and it does not consult exception handlers by class/status. So this is a documentation gap around a real, frequently-surprising behaviour, not a doc/code contradiction.",
+      "required_concepts": [
+        "docs do not explicitly warn",
+        "ordering diagram implies it but doesn't state it",
+        "implementation: ExceptionMiddleware is inside user middleware",
+        "result is a documentation gap, behaviour is real"
+      ],
+      "relevant_files": [
+        "docs/middleware.md",
+        "docs/exceptions.md",
+        "starlette/applications.py",
+        "starlette/middleware/errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/middleware/errors.py::ServerErrorMiddleware"
+      ],
+      "evidence": [
+        {
+          "file": "docs/exceptions.md",
+          "symbol": "docs/exceptions.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        },
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 49,
+          "type": "SOURCE",
+          "line": 63
+        }
+      ],
+      "common_misconceptions": [
+        "The docs do warn about this prominently",
+        "The behaviour matches a naive reading of the docs (handlers catch everything)",
+        "This is a bug rather than a design consequence"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Reward correctly characterising it as a doc GAP (not contradiction) plus confirming the runtime behaviour from build_middleware_stack. Ties to BR-01/TE-01."
+    },
+    {
+      "id": "CD-03",
+      "category": "contradiction_detection",
+      "question": "Compare docs/background.md with background.py: is the documented behaviour (tasks run after the response; error handling) fully accurate?",
+      "expected_answer": "The 'runs after the response is sent' claim is accurate -- Response.__call__ awaits self.background only after emitting the body. What the docs typically do NOT make explicit: (1) tasks run sequentially in submission order, not concurrently; (2) there is no error isolation -- if one task raises, subsequent tasks do not run and the exception propagates (post-response). If the docs say nothing about failure semantics, that is an omission rather than a contradiction. Check the pinned docs text: a contradiction would exist only if the docs claim all tasks always run or that failures are swallowed.",
+      "required_concepts": [
+        "'after the response' is correct",
+        "docs usually omit: sequential ordering",
+        "docs usually omit: no error isolation / remaining tasks skipped",
+        "classify as omission unless docs claim otherwise"
+      ],
+      "relevant_files": [
+        "docs/background.md",
+        "starlette/background.py",
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/background.py::BackgroundTasks.__call__",
+        "starlette/responses.py::Response.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTasks.__call__",
+          "line_hint": 34,
+          "type": "SOURCE",
+          "line": 19
+        },
+        {
+          "file": "docs/background.md",
+          "symbol": "docs/background.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Docs and code disagree on when tasks run",
+        "The docs guarantee all tasks run",
+        "Tasks are documented as concurrent"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Reward separating the accurate claim (timing) from the omitted claims (ordering, error isolation)."
+    },
+    {
+      "id": "CD-04",
+      "category": "contradiction_detection",
+      "question": "Does docs/requests.md accurately describe Request.body()/stream() caching, or is there a mismatch or omission?",
+      "expected_answer": "docs/requests.md documents that request.body(), request.json() and request.form() can be awaited and that the body is cached so they can be called multiple times. The usual omission: it does not emphasise that request.stream() is single-consumption and raises RuntimeError('Stream consumed') on re-iteration, nor the interaction (calling body() first lets stream() replay from cache; consuming stream() first makes body() see an already-consumed channel). No contradiction with the caching claim, but the stream() constraint and the ordering interaction are under-documented.",
+      "required_concepts": [
+        "docs correctly say body()/json()/form() are cached and repeatable",
+        "docs under-document stream() single-consumption + 'Stream consumed'",
+        "ordering interaction body()<->stream() under-documented",
+        "omission not contradiction"
+      ],
+      "relevant_files": [
+        "docs/requests.md",
+        "starlette/requests.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.body",
+        "starlette/requests.py::Request.stream"
+      ],
+      "evidence": [
+        {
+          "file": "docs/requests.md",
+          "symbol": "docs/requests.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.stream",
+          "line_hint": 199,
+          "type": "SOURCE",
+          "line": 234
+        }
+      ],
+      "common_misconceptions": [
+        "Docs claim stream() is repeatable",
+        "Docs and code disagree about body() caching",
+        "There is a hard contradiction here"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Reward the omission framing plus the concrete stream() constraint."
+    },
+    {
+      "id": "CD-05",
+      "category": "contradiction_detection",
+      "question": "docs/middleware.md has a 'BaseHTTPMiddleware - Limitations' section stating contextvar changes don't propagate upward. Is that the only practically-relevant limitation, judged against middleware/base.py?",
+      "expected_answer": "No. The documented contextvar limitation is real (downstream runs in a separate anyio task). Other practically-relevant constraints, visible from base.py's design of buffering/streaming the response through an internal memory stream and task group: (1) historically it could break or delay true streaming responses / server-sent events because the response is pulled through the middleware; (2) background tasks attached to the response and their timing relative to the middleware's post-processing; (3) added overhead of an extra task per request; (4) exceptions raised after call_next vs during it are handled differently. Whether each is still present depends on the pinned version -- several were mitigated over time -- so the honest answer flags this as version-dependent and recommends checking base.py and its tests at the pinned SHA.",
+      "required_concepts": [
+        "contextvar limitation is real but not the only one",
+        "streaming/SSE interaction due to response being pulled through",
+        "background-task timing, per-request task overhead",
+        "version-dependent -- verify at pinned SHA"
+      ],
+      "relevant_files": [
+        "docs/middleware.md",
+        "starlette/middleware/base.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+        "docs/middleware.md::BaseHTTPMiddleware - Limitations"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/base.py",
+          "symbol": "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 101
+        },
+        {
+          "file": "tests/middleware/test_base.py",
+          "symbol": "tests/middleware/test_base.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The contextvar note covers everything",
+        "BaseHTTPMiddleware has no streaming implications",
+        "All historical limitations are gone / all are still present"
+      ],
+      "answerable_from": "source+docs+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Reward naming at least one additional limitation AND flagging version-dependence. Overconfident claims in either direction (all fixed / all broken) take a hallucination penalty."
+    },
+    {
+      "id": "EV-01",
+      "category": "evidence",
+      "question": "What evidence in the repository supports the claim 'ServerErrorMiddleware is always the outermost middleware layer'? Cite source, docs, and tests.",
+      "expected_answer": "Source: starlette/applications.py::Starlette.build_middleware_stack constructs the list with Middleware(ServerErrorMiddleware, ...) as element 0, before user_middleware and before ExceptionMiddleware; the list is then reversed and folded around the Router, so ServerErrorMiddleware ends up outermost. Docs: docs/middleware.md 'Using middleware' states ServerErrorMiddleware 'is always the outermost middleware layer' and shows it first in the execution-order diagram. Tests: tests/middleware/test_errors.py exercises unhandled exceptions producing a 500 / traceback through a full app, and tests that combine user middleware with error handling show the 500 still being produced, implying ServerErrorMiddleware wraps them. The strongest single piece of evidence is build_middleware_stack itself.",
+      "required_concepts": [
+        "source: build_middleware_stack element 0 = ServerErrorMiddleware",
+        "docs: explicit 'always the outermost' statement",
+        "tests: test_errors.py end-to-end 500 behaviour",
+        "rank source as strongest"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "docs/middleware.md",
+        "tests/middleware/test_errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "docs/middleware.md::Using middleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 54,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md::Using middleware",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        },
+        {
+          "file": "tests/middleware/test_errors.py",
+          "symbol": "tests/middleware/test_errors.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The only evidence is the docs",
+        "There is no test coverage for this",
+        "The ordering is implied only, never stated"
+      ],
+      "answerable_from": "source+docs+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Evidence axis: full credit needs a specific source symbol, the docs statement, and a named test module. Vague 'it's in the code somewhere' scores 0 on evidence accuracy."
+    },
+    {
+      "id": "EV-02",
+      "category": "evidence",
+      "question": "What evidence supports the claim 'a partial route match (path matches, method does not) produces a 405 with an Allow header'? Cite source and tests.",
+      "expected_answer": "Source: starlette/routing.py -- Route.matches returns Match.PARTIAL when the path regex matches but scope['method'] is not in self.methods; Router.app records the first PARTIAL and, absent a FULL match, dispatches to it; Route.handle raises HTTPException(405, headers={'Allow': ', '.join(sorted(self.methods))}) when the method is not allowed. ExceptionMiddleware's default HTTPException handler then renders 'Method Not Allowed' with that Allow header. Tests: tests/test_routing.py contains cases asserting a 405 status and the presence/content of the Allow header for a wrong-method request against a known route.",
+      "required_concepts": [
+        "Route.matches -> PARTIAL condition",
+        "Router.app PARTIAL handling",
+        "Route.handle raises HTTPException(405, Allow header)",
+        "tests/test_routing.py asserts 405 + Allow"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "tests/test_routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Route.matches",
+        "starlette/routing.py::Route.handle",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Route.handle",
+          "line_hint": 229,
+          "type": "SOURCE",
+          "line": 174
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Route.matches",
+          "line_hint": 238,
+          "type": "SOURCE",
+          "line": 168
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The 405 is produced by ExceptionMiddleware inventing it",
+        "No test asserts the Allow header",
+        "The evidence is only behavioural, not in source"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Evidence axis: needs the specific routing symbols plus the test module."
+    },
+    {
+      "id": "EV-03",
+      "category": "evidence",
+      "question": "What evidence supports 'background tasks run after the response body is sent'? Cite source and tests.",
+      "expected_answer": "Source: starlette/responses.py::Response.__call__ sends the 'http.response.start' and 'http.response.body' ASGI messages and only then does `if self.background is not None: await self.background()`. starlette/background.py shows self.background is a BackgroundTask(s) awaited at that point. Tests: tests/test_background.py asserts that a task's side effect (e.g. a flag or a captured value) is observed only after the client has received the response, and tests via TestClient that the response content is returned before/independently of the task completing. The ordering in Response.__call__ is the definitive evidence.",
+      "required_concepts": [
+        "Response.__call__ awaits self.background after body messages",
+        "background.py defines the awaited callable",
+        "tests/test_background.py asserts post-response side effects",
+        "source ordering is definitive"
+      ],
+      "relevant_files": [
+        "starlette/responses.py",
+        "starlette/background.py",
+        "tests/test_background.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::Response.__call__",
+        "starlette/background.py::BackgroundTask.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::Response.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 163
+        },
+        {
+          "file": "tests/test_background.py",
+          "symbol": "tests/test_background.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Evidence is only in the docs",
+        "The task is awaited before the body is sent",
+        "There are no tests for ordering"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Evidence axis: must point at Response.__call__ ordering and the background test module."
+    },
+    {
+      "id": "EV-04",
+      "category": "evidence",
+      "question": "What evidence supports 'TestClient runs the application lifespan only when it is used as a context manager'? Cite source and tests.",
+      "expected_answer": "Source: starlette/testclient.py -- lifespan startup/shutdown ASGI messages are sent from the portal machinery entered in TestClient.__enter__ / exited in __exit__ (often via a helper like `_lifespan` / an anyio portal). __init__ does not send them. Tests: tests/test_testclient.py (and lifespan tests in tests/test_applications.py using TestClient) assert that startup/shutdown handlers fire when the client is used as `with TestClient(app) as client:` and do not fire otherwise. The presence of __enter__/__exit__ doing the lifespan handshake is the primary evidence.",
+      "required_concepts": [
+        "testclient.py: lifespan handshake in __enter__/__exit__ not __init__",
+        "tests assert startup fires only inside `with`",
+        "portal/anyio machinery for the handshake"
+      ],
+      "relevant_files": [
+        "starlette/testclient.py",
+        "tests/test_testclient.py"
+      ],
+      "relevant_symbols": [
+        "starlette/testclient.py::TestClient.__enter__",
+        "starlette/testclient.py::TestClient.__exit__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/testclient.py",
+          "symbol": "starlette/testclient.py::TestClient.__enter__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 115
+        },
+        {
+          "file": "tests/test_testclient.py",
+          "symbol": "tests/test_testclient.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Lifespan is run in __init__",
+        "No tests cover this",
+        "The evidence is only a docs sentence"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Evidence axis: name __enter__/__exit__ and the test module. Ties to XF-07/BR-09."
+    },
+    {
+      "id": "TE-01",
+      "category": "teaching",
+      "question": "Assess this developer's explanation for correctness, and correct any misconception: 'If I register @app.exception_handler(HTTPException), it will catch any HTTPException raised anywhere in my app, including ones I raise from my own custom middleware.'",
+      "developer_explanation": "If I register @app.exception_handler(HTTPException), it will catch any HTTPException raised anywhere in my app, including ones I raise from my own custom middleware.",
+      "expected_answer": "Partly wrong. The handler is invoked by ExceptionMiddleware (and the routing layer via the shared exception-handling helper), which only sees exceptions raised INSIDE it -- i.e. in routing, endpoints, and dependencies. Custom middleware runs OUTSIDE ExceptionMiddleware (only ServerErrorMiddleware is further out), so an HTTPException raised in custom middleware is not mapped by your handler; it propagates to ServerErrorMiddleware and becomes a 500. To handle errors in middleware you must catch them within the middleware yourself, or implement the check as pure ASGI code that returns a Response directly. A good check for the developer: 'Where in build_middleware_stack does your middleware sit relative to ExceptionMiddleware?'",
+      "required_concepts": [
+        "handler runs via ExceptionMiddleware, catches only what's inside it",
+        "custom middleware is outside ExceptionMiddleware",
+        "HTTPException in middleware -> 500 via ServerErrorMiddleware",
+        "fix: catch in middleware or return Response directly",
+        "offer a diagnostic question"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware",
+        "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 49,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "docs/exceptions.md",
+          "symbol": "docs/exceptions.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Exception handlers are global and catch middleware exceptions",
+        "Rubber-stamping the explanation as correct",
+        "Claiming even endpoint HTTPExceptions won't be caught"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "Teaching-quality axis: full credit identifies the specific boundary (ExceptionMiddleware position), states the concrete wrong outcome (500), gives a fix, and ideally a check question. A model that agrees with the developer scores 0 on correctness AND teaching quality."
+    },
+    {
+      "id": "TE-02",
+      "category": "teaching",
+      "question": "Assess for correctness and correct any misconception: 'Background tasks are a good place to decide whether to send the user a different response -- e.g. if the task fails, return a 500 to the client instead.'",
+      "developer_explanation": "Background tasks are a good place to decide whether to send the user a different response -- e.g. if the task fails, return a 500 to the client instead.",
+      "expected_answer": "Incorrect. By the time background tasks run, the response (status line + headers + body) has already been sent to the client -- Response.__call__ awaits self.background only after emitting the body. A background task cannot alter, replace, or add to that response. If a task raises, the client still has the original (e.g. 200); the exception is logged server-side and, under TestClient, raised into the test. If the outcome must affect the client's response, do the work synchronously in the endpoint before returning, not in a background task. Background tasks are for fire-and-forget side effects (emails, cache warming, audit writes). Check for the developer: 'At what line of Response.__call__ is self.background awaited relative to the body send?'",
+      "required_concepts": [
+        "response already sent before tasks run",
+        "tasks cannot change the response",
+        "failure is logged, client keeps original response",
+        "move outcome-affecting work into the endpoint",
+        "background = fire-and-forget"
+      ],
+      "relevant_files": [
+        "starlette/responses.py",
+        "starlette/background.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::Response.__call__",
+        "starlette/background.py::BackgroundTasks.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::Response.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 163
+        },
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTasks.__call__",
+          "line_hint": 34,
+          "type": "SOURCE",
+          "line": 19
+        }
+      ],
+      "common_misconceptions": [
+        "Agreeing that tasks can change the response",
+        "Claiming tasks run before the response so it's fine",
+        "Saying the client gets a 500 when a task fails"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "Must state the response is already sent and give the correct alternative (do it in the endpoint)."
+    },
+    {
+      "id": "TE-03",
+      "category": "teaching",
+      "question": "Assess for correctness and correct any misconception: 'redirect_slashes sends a 301 so the browser caches the corrected URL and future requests skip the redirect.'",
+      "developer_explanation": "redirect_slashes sends a 301 so the browser caches the corrected URL and future requests skip the redirect.",
+      "expected_answer": "Incorrect on the status code and its implications. Router's redirect_slashes issues a RedirectResponse with the default status 307 (Temporary Redirect), not 301. 307 is not a permanent redirect: browsers do not cache it as a durable rule, so future requests to the un-slashed path will redirect again. 307 also preserves the HTTP method and body, which is why it is safe for a POST to a slash-mismatched path (a 301/302 could downgrade it to GET). If you want the permanent-redirect caching behaviour, you would have to add an explicit route or middleware returning a 301 yourself. Check: 'What is RedirectResponse's default status_code, and what does 307 guarantee that 302 does not?'",
+      "required_concepts": [
+        "it's a 307, not 301",
+        "307 is temporary -> not cached as permanent -> redirects recur",
+        "307 preserves method and body",
+        "permanent behaviour requires explicit 301 by the developer"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Router.app",
+        "starlette/responses.py::RedirectResponse"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 668,
+          "type": "SOURCE",
+          "line": 58
+        },
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::RedirectResponse.__init__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 33
+        }
+      ],
+      "common_misconceptions": [
+        "Agreeing it's a 301",
+        "Saying 307 and 301 have the same caching semantics",
+        "Claiming the method would be downgraded to GET"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "The 307-vs-301 correction and the 'redirects recur' consequence are both required."
+    },
+    {
+      "id": "TE-04",
+      "category": "teaching",
+      "question": "Assess for correctness and correct any misconception: 'When I Mount a sub-application at /v1, the routes inside that sub-application have to be declared with the /v1 prefix, like Route(\"/v1/users\", ...).'",
+      "developer_explanation": "When I Mount a sub-application at /v1, the routes inside that sub-application have to be declared with the /v1 prefix, like Route(\"/v1/users\", ...).",
+      "expected_answer": "Incorrect. Mount.matches strips its own prefix from the path before invoking the sub-application, and moves that prefix into scope['root_path']. So inside the sub-app you declare Route('/users', ...), and a request to /v1/users matches it. Declaring Route('/v1/users', ...) inside the mounted app would actually require the client to hit /v1/v1/users. The accumulated root_path is what request.url_for() and url generation use to rebuild absolute paths including the /v1 prefix. Check for the developer: 'After Mount strips its prefix, what value does the sub-app see for scope[\"path\"] vs scope[\"root_path\"]?'",
+      "required_concepts": [
+        "Mount strips its prefix before calling the sub-app",
+        "sub-app routes are declared WITHOUT the prefix",
+        "prefix goes into root_path",
+        "double-prefixing would require /v1/v1/...",
+        "root_path drives url_for"
+      ],
+      "relevant_files": [
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Mount.matches",
+        "starlette/routing.py::Mount.handle"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Mount.matches",
+          "line_hint": 399,
+          "type": "SOURCE",
+          "line": 168
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Agreeing that sub-app routes need the prefix",
+        "Claiming Mount does not touch the path at all",
+        "Saying root_path is irrelevant to url_for"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "Must state routes are declared without the prefix and that the prefix lives in root_path. Ties to XF-03/TR-04."
+    },
+    {
+      "id": "TR-01",
+      "category": "transfer",
+      "question": "Novel scenario: 'In production, one of my endpoints sees a request header that a middleware of mine is supposed to have deleted. Reason about where a header deletion can and cannot take effect in Starlette, and where I should look.'",
+      "expected_answer": "Headers reach the endpoint via scope['headers'] (a list of (bytes, bytes) pairs). Request.headers is a lazily-built, immutable Headers view over scope['headers'], cached on first access. So: (1) A pure ASGI middleware that mutates scope['headers'] before calling the inner app WILL affect what the endpoint sees -- provided it runs before routing and before anything has cached request.headers. (2) A middleware that builds its own Request and calls request.headers.mutablecopy() or tries to modify request.headers directly does NOT change scope['headers'] -- Headers is immutable; only MutableHeaders on a fresh structure would, and that copy won't propagate. (3) A BaseHTTPMiddleware that edits the Request object it constructs is editing a different Request than the one the endpoint gets. (4) Ordering: if the deleting middleware is below (inside) another middleware that already read/cached headers, or if it runs after routing, it's too late. Where to look: is the middleware pure-ASGI or BaseHTTPMiddleware; does it mutate scope['headers'] or a Request; its position in build_middleware_stack; whether any earlier middleware caches request.headers.",
+      "required_concepts": [
+        "headers live in scope['headers'] as byte pairs",
+        "Request.headers is an immutable, cached view",
+        "only mutating scope['headers'] (pure ASGI, pre-routing) propagates",
+        "BaseHTTPMiddleware edits a different Request object",
+        "middleware ordering and caching timing matter"
+      ],
+      "relevant_files": [
+        "starlette/requests.py",
+        "starlette/datastructures.py",
+        "starlette/middleware/base.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::HTTPConnection.headers",
+        "starlette/datastructures.py::Headers",
+        "starlette/datastructures.py::MutableHeaders"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::HTTPConnection.headers",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 133
+        },
+        {
+          "file": "starlette/datastructures.py",
+          "symbol": "starlette/datastructures.py::Headers",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 500
+        }
+      ],
+      "common_misconceptions": [
+        "You can del request.headers['x'] and the endpoint won't see it",
+        "BaseHTTPMiddleware's request object is the same one the endpoint receives",
+        "Header mutation works regardless of middleware order"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Transfer: reward a diagnosis path that distinguishes scope-level mutation from Request-object mutation and invokes ordering/caching. Must not assert a fabricated API (e.g. a nonexistent request.headers.delete())."
+    },
+    {
+      "id": "TR-02",
+      "category": "transfer",
+      "question": "Novel scenario: 'We want unhandled 500s to return a JSON error body for API clients instead of the default plain text. Where do we hook in Starlette, and what must we be careful about?'",
+      "expected_answer": "Register a handler for the Exception class (or the 500 status code) via exception_handlers={Exception: handler} or app.add_exception_handler(Exception, handler). ServerErrorMiddleware (not ExceptionMiddleware) is what invokes a 500/Exception handler: it catches the unhandled exception and, if a handler was provided, calls it to build the response instead of the generic text. Cautions: (1) In debug mode ServerErrorMiddleware shows the traceback page and may bypass your handler -- test with debug=False. (2) Your handler must not itself raise; if it does, you get an unrecoverable error. (3) ServerErrorMiddleware still re-raises after your handler so servers log the error -- that's expected, don't try to suppress it. (4) This only covers exceptions from routing/endpoints/inner middleware that reach ServerErrorMiddleware; exceptions in middleware outside it (there are none by default, it's outermost) or during response streaming (headers already sent) can't be converted. (5) Exceptions that are HTTPException are handled by ExceptionMiddleware first and won't reach your 500 handler unless re-raised.",
+      "required_concepts": [
+        "register handler for Exception or 500 status",
+        "ServerErrorMiddleware invokes it, not ExceptionMiddleware",
+        "debug=False needed (debug shows traceback page)",
+        "handler must not raise; re-raise for logging still happens",
+        "already-started responses can't be converted",
+        "HTTPException goes through ExceptionMiddleware, not here"
+      ],
+      "relevant_files": [
+        "starlette/middleware/errors.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+        "starlette/applications.py::Starlette.add_exception_handler"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/errors.py",
+          "symbol": "starlette/middleware/errors.py::ServerErrorMiddleware.__call__",
+          "line_hint": 140,
+          "type": "SOURCE",
+          "line": 149
+        },
+        {
+          "file": "docs/exceptions.md",
+          "symbol": "docs/exceptions.md",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "ExceptionMiddleware handles the 500 handler",
+        "It works the same in debug mode",
+        "You can convert a response whose body already started streaming"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Transfer: full credit names ServerErrorMiddleware as the hook point and raises at least two of the cautions (debug mode, handler-must-not-raise, streaming, HTTPException path)."
+    },
+    {
+      "id": "TR-03",
+      "category": "transfer",
+      "question": "Novel scenario: 'Under load, a small fraction of responses are missing a custom header that our BaseHTTPMiddleware adds after call_next. Generate plausible hypotheses grounded in how Starlette works.'",
+      "expected_answer": "Hypotheses: (1) Exception path -- when the inner app raises, control may leave call_next via exception before the header-adding code runs; ServerErrorMiddleware produces the 500 response without the middleware's post-processing. Fraction correlates with error rate. (2) Streaming / early response -- for StreamingResponse or when the response starts before dispatch resumes, BaseHTTPMiddleware's handling of the response stream can send the start message (with headers) before the middleware appends its header, or the append targets a response object whose headers are already flushed. (3) Client disconnect mid-stream -- dispatch's continuation after call_next may be skipped/cancelled. (4) Ordering -- another middleware or the endpoint sets the same header and a later layer overwrites/strips it; or GZip/other middleware rebuilds headers. (5) The header is added to a MutableHeaders copy that isn't the one sent. (6) Background-task or task-group cancellation interaction. Where to look: whether failures correlate with 4xx/5xx or with large/streamed bodies; the exact point in dispatch where the header is set; response type; middleware order in build_middleware_stack.",
+      "required_concepts": [
+        "exception path bypasses post-call_next code",
+        "streaming/early-send means headers already flushed",
+        "client disconnect / cancellation skips the continuation",
+        "header overwritten by another middleware / ordering",
+        "mutating the wrong headers object",
+        "correlate failures with errors or streamed responses"
+      ],
+      "relevant_files": [
+        "starlette/middleware/base.py",
+        "starlette/responses.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+        "starlette/responses.py::StreamingResponse.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/base.py",
+          "symbol": "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 101
+        },
+        {
+          "file": "tests/middleware/test_base.py",
+          "symbol": "tests/middleware/test_base.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "It must be a load balancer stripping the header (ignoring the framework mechanics)",
+        "BaseHTTPMiddleware post-processing always runs",
+        "Streaming responses behave identically to plain ones here"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Transfer/debugging: reward >=2 framework-grounded hypotheses, especially the exception-path and streaming ones, plus a stated way to discriminate between them. Generic 'it's a race condition' with no mechanism scores low."
+    },
+    {
+      "id": "TR-04",
+      "category": "transfer",
+      "question": "Novel scenario: 'We deployed our app behind a proxy that serves it under /api, and we mount a sub-app at /v2 inside it. request.url_for() in the sub-app now produces URLs missing the /api prefix. Reason about root_path.'",
+      "expected_answer": "URL generation uses scope['root_path'] (and related app_root_path) as the base. Two prefixes should compose: the proxy/deployment prefix /api must be supplied by the ASGI server as the initial root_path (uvicorn --root-path=/api or the ASGI server honoring the proxy), and Mount('/v2', ...) appends /v2 to root_path when it dispatches into the sub-app. If url_for omits /api, the most likely cause is that the ASGI server was not told the external root_path, so scope['root_path'] starts empty and only accumulates /v2 from the Mount. Fixes: set the server's root_path to /api (or have the proxy send the ASGI root_path), verify the Mount is contributing /v2, and check whether the code reads root_path vs app_root_path. Also confirm the proxy isn't rewriting the path so the app sees /v2/... with no indication of /api. This is a configuration boundary (Product-spec: 'not analyzed: production infrastructure'), not a Starlette bug.",
+      "required_concepts": [
+        "url_for builds from scope['root_path']",
+        "external prefix /api must come from the ASGI server's root_path setting",
+        "Mount appends /v2 to root_path",
+        "empty initial root_path -> missing /api",
+        "fix at the server/proxy config, not in Starlette",
+        "root_path vs app_root_path"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/datastructures.py",
+        "starlette/requests.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Mount.matches",
+        "starlette/datastructures.py::URL",
+        "starlette/requests.py::Request.url_for"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Mount.matches",
+          "line_hint": 399,
+          "type": "SOURCE",
+          "note": "root_path accumulation",
+          "line": 168
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "note": "url_for / root_path tests",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "Mount should add /api itself",
+        "Starlette should infer the proxy prefix automatically",
+        "root_path is irrelevant to url_for"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Transfer: reward identifying that the external prefix must be injected as root_path by the server/proxy and that Mount only contributes its own segment. Recognising this as a config boundary (not a bug) is part of full credit."
+    }
+  ]
+}

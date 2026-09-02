@@ -1,0 +1,100 @@
+# Task 3 baseline model set — finalized from MODEL_CANDIDATES.md §9 + the user's inline answers:
+#   Q1 dense-32B data point .......... SKIP (nothing in the 24 GB margin)
+#   Q2 reasoning-distill (R1-Distill) . INCLUDE ("worth to try")
+#   Q3 alt family .................... GEMMA (gemma-3-12b-it)
+#   Q4 large tier ................... DROP
+#
+# hf_repo values are mlx-community MLX-quantised weights. Confirm each resolves at run time
+# (`huggingface-cli download <repo>` or let mlx_lm.load fetch it). If a specific quant repo is
+# missing, convert with: mlx_lm.convert --hf-path <vendor repo> -q --q-bits N
+#
+# max_gen_tokens: reasoning-distill models need headroom for <think> traces; everyone else
+# answers in compact JSON well under 900.
+
+defaults:
+  temperature: 0.0          # greedy — Task 3 wants reproducibility, not diversity
+  top_p: 1.0
+  max_gen_tokens: 900
+  seed: 0
+
+models:
+  - id: llama-3.2-3b-4bit
+    hf_repo: mlx-community/Llama-3.2-3B-Instruct-4bit
+    quant: q4
+    tier: small
+    role: floor
+    seed_run: true
+    notes: "mlx-lm default model; lower bound. If unsolvable here it's a floor, not a ceiling."
+
+  - id: llama-3.2-3b-bf16
+    hf_repo: mlx-community/Llama-3.2-3B-Instruct-bf16
+    quant: bf16
+    tier: small
+    role: floor-quality-ceiling
+    seed_run: false
+    notes: "Same weights unquantised — isolates quant loss at the small end."
+
+  - id: qwen3-8b-4bit
+    hf_repo: mlx-community/Qwen3-8B-4bit
+    quant: q4
+    tier: small
+    role: small-generalist
+    seed_run: true
+    notes: "Apache-2.0, 128K ctx, native tools, hybrid thinking. Also the seed-run provisional judge."
+
+  - id: qwen3-8b-8bit
+    hf_repo: mlx-community/Qwen3-8B-8bit
+    quant: q8
+    tier: small
+    role: small-generalist-q8
+    seed_run: false
+    notes: "8-bit comparator for the small generalist."
+
+  - id: qwen2.5-coder-7b-4bit
+    hf_repo: mlx-community/Qwen2.5-Coder-7B-Instruct-4bit
+    quant: q4
+    tier: small
+    role: small-coder
+    seed_run: false
+    notes: "Tests 'code-tuned == better system reasoning?' at small size."
+
+  - id: qwen3-14b-4bit
+    hf_repo: mlx-community/Qwen3-14B-4bit
+    quant: q4
+    tier: medium
+    role: mid-generalist
+    seed_run: false
+    notes: "Best-supported dense mid model that fits with KV headroom on 24 GB."
+
+  - id: qwen2.5-coder-14b-4bit
+    hf_repo: mlx-community/Qwen2.5-Coder-14B-Instruct-4bit
+    quant: q4
+    tier: medium
+    role: mid-coder
+    seed_run: false
+    notes: "Code-tuned mid comparator to qwen3-14b."
+
+  - id: gemma-3-12b-it-4bit
+    hf_repo: mlx-community/gemma-3-12b-it-4bit
+    quant: q4
+    tier: medium
+    role: alt-family
+    seed_run: false
+    notes: "Cross-family sanity check (user picked Gemma over Mistral). Google Gemma terms."
+
+  - id: r1-distill-qwen-14b-4bit
+    hf_repo: mlx-community/DeepSeek-R1-Distill-Qwen-14B-4bit
+    quant: q4
+    tier: medium
+    role: reasoning-distill
+    seed_run: false
+    max_gen_tokens: 3000
+    notes: "Explicit-CoT distill. Watch latency vs. architecture-question accuracy trade."
+
+  - id: qwen3-30b-a3b-4bit
+    hf_repo: mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit
+    quant: q4
+    tier: large-moe
+    role: moe-ceiling
+    seed_run: false
+    notes: "~30B capability at ~14B decode cost IF it fits. Expect to raise iogpu.wired_limit_mb. Recommended stronger judge for the full grade pass."
