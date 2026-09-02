@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 mlruns/
 .mlflow/
+.ipynb_checkpoints/
