@@ -1,0 +1,213 @@
+### RUN start Wed Sep  2 13:06:39 WIB 2026
+
+=== llama-3.2-3b-4bit  (mlx-community/Llama-3.2-3B-Instruct-4bit) -> /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/seed-llama-3.2-3b-4bit ===
+  loaded in 1.0s, weights ~1.81 GB
+  [ 1/55] CU-01  json=clean  schema=ok  ttft=1.04s 54.5tok/s peak=2.60GB
+  [ 2/55] CU-02  json=clean  schema=ok  ttft=1.10s 54.7tok/s peak=2.60GB
+  [ 3/55] CU-03  json=none   schema=BAD ttft=0.68s 58.3tok/s peak=2.64GB
+  [ 4/55] CU-04  json=clean  schema=ok  ttft=3.58s 43.5tok/s peak=3.21GB
+  [ 5/55] CU-05  json=clean  schema=ok  ttft=1.50s 52.7tok/s peak=3.21GB
+  [ 6/55] CU-06  json=clean  schema=ok  ttft=1.50s 52.5tok/s peak=3.21GB
+  [ 7/55] CU-07  json=clean  schema=ok  ttft=0.55s 59.2tok/s peak=3.21GB
+  [ 8/55] CU-08  json=clean  schema=ok  ttft=6.90s 35.6tok/s peak=3.74GB
+  [ 9/55] CU-09  json=none   schema=BAD ttft=0.76s 57.8tok/s peak=3.74GB
+  [10/55] XF-01  json=clean  schema=ok  ttft=6.23s 37.0tok/s peak=3.74GB
+  [11/55] XF-02  json=clean  schema=ok  ttft=4.44s 41.1tok/s peak=3.74GB
+  [12/55] XF-03  json=clean  schema=ok  ttft=3.77s 43.3tok/s peak=3.74GB
+  [13/55] XF-04  json=clean  schema=ok  ttft=0.84s 56.7tok/s peak=3.74GB
+  [14/55] XF-05  json=clean  schema=ok  ttft=4.49s 40.9tok/s peak=3.74GB
+  [15/55] XF-06  json=clean  schema=ok  ttft=6.49s 36.5tok/s peak=3.74GB
+  [16/55] XF-07  json=none   schema=BAD ttft=3.55s 43.1tok/s peak=3.74GB
+  [17/55] XF-08  json=clean  schema=ok  ttft=1.55s 52.4tok/s peak=3.74GB
+  [18/55] AR-01  json=clean  schema=ok  ttft=18.04s 24.3tok/s peak=5.03GB
+  [19/55] AR-02  json=clean  schema=ok  ttft=10.20s 31.0tok/s peak=5.03GB
+  [20/55] AR-03  json=clean  schema=ok  ttft=2.09s 49.9tok/s peak=5.03GB
+  [21/55] AR-04  json=clean  schema=ok  ttft=7.78s 33.7tok/s peak=5.03GB
+  [22/55] AR-05  json=clean  schema=ok  ttft=6.63s 36.4tok/s peak=5.03GB
+  [23/55] AR-06  json=clean  schema=ok  ttft=12.75s 28.3tok/s peak=5.03GB
+  [24/55] DC-01  json=none   schema=BAD ttft=11.59s 28.4tok/s peak=5.03GB
+  [25/55] DC-02  json=clean  schema=ok  ttft=4.94s 37.0tok/s peak=5.03GB
+  [26/55] DC-03  json=clean  schema=ok  ttft=3.94s 41.1tok/s peak=5.03GB
+  [27/55] DC-04  json=none   schema=BAD ttft=0.41s 55.4tok/s peak=5.03GB
+  [28/55] DC-05  json=clean  schema=ok  ttft=2.76s 45.8tok/s peak=5.03GB
+  [29/55] DC-06  json=clean  schema=ok  ttft=2.09s 48.4tok/s peak=5.03GB
+  [30/55] BR-01  json=clean  schema=ok  ttft=2.10s 49.5tok/s peak=5.03GB
+  [31/55] BR-02  json=clean  schema=ok  ttft=4.09s 40.8tok/s peak=5.03GB
+  [32/55] BR-03  json=clean  schema=ok  ttft=6.98s 35.3tok/s peak=5.03GB
+  [33/55] BR-04  json=clean  schema=ok  ttft=2.86s 44.8tok/s peak=5.03GB
+  [34/55] BR-05  json=clean  schema=ok  ttft=1.64s 47.6tok/s peak=5.03GB
+  [35/55] BR-06  json=clean  schema=ok  ttft=6.47s 36.5tok/s peak=5.03GB
+  [36/55] BR-07  json=clean  schema=ok  ttft=1.14s 54.7tok/s peak=5.03GB
+  [37/55] BR-08  json=clean  schema=ok  ttft=0.99s 55.6tok/s peak=5.03GB
+  [38/55] BR-09  json=clean  schema=ok  ttft=8.15s 33.5tok/s peak=5.03GB
+  [39/55] CD-01  json=clean  schema=ok  ttft=5.69s 38.3tok/s peak=5.03GB
+  [40/55] CD-02  json=clean  schema=ok  ttft=7.89s 34.2tok/s peak=5.03GB
+  [41/55] CD-03  json=clean  schema=ok  ttft=3.13s 45.5tok/s peak=5.03GB
+  [42/55] CD-04  json=clean  schema=ok  ttft=2.42s 48.5tok/s peak=5.03GB
+  [43/55] CD-05  json=clean  schema=ok  ttft=6.23s 37.0tok/s peak=5.03GB
+  [44/55] EV-01  json=clean  schema=ok  ttft=6.30s 37.0tok/s peak=5.03GB
+  [45/55] EV-02  json=none   schema=BAD ttft=10.18s 31.1tok/s peak=5.03GB
+  [46/55] EV-03  json=clean  schema=ok  ttft=3.30s 45.2tok/s peak=5.03GB
+  [47/55] EV-04  json=clean  schema=ok  ttft=6.06s 37.6tok/s peak=5.03GB
+  [48/55] TE-01  json=clean  schema=ok  ttft=2.15s 49.9tok/s peak=5.03GB
+  [49/55] TE-02  json=clean  schema=ok  ttft=2.91s 46.3tok/s peak=5.03GB
+  [50/55] TE-03  json=clean  schema=ok  ttft=7.11s 35.6tok/s peak=5.03GB
+  [51/55] TE-04  json=clean  schema=ok  ttft=3.80s 43.3tok/s peak=5.03GB
+  [52/55] TR-01  json=clean  schema=ok  ttft=7.34s 35.4tok/s peak=5.03GB
+  [53/55] TR-02  json=clean  schema=ok  ttft=1.77s 51.6tok/s peak=5.03GB
+  [54/55] TR-03  json=clean  schema=ok  ttft=4.75s 40.6tok/s peak=5.03GB
+  [55/55] TR-04  json=clean  schema=ok  ttft=9.95s 31.2tok/s peak=5.03GB
+  wrote 55 answers -> /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/seed-llama-3.2-3b-4bit/answers.jsonl
+
+=== qwen3-8b-4bit  (mlx-community/Qwen3-8B-4bit) -> /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/seed-qwen3-8b-4bit ===
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  loaded in 47.1s, weights ~4.61 GB
+  [ 1/55] CU-01  json=clean  schema=ok  ttft=3.19s 25.4tok/s peak=5.48GB
+  [ 2/55] CU-02  json=clean  schema=ok  ttft=2.65s 25.2tok/s peak=5.48GB
+  [ 3/55] CU-03  json=clean  schema=ok  ttft=1.59s 26.3tok/s peak=5.48GB
+  [ 4/55] CU-04  json=clean  schema=ok  ttft=8.56s 22.5tok/s peak=6.17GB
+  [ 5/55] CU-05  json=clean  schema=ok  ttft=3.83s 24.4tok/s peak=6.17GB
+  [ 6/55] CU-06  json=clean  schema=ok  ttft=3.83s 24.4tok/s peak=6.17GB
+  [ 7/55] CU-07  json=clean  schema=ok  ttft=1.36s 26.6tok/s peak=6.17GB
+  [ 8/55] CU-08  json=clean  schema=ok  ttft=16.16s 19.8tok/s peak=6.87GB
+  [ 9/55] CU-09  json=clean  schema=ok  ttft=1.77s 25.9tok/s peak=6.87GB
+  [10/55] XF-01  json=clean  schema=ok  ttft=14.22s 20.3tok/s peak=6.87GB
+  [11/55] XF-02  json=clean  schema=ok  ttft=10.16s 21.8tok/s peak=6.87GB
+  [12/55] XF-03  json=clean  schema=ok  ttft=8.53s 22.4tok/s peak=6.87GB
+  [13/55] XF-04  json=clean  schema=ok  ttft=1.95s 25.4tok/s peak=6.87GB
+  [14/55] XF-05  json=clean  schema=ok  ttft=10.11s 21.6tok/s peak=6.87GB
+  [15/55] XF-06  json=clean  schema=ok  ttft=14.57s 20.1tok/s peak=6.87GB
+  [16/55] XF-07  json=clean  schema=ok  ttft=8.23s 22.6tok/s peak=6.87GB
+  [17/55] XF-08  json=clean  schema=ok  ttft=3.70s 24.3tok/s peak=6.87GB
+  [18/55] AR-01  json=clean  schema=ok  ttft=39.11s 15.2tok/s peak=8.73GB
+  [19/55] AR-02  json=clean  schema=ok  ttft=22.53s 17.9tok/s peak=8.73GB
+  [20/55] AR-03  json=clean  schema=ok  ttft=4.88s 24.3tok/s peak=8.73GB
+  [21/55] AR-04  json=clean  schema=ok  ttft=17.37s 19.4tok/s peak=8.73GB
+  [22/55] AR-05  json=none   schema=BAD ttft=15.05s 19.9tok/s peak=8.73GB
+  [23/55] AR-06  json=clean  schema=ok  ttft=27.36s 15.2tok/s peak=8.73GB
+  [24/55] DC-01  json=clean  schema=ok  ttft=26.81s 17.3tok/s peak=8.73GB
+  [25/55] DC-02  json=clean  schema=ok  ttft=10.65s 21.6tok/s peak=8.73GB
+  [26/55] DC-03  json=clean  schema=ok  ttft=8.51s 22.4tok/s peak=8.73GB
+  [27/55] DC-04  json=clean  schema=ok  ttft=0.91s 27.0tok/s peak=8.73GB
+  [28/55] DC-05  json=clean  schema=ok  ttft=6.20s 23.5tok/s peak=8.73GB
+  [29/55] DC-06  json=clean  schema=ok  ttft=4.83s 24.3tok/s peak=8.73GB
+  [30/55] BR-01  json=clean  schema=ok  ttft=4.91s 24.2tok/s peak=8.73GB
+  [31/55] BR-02  json=clean  schema=ok  ttft=9.23s 22.0tok/s peak=8.73GB
+  [32/55] BR-03  json=clean  schema=ok  ttft=15.75s 19.8tok/s peak=8.73GB
+  [33/55] BR-04  json=clean  schema=ok  ttft=6.66s 23.4tok/s peak=8.73GB
+  [34/55] BR-05  json=clean  schema=ok  ttft=3.67s 24.3tok/s peak=8.73GB
+  [35/55] BR-06  json=clean  schema=ok  ttft=14.04s 20.3tok/s peak=8.73GB
+  [36/55] BR-07  json=clean  schema=ok  ttft=2.66s 25.2tok/s peak=8.73GB
+  [37/55] BR-08  json=clean  schema=ok  ttft=2.40s 25.4tok/s peak=8.73GB
+  [38/55] BR-09  json=clean  schema=ok  ttft=17.91s 19.1tok/s peak=8.73GB
+  [39/55] CD-01  json=clean  schema=ok  ttft=12.93s 20.7tok/s peak=8.73GB
+  [40/55] CD-02  json=clean  schema=ok  ttft=17.83s 19.1tok/s peak=8.73GB
+  [41/55] CD-03  json=clean  schema=ok  ttft=7.25s 22.9tok/s peak=8.73GB
+  [42/55] CD-04  json=clean  schema=ok  ttft=5.70s 23.8tok/s peak=8.73GB
+  [43/55] CD-05  json=clean  schema=ok  ttft=14.17s 20.3tok/s peak=8.73GB
+  [44/55] EV-01  json=clean  schema=ok  ttft=14.30s 20.2tok/s peak=8.73GB
+  [45/55] EV-02  json=clean  schema=ok  ttft=22.77s 18.0tok/s peak=8.73GB
+  [46/55] EV-03  json=clean  schema=ok  ttft=7.49s 22.8tok/s peak=8.73GB
+  [47/55] EV-04  json=clean  schema=ok  ttft=13.45s 20.5tok/s peak=8.73GB
+  [48/55] TE-01  json=clean  schema=ok  ttft=5.04s 24.2tok/s peak=8.73GB
+  [49/55] TE-02  json=clean  schema=ok  ttft=6.77s 23.3tok/s peak=8.73GB
+  [50/55] TE-03  json=clean  schema=ok  ttft=15.96s 19.8tok/s peak=8.73GB
+  [51/55] TE-04  json=clean  schema=ok  ttft=8.73s 22.3tok/s peak=8.73GB
+  [52/55] TR-01  json=clean  schema=ok  ttft=16.30s 19.6tok/s peak=8.73GB
+  [53/55] TR-02  json=clean  schema=ok  ttft=4.15s 23.9tok/s peak=8.73GB
+  [54/55] TR-03  json=clean  schema=ok  ttft=10.83s 21.4tok/s peak=8.73GB
+  [55/55] TR-04  json=clean  schema=ok  ttft=22.12s 17.3tok/s peak=8.73GB
+  wrote 55 answers -> /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/seed-qwen3-8b-4bit/answers.jsonl
+### GRADE start Wed Sep  2 13:42:43 WIB 2026
+  CU-01  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  CU-02  comp=1.0 corr=2 hall=2 ev=2 so=2
+  CU-03  comp=0.6667 corr=2 hall=2 ev=0 so=0
+  CU-04  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  CU-05  comp=1.0 corr=2 hall=2 ev=2 so=2
+  CU-06  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  CU-07  comp=1.0 corr=2 hall=2 ev=2 so=2
+  CU-08  comp=1.0 corr=2 hall=2 ev=2 so=2
+  CU-09  comp=0.6667 corr=2 hall=2 ev=0 so=0
+  XF-01  comp=0.5833 corr=1 hall=1 ev=1 so=2
+  XF-02  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  XF-03  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  XF-04  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  XF-05  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  XF-06  comp=0.5833 corr=1 hall=1 ev=1 so=2
+  XF-07  comp=0.0 corr=0 hall=0 ev=0 so=0
+  XF-08  comp=1.0 corr=2 hall=2 ev=2 so=2
+  AR-01  comp=1.0 corr=2 hall=2 ev=2 so=2
+  AR-02  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  AR-03  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  AR-04  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  AR-05  comp=0.5833 corr=1 hall=1 ev=1 so=2
+  AR-06  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  DC-01  comp=0.0 corr=0 hall=0 ev=0 so=0
+  DC-02  comp=1.0 corr=2 hall=2 ev=2 so=2
+  DC-03  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  DC-04  comp=0.3333 corr=1 hall=1 ev=0 so=0
+  DC-05  comp=0.4167 corr=0 hall=1 ev=2 so=2
+  DC-06  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  BR-01  comp=0.3333 corr=0 hall=0 ev=2 so=2
+  BR-02  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  BR-03  comp=0.3333 corr=0 hall=0 ev=2 so=2
+  BR-04  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  BR-05  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  BR-06  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  BR-07  comp=0.3333 corr=0 hall=0 ev=2 so=2
+  BR-08  comp=0.3333 corr=0 hall=0 ev=2 so=2
+  BR-09  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  CD-01  comp=0.5833 corr=1 hall=0 ev=2 so=2
+  CD-02  comp=0.8333 corr=2 hall=1 ev=1 so=2
+  CD-03  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  CD-04  comp=0.6 corr=0 hall=2 ev=2 so=2
+  CD-05  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  EV-01  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  EV-02  comp=0.3333 corr=1 hall=1 ev=0 so=0
+  EV-03  comp=0.5 corr=1 hall=1 ev=0 so=2
+  EV-04  comp=0.9167 corr=2 hall=1 ev=2 so=2
+  TE-01  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  TE-02  comp=0.75 corr=1 hall=1 ev=2 so=2
+  TE-03  comp=0.5833 corr=1 hall=0 ev=2 so=2
+  TE-04  comp=0.8333 corr=2 hall=0 ev=2 so=2
+  TR-01  comp=0.25 corr=0 hall=0 ev=1 so=2
+  TR-02  comp=0.6667 corr=1 hall=1 ev=2 so=2
+  TR-03  comp=0.5 corr=1 hall=0 ev=1 so=2
+  TR-04  comp=0.5833 corr=1 hall=1 ev=1 so=2
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/harness/orion_eval/cli.py", line 335, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/harness/orion_eval/cli.py", line 331, in main
+    args.func(args)
+  File "/Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/harness/orion_eval/cli.py", line 257, in cmd_grade
+    rid = log_model_run(model_cfg=cfg, meta=meta2, answers=ans, grades=grades,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/harness/orion_eval/mlflow_log.py", line 27, in log_model_run
+    mlflow.set_experiment(EXPERIMENT_NAME)
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/fluent.py", line 203, in set_experiment
+    client = TrackingServiceClient(_resolve_tracking_uri())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/_tracking_service/client.py", line 98, in __init__
+    self.store
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/_tracking_service/client.py", line 102, in store
+    return utils._get_store(self.tracking_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/_tracking_service/utils.py", line 270, in _get_store
+    return _tracking_store_registry.get_store(store_uri, artifact_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/_tracking_service/registry.py", line 45, in get_store
+    return self._get_store_with_resolved_uri(resolved_store_uri, artifact_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/_tracking_service/registry.py", line 56, in _get_store_with_resolved_uri
+    return builder(store_uri=resolved_store_uri, artifact_uri=artifact_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/tracking/_tracking_service/utils.py", line 184, in _get_file_store
+    return FileStore(store_uri, store_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/biru/Work/LearningDevelopment/Orion/.venv/lib/python3.11/site-packages/mlflow/store/tracking/file_store.py", line 225, in __init__
+    raise MlflowException(
+mlflow.exceptions.MlflowException: The filesystem tracking backend (e.g., './mlruns') is in maintenance mode and will not receive further updates. Please migrate to a database backend (e.g., 'sqlite:///mlflow.db') to access the latest MLflow features. The `mlflow migrate-filestore` tool migrates your existing data losslessly. See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store for migration guidance. If the filesystem backend is required for your workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.
+  wrote 55 grades -> /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/seed-llama-3.2-3b-4bit/grades.jsonl
