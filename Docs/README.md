@@ -36,3 +36,4 @@ See:
 - `07_data_models.md`
 - `08_development_phases.md`
 - `09_research_hypotheses.md`
+- `10_phase1_deterministic_code_intelligence.md` — working development plan for Phase 1
