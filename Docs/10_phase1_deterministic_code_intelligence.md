@@ -1,8 +1,11 @@
 # 10 — Phase 1: Deterministic Code Intelligence (Development Plan)
 
-> Status: **M0 done** (package skeleton builds, 9 tests green, CLI wired). This is the
-> working plan for Phase 1 of [08_development_phases.md](08_development_phases.md). Edit
-> freely as implementation proceeds.
+> Status: **Phase 1 complete — M0–M8 done; 127 tests green.** `orion-index`
+> `analyze`/`stats`/`export`/`query`, SQLite Code Graph + deterministic JSON/JSONL export
+> ([../OrionMacOs/EXPORT.md](../OrionMacOs/EXPORT.md)), CI at
+> `.github/workflows/ci.yml`. Starlette: 71 py files → 3225 symbols, 9362 relationships,
+> 99.55 % of edges resolved, ~6.5 s. Next: Phase 2 (semantic analysis) per
+> [08_development_phases.md](08_development_phases.md).
 
 ## Context
 
@@ -362,35 +365,95 @@ swift run orion-index stats --out /tmp/orion-starlette --json
   `GrammarTests` (grammar loads + ABI ok + required node types present + `.scm` compiles) +
   `ModelTests`; `orion-index --help`/`--version`/subcommand help; stubs throw
   `NotImplemented`. `swift build` + `swift test` (9) green.
-- **M1 — Ingestion + DB.** `GitRunner`, `RepositoryScanner`, `LanguageDetector`,
-  `RepoLayout`, `PyProjectParser`, migration `v1`, `Store` batch insert. `analyze` fills
-  `repositories`/`analysis_runs`/`files`/`external_dependencies`; `stats` prints counts.
-  Test: Starlette file count; `module_path` derivation; `__init__.py` detection; `anyio`
-  from `pyproject`.
-- **M2 — Parsing + diagnostics.** `TreeSitterParser`, `LineIndex`, `ASTCache`, parse-error
-  diagnostics, `--jobs`. Test: broken fixture -> diagnostic; all Starlette `parse_ok`.
-- **M3 — Symbols.** `python-symbols.scm`, `PythonSymbolExtractor`, `QualifiedNameBuilder`,
-  `ReexportResolver`, signature/docstring/decorator/`__all__`/visibility. Persist `symbols`;
-  export `symbols.jsonl` + partial `code_graph.json`. Test: full symbol matrix; synthetic
-  `reexport` symbols; Starlette known-symbol + anchor format; first evidence-anchor cross-check.
-- **M4 — Imports + dependency graph.** `ImportExtractor`, `PyProjectParser`,
-  `RequirementsParser`, `StdlibModules`, path-based in-repo resolution. Emit `imports` +
-  `depends_on`; export `external_dependencies.jsonl` + import matrix. Test: relative-import
-  fixtures; Starlette `applications -> middleware`; `anyio` edge.
-- **M5 — SCIP resolution + relationships.** `ScipIndexer` (npx `scip-python`), `ScipModel`
-  (SwiftProtobuf + vendored `scip.proto`), `ScipSymbol`, `SymbolJoiner`, `RelationshipBuilder`
-  (`calls`/`reads`/`writes`/`extends`/`implements`/`references`), confidence tiers, graceful
-  degradation path. Reconcile M4 in-repo import targets with SCIP. Persist `relationships`;
-  export `relationships.jsonl` + resolution stats. Test: `JSONResponse extends Response`;
-  `Starlette.__call__` calls `build_middleware_stack`; resolution-rate threshold; full
-  evidence cross-check >= 90%; `SCIP_UNAVAILABLE` degradation test.
-- **M6 — Test mapping.** `TestDetector`, `TestMapper`, `tested_by`; back-fill `is_test`.
-- **M7 — Assembly + full export + snapshot + timing.** `CodeGraphAssembler`, finalized
-  `code_graph.json`, `export` command, deterministic ids, golden snapshot, `stage_timings`
-  in `stats --json`. Deliverable: a complete `export/` the Python harness can load.
-- **M8 — Hardening.** `query` subcommand, AST cache eviction tuning, `--clean`, exit-code
-  paths, `OrionMacOs/README.md`, documented Phase 2 contract, optional GitHub Actions
-  `swift test`.
+- **M1 — Ingestion + DB. [done]** `GitRunner`, `RepositoryScanner` (sha256/loc/oversize +
+  git-ls-files or filtered walk), `RepoLayout` (root + `src/` layouts), path-based
+  `TestDetector`, `PEP508`/`PyProjectParser` (PEP 621 + PEP 735) + `RequirementsParser`,
+  full `v1_phase1_schema` migration (all 7 tables), `OrionDatabase` (WAL, FK on),
+  `Store`, `DeterministicID` (CryptoKit), `AnalysisPipeline` (ingest stage + run
+  lifecycle + `ingest` diagnostics), `StatsReporter`. `analyze` fills
+  `repositories`/`analysis_runs`/`files`/`external_dependencies` + diagnostics; `stats`
+  (+`--json`) works. 29 M1 tests incl. Starlette ingestion (71 py files, `anyio >=3.6.2,<5`,
+  all module paths resolved).
+- **M2 — Parsing + diagnostics. [done]** `TreeSitterParser` (UTF-8 read-block API so byte
+  offsets match disk), `LineIndex` (byte→1-based line/col, single source of truth),
+  `ParsedTree` (+`walk`/`text(of:)`), `ASTCache` (capacity + eviction), `PythonParsePass`
+  (`concurrentPerform` fan-out, `jobs==1` deterministic; ERROR/MISSING span walk).
+  Pipeline `parse` stage sets real `files.parse_ok` + `parse` diagnostics
+  (`PARSE_ERROR`/`MISSING_NODE`/`PARSE_FAILED`); `--jobs`; `--fail-on-parse-error` → exit 4.
+  16 M2 tests; Starlette: 71/71 py files `parse_ok`, `--jobs 1`≡`--jobs 8`.
+- **M3 — Symbols. [done]** `PythonSymbolExtractor` (tree walk, not `.scm` — output is
+  hierarchical; the bundled `.scm` still pins node types via `GrammarTests`). Emits
+  module/package + class/function/method/property + module/class variable/constant +
+  import_alias + synthetic `reexport` (relative `from .x import y` in `__init__.py` only).
+  Benchmark-form anchors (`path::Dotted.Name`), qualified names, `parent_symbol_id` links
+  (insert with `PRAGMA defer_foreign_keys`), signatures, docstrings, decorators, `__all__`
+  → `is_exported` (+ `DYNAMIC_ALL` diag), name-based visibility, `WILDCARD_IMPORT` diag,
+  conditional/`try` top-level defs. `SymbolExtractionPass`, `Store.insertSymbols`,
+  `run.symbol_count`. 18 M3 tests. **Starlette:** 3272 symbols; `relevant_symbols` anchors
+  96.5% present; evidence `line` inside a same-`::`-leaf symbol 99% (strict-anchor 68% —
+  the benchmark frequently anchors `Sub.method` while its `line` points at the inherited
+  `Base.method`, or at a nested closure; our extraction is correct, so the cross-check is
+  leaf-name lenient).
+- **M4 — Imports + dependency graph. [done]** `ModuleResolver` (path-based: absolute
+  exact/`spec.name` submodule, relative `.`/`..` from module vs package, own-top-level →
+  unresolvable), `StdlibModules` (305 names from `sys.stdlib_module_names`),
+  `DependencyGraphBuilder` — reads M3's `import_alias`/`reexport` symbols (no re-parse),
+  emits module→module `imports` and module→ext-dep `depends_on` (both `ast:import`, tier
+  high), mints `external_dependencies` for undeclared imports (`stdlib`/`inferred`), fills
+  `import_count`, `IMPORT_UNRESOLVED` diag. `RelationshipRecord`, `Store.insertRelationships`
+  /`updateImportCounts`, `run.relationship_count`. 16 M4 tests. **Starlette:** 337 `imports`
+  + 298 `depends_on`; `applications` → middleware/routing/responses/types/requests; `anyio`
+  `depends_on` (pyproject, import_count 24); `typing` stdlib; 0 unresolved imports.
+  (Function-local imports still deferred — M8.)
+- **M5 — SCIP resolution + relationships. [done]** `ScipIndexer` runs
+  `npx @sourcegraph/scip-python@0.6.6 index . --project-name … --environment <[]> --output …`
+  (positional `.`, and the empty-env file is essential — otherwise scip-python shells out to
+  `pip3 show -f <every installed pkg>` and ENOBUFS-crashes on a package-heavy machine). SCIP
+  protobuf: `Protos/scip.proto` vendored, `Scip/ScipProto.generated.swift` committed (regen
+  needs brew `protoc` + `protoc-gen-swift`; SwiftProtobuf is the only runtime dep).
+  `ScipSymbol` (descriptor-string parser), `SymbolJoiner` (SCIP symbol → anchor via
+  module→file map; innermost-enclosing lookup off M3 ranges), `ScipRelationshipBuilder`:
+  `extends`/`implements` from `SymbolInformation.relationships.is_implementation` (class↔class;
+  in-repo base → `extends` high, `Protocol`/`ABC` base → `implements` medium/unresolved,
+  other external → `extends` low), `calls` (ref occurrence → in-repo function/method/property,
+  attributed to enclosing symbol), `references` (ref → in-repo class — annotation vs
+  construction indistinguishable without `syntax_kind`). `--no-resolve` +
+  `SCIP_UNAVAILABLE` graceful degradation; `analysis_runs.resolver`. 12 M5 tests.
+  **Starlette:** `JSONResponse`/`HTMLResponse`/… `extends Response`; `Starlette.__call__`
+  `calls Starlette.build_middleware_stack`; 3716 `calls` (100% in-repo-resolved), 111
+  `extends`, 4 `implements`.
+  *Not in M5 (scip-python emits no write-access roles / `syntax_kind`):* attribute
+  `reads`/`writes`; M4-import reconciliation.
+- **M6 — Test mapping. [done]** `TestDetector.isTestSymbol` (`test*` fn/method or `pytest`
+  decorator, in an `is_test` file). `TestMapper` walks each test symbol's outbound
+  `calls`/`references` into non-test in-repo symbols → `tested_by` (source = test symbol,
+  target = production): `calls` → high when the test file stem matches the target file
+  (`test_applications.py`↔`applications.py`), else medium; `references` → low; test-module
+  `imports` of a production module → low. Dedup per pair keeping the best tier,
+  `provenance = "heuristic:test_reference"`. 9 M6 tests. **Starlette:** 1847 `tested_by`
+  (271 high / 686 medium / 890 low); `tests/test_applications.py` test fns →
+  `Starlette.__init__` / `.routes` / `.add_middleware`.
+- **M7 — Assembly + full export + snapshot. [done]** `CodeGraphModel` (row collections →
+  export DTOs), `CodeGraphExporter` (reads the latest succeeded run from the DB, so
+  `orion-index export` regenerates without re-analyzing). `<out>/export/`: `repository.json`
+  (counts + resolution rate), `files.jsonl`, `symbols.jsonl` (benchmark-form `anchor` +
+  `range` — the Phase 2 join key), `relationships.jsonl` (`source`/`target` as
+  `{anchor,kind}` or `{ref,external}` + `site`), `external_dependencies.jsonl`,
+  `diagnostics.jsonl`, `code_graph.json` (stats, 71 module nodes with import matrix, 201
+  class nodes with bases/methods, entrypoints, 547-entry test map). `JSONEncoder`
+  `.convertToSnakeCase` + `.sortedKeys` → byte-deterministic re-export. `analyze --export`
+  (default on) / `--no-export`; `orion-index export`. Golden snapshot of a stable
+  `code_graph.json` slice at `Tests/…/Snapshots/starlette_code_graph.json`
+  (`ORION_UPDATE_SNAPSHOTS=1` to refresh). 12 M7 tests, incl. ≥95 % of benchmark
+  `relevant_symbols` present verbatim in `symbols.jsonl`.
+- **M8 — Hardening. [done]** `orion-index query` (`--symbol` / `--callers` / `--callees` /
+  `--module`, text or `--json`) backed by a testable `QueryEngine`; `analyze` pipeline
+  failure → exit 3 (usage still via ArgumentParser); `stats` shows `resolver`;
+  `--commit <sha>` checkout+restore hardening test; `EXPORT.md` documents the export schema +
+  Phase 2 join contract; `.github/workflows/ci.yml` (macos-15, `swift build` + `swift test`
+  — Starlette/npx tests `XCTSkip` in CI). 12 M8 tests.
+  *Not done (deliberately):* AST-cache wiring to merge the M2 parse and M3 extract passes —
+  the double parse is ~0.2 s on Starlette, not worth the concurrency risk now.
 
 ---
 

@@ -10,6 +10,10 @@ public struct PythonLanguageSupport: LanguageSupport {
     public let language: SourceLanguage = .python
     public let symbolQueryName = "python-symbols"
 
+    /// Pinned `tree-sitter-python` release (see `Package.swift`). Stamped onto
+    /// `analysis_runs.grammar_versions`.
+    public static let grammarVersion = "0.23.6"
+
     public func treeSitterLanguage() throws -> Language {
         PythonLanguageSupport.cachedLanguage
     }

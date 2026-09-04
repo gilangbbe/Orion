@@ -1,4 +1,6 @@
 import ArgumentParser
+import Foundation
+import OrionCodeIntel
 
 struct Export: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -16,6 +18,24 @@ struct Export: ParsableCommand {
     var commit: String?
 
     func run() throws {
-        throw NotImplemented(milestone: "M7")
+        let dbPath: String
+        let outDir: URL
+        if let db {
+            dbPath = (db as NSString).expandingTildeInPath
+            outDir = URL(fileURLWithPath: dbPath).deletingLastPathComponent()
+        } else if let out {
+            outDir = URL(fileURLWithPath: (out as NSString).expandingTildeInPath)
+            dbPath = outDir.appendingPathComponent("orion.db").path
+        } else {
+            throw ValidationError("pass --db <orion.db> or --out <dir>")
+        }
+        guard FileManager.default.fileExists(atPath: dbPath) else {
+            throw ValidationError("no database at \(dbPath)")
+        }
+
+        let database = try OrionDatabase(path: dbPath)
+        let exportDir = try CodeGraphExporter(store: Store(database))
+            .export(to: outDir, commitHash: commit)
+        print("wrote \(exportDir.path)")
     }
 }

@@ -1,0 +1,851 @@
+{
+  "class_bases" : {
+    "starlette\/_utils.py::AwaitableOrContextManager" : [
+      "AbstractAsyncContextManager",
+      "Awaitable",
+      "Protocol"
+    ],
+    "starlette\/_utils.py::AwaitableOrContextManagerWrapper" : [
+      "Generic"
+    ],
+    "starlette\/_utils.py::SupportsAsyncClose" : [
+      "Protocol"
+    ],
+    "starlette\/authentication.py::AuthenticationError" : [
+      "Exception"
+    ],
+    "starlette\/authentication.py::SimpleUser" : [
+      "starlette\/authentication.py::BaseUser"
+    ],
+    "starlette\/authentication.py::UnauthenticatedUser" : [
+      "starlette\/authentication.py::BaseUser"
+    ],
+    "starlette\/background.py::BackgroundTasks" : [
+      "starlette\/background.py::BackgroundTask"
+    ],
+    "starlette\/concurrency.py::_StopIteration" : [
+      "Exception"
+    ],
+    "starlette\/config.py::Environ" : [
+      "MutableMapping"
+    ],
+    "starlette\/config.py::EnvironError" : [
+      "Exception"
+    ],
+    "starlette\/convertors.py::Convertor" : [
+      "Generic"
+    ],
+    "starlette\/convertors.py::FloatConvertor" : [
+      "starlette\/convertors.py::Convertor"
+    ],
+    "starlette\/convertors.py::IntegerConvertor" : [
+      "starlette\/convertors.py::Convertor"
+    ],
+    "starlette\/convertors.py::PathConvertor" : [
+      "starlette\/convertors.py::Convertor"
+    ],
+    "starlette\/convertors.py::StringConvertor" : [
+      "starlette\/convertors.py::Convertor"
+    ],
+    "starlette\/convertors.py::UUIDConvertor" : [
+      "starlette\/convertors.py::Convertor"
+    ],
+    "starlette\/datastructures.py::Address" : [
+      "NamedTuple"
+    ],
+    "starlette\/datastructures.py::CommaSeparatedStrings" : [
+      "Sequence"
+    ],
+    "starlette\/datastructures.py::FormData" : [
+      "starlette\/datastructures.py::ImmutableMultiDict"
+    ],
+    "starlette\/datastructures.py::QueryParams" : [
+      "starlette\/datastructures.py::ImmutableMultiDict"
+    ],
+    "starlette\/datastructures.py::URLPath" : [
+      "str"
+    ],
+    "starlette\/exceptions.py::HTTPException" : [
+      "Exception"
+    ],
+    "starlette\/exceptions.py::StarletteDeprecationWarning" : [
+      "UserWarning"
+    ],
+    "starlette\/exceptions.py::WebSocketException" : [
+      "Exception"
+    ],
+    "starlette\/formparsers.py::FormMessage" : [
+      "Enum"
+    ],
+    "starlette\/formparsers.py::MultiPartException" : [
+      "Exception"
+    ],
+    "starlette\/middleware\/__init__.py::_MiddlewareFactory" : [
+      "Protocol"
+    ],
+    "starlette\/middleware\/base.py::_CachedRequest" : [
+      "starlette\/requests.py::Request"
+    ],
+    "starlette\/middleware\/body_limit.py::_RequestBodyLimitResponseSent" : [
+      "Exception"
+    ],
+    "starlette\/middleware\/body_limit.py::_RequestBodyTooLarge" : [
+      "starlette\/exceptions.py::HTTPException"
+    ],
+    "starlette\/requests.py::ClientDisconnect" : [
+      "Exception"
+    ],
+    "starlette\/requests.py::HTTPConnection" : [
+      "Generic",
+      "Mapping"
+    ],
+    "starlette\/requests.py::Request" : [
+      "starlette\/requests.py::HTTPConnection"
+    ],
+    "starlette\/responses.py::FileResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/responses.py::HTMLResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/responses.py::JSONResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/responses.py::MalformedRangeHeader" : [
+      "Exception"
+    ],
+    "starlette\/responses.py::PlainTextResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/responses.py::RangeNotSatisfiable" : [
+      "Exception"
+    ],
+    "starlette\/responses.py::RedirectResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/responses.py::StreamingResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/routing.py::_AsyncLiftContextManager" : [
+      "AbstractAsyncContextManager"
+    ],
+    "starlette\/routing.py::Host" : [
+      "starlette\/routing.py::BaseRoute"
+    ],
+    "starlette\/routing.py::Match" : [
+      "Enum"
+    ],
+    "starlette\/routing.py::Mount" : [
+      "starlette\/routing.py::BaseRoute"
+    ],
+    "starlette\/routing.py::NoMatchFound" : [
+      "Exception"
+    ],
+    "starlette\/routing.py::Route" : [
+      "starlette\/routing.py::BaseRoute"
+    ],
+    "starlette\/routing.py::WebSocketRoute" : [
+      "starlette\/routing.py::BaseRoute"
+    ],
+    "starlette\/schemas.py::EndpointInfo" : [
+      "NamedTuple"
+    ],
+    "starlette\/schemas.py::OpenAPIResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/schemas.py::SchemaGenerator" : [
+      "starlette\/schemas.py::BaseSchemaGenerator"
+    ],
+    "starlette\/staticfiles.py::NotModifiedResponse" : [
+      "starlette\/responses.py::Response"
+    ],
+    "starlette\/templating.py::_TemplateResponse" : [
+      "starlette\/responses.py::HTMLResponse"
+    ],
+    "starlette\/testclient.py::_AsyncBackend" : [
+      "_TypedDict"
+    ],
+    "starlette\/testclient.py::_Upgrade" : [
+      "Exception"
+    ],
+    "starlette\/testclient.py::WebSocketDenialResponse" : [
+      "starlette\/websockets.py::WebSocketDisconnect"
+    ],
+    "starlette\/websockets.py::WebSocket" : [
+      "starlette\/requests.py::HTTPConnection"
+    ],
+    "starlette\/websockets.py::WebSocketDisconnect" : [
+      "Exception"
+    ],
+    "starlette\/websockets.py::WebSocketState" : [
+      "Enum"
+    ],
+    "tests\/middleware\/test_base.py::CustomMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::CustomMiddlewareUsingBaseHTTPMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_app_receives_http_disconnect_after_sending_if_discarded.DiscardingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_app_receives_http_disconnect_while_sending_if_discarded.DiscardingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_downstream_middleware_modifies_receive.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_error_context_propagation.PassthroughMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_fully_evaluated_response.CustomMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_multiple_middlewares_stacked_client_disconnected.MyMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_poll_for_disconnect_repeated.MyMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_pr_1519_comment_1236166180_example.LogRequestBodySize" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_body_in_app_after_middleware_calls_body.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_body_in_app_after_middleware_calls_stream.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_body_in_dispatch_after_app_calls_body_with_middleware_calling_body_before_call_next.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_disconnected_after_consuming_steam.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_disconnected_client.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_stream_in_app_after_middleware_calls_body.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_stream_in_app_after_middleware_calls_stream.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_stream_in_dispatch_after_app_calls_body_with_middleware_calling_body_before_call_next.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_stream_in_dispatch_after_app_calls_body.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_stream_in_dispatch_after_app_calls_stream.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_read_request_stream_in_dispatch_wrapping_app_calls_body.ConsumingMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_state_data_across_multiple_middlewares.aMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_state_data_across_multiple_middlewares.bMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/middleware\/test_base.py::test_state_data_across_multiple_middlewares.cMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/test__utils.py::test_collapsing_task_group_one_exc.MyException" : [
+      "Exception"
+    ],
+    "tests\/test__utils.py::test_collapsing_task_group_two_exc.MyException" : [
+      "Exception"
+    ],
+    "tests\/test_applications.py::CustomWSException" : [
+      "Exception"
+    ],
+    "tests\/test_applications.py::Homepage" : [
+      "starlette\/endpoints.py::HTTPEndpoint"
+    ],
+    "tests\/test_applications.py::test_lifespan_app_subclass.App" : [
+      "starlette\/applications.py::Starlette"
+    ],
+    "tests\/test_authentication.py::BasicAuth" : [
+      "starlette\/authentication.py::AuthenticationBackend"
+    ],
+    "tests\/test_authentication.py::Dashboard" : [
+      "starlette\/endpoints.py::HTTPEndpoint"
+    ],
+    "tests\/test_convertors.py::DateTimeConvertor" : [
+      "starlette\/convertors.py::Convertor"
+    ],
+    "tests\/test_endpoints.py::Homepage" : [
+      "starlette\/endpoints.py::HTTPEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_http_endpoint_does_not_dispatch_non_verb_method.Endpoint" : [
+      "starlette\/endpoints.py::HTTPEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_connect.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_default.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_disconnect.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_receive_bytes.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_receive_json_binary.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_receive_json.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_endpoints.py::test_websocket_endpoint_on_receive_text.WebSocketApp" : [
+      "starlette\/endpoints.py::WebSocketEndpoint"
+    ],
+    "tests\/test_exceptions.py::BadBodyException" : [
+      "starlette\/exceptions.py::HTTPException"
+    ],
+    "tests\/test_exceptions.py::test_http_repr.CustomHTTPException" : [
+      "starlette\/exceptions.py::HTTPException"
+    ],
+    "tests\/test_exceptions.py::test_websocket_repr.CustomWebSocketException" : [
+      "starlette\/exceptions.py::WebSocketException"
+    ],
+    "tests\/test_formparsers.py::ForceMultipartDict" : [
+      "dict"
+    ],
+    "tests\/test_formparsers.py::test_multipart_closes_tempfile_on_oserror.FailingSpooledTemporaryFile" : [
+      "SpooledTemporaryFile"
+    ],
+    "tests\/test_formparsers.py::ThreadTrackingSpooledTemporaryFile" : [
+      "SpooledTemporaryFile"
+    ],
+    "tests\/test_responses.py::test_file_response_multi_small_chunk_size.SmallChunkSizeFileResponse" : [
+      "starlette\/responses.py::FileResponse"
+    ],
+    "tests\/test_routing.py::test_lifespan_state_async_cm.State" : [
+      "_TypedDict"
+    ],
+    "tests\/test_schemas.py::OrganisationsEndpoint" : [
+      "starlette\/endpoints.py::HTTPEndpoint"
+    ],
+    "tests\/test_templates.py::test_template_with_middleware.CustomMiddleware" : [
+      "starlette\/middleware\/base.py::BaseHTTPMiddleware"
+    ],
+    "tests\/test_testclient.py::test_exception_in_middleware.MiddlewareException" : [
+      "Exception"
+    ],
+    "tests\/types.py::TestClientFactory" : [
+      "Protocol"
+    ]
+  },
+  "module_imports" : {
+    "benchmarks.gzip_benchmark" : [
+      "starlette.middleware.gzip",
+      "starlette.types"
+    ],
+    "benchmarks.routing_benchmark" : [
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.types"
+    ],
+    "starlette" : [
+
+    ],
+    "starlette._exception_handler" : [
+      "starlette._utils",
+      "starlette.concurrency",
+      "starlette.exceptions",
+      "starlette.requests",
+      "starlette.types",
+      "starlette.websockets"
+    ],
+    "starlette._utils" : [
+      "starlette.types"
+    ],
+    "starlette.applications" : [
+      "starlette.datastructures",
+      "starlette.middleware",
+      "starlette.middleware.body_limit",
+      "starlette.middleware.errors",
+      "starlette.middleware.exceptions",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.types"
+    ],
+    "starlette.authentication" : [
+      "starlette._utils",
+      "starlette.exceptions",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.websockets"
+    ],
+    "starlette.background" : [
+      "starlette._utils",
+      "starlette.concurrency"
+    ],
+    "starlette.concurrency" : [
+      "starlette.exceptions"
+    ],
+    "starlette.config" : [
+
+    ],
+    "starlette.convertors" : [
+
+    ],
+    "starlette.datastructures" : [
+      "starlette.concurrency",
+      "starlette.types"
+    ],
+    "starlette.endpoints" : [
+      "starlette._utils",
+      "starlette.concurrency",
+      "starlette.exceptions",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.status",
+      "starlette.types",
+      "starlette.websockets"
+    ],
+    "starlette.exceptions" : [
+
+    ],
+    "starlette.formparsers" : [
+      "starlette.datastructures"
+    ],
+    "starlette.middleware" : [
+
+    ],
+    "starlette.middleware.authentication" : [
+      "starlette.authentication",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.base" : [
+      "starlette._utils",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.body_limit" : [
+      "starlette.datastructures",
+      "starlette.exceptions",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.cors" : [
+      "starlette.datastructures",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.errors" : [
+      "starlette._utils",
+      "starlette.concurrency",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.exceptions" : [
+      "starlette._exception_handler",
+      "starlette.exceptions",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types",
+      "starlette.websockets"
+    ],
+    "starlette.middleware.gzip" : [
+      "starlette.datastructures",
+      "starlette.types"
+    ],
+    "starlette.middleware.httpsredirect" : [
+      "starlette.datastructures",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.sessions" : [
+      "starlette.datastructures",
+      "starlette.requests",
+      "starlette.types"
+    ],
+    "starlette.middleware.trustedhost" : [
+      "starlette.datastructures",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.middleware.wsgi" : [
+      "starlette._utils",
+      "starlette.exceptions",
+      "starlette.types"
+    ],
+    "starlette.requests" : [
+      "starlette._utils",
+      "starlette.applications",
+      "starlette.datastructures",
+      "starlette.exceptions",
+      "starlette.formparsers",
+      "starlette.middleware.sessions",
+      "starlette.routing",
+      "starlette.types"
+    ],
+    "starlette.responses" : [
+      "starlette._utils",
+      "starlette.background",
+      "starlette.concurrency",
+      "starlette.datastructures",
+      "starlette.requests",
+      "starlette.types"
+    ],
+    "starlette.routing" : [
+      "starlette._exception_handler",
+      "starlette._utils",
+      "starlette.concurrency",
+      "starlette.convertors",
+      "starlette.datastructures",
+      "starlette.exceptions",
+      "starlette.middleware",
+      "starlette.middleware.body_limit",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types",
+      "starlette.websockets"
+    ],
+    "starlette.schemas" : [
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing"
+    ],
+    "starlette.staticfiles" : [
+      "starlette._utils",
+      "starlette.datastructures",
+      "starlette.exceptions",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.status" : [
+      "starlette.exceptions"
+    ],
+    "starlette.templating" : [
+      "starlette.background",
+      "starlette.datastructures",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "starlette.testclient" : [
+      "starlette._utils",
+      "starlette.exceptions",
+      "starlette.types",
+      "starlette.websockets"
+    ],
+    "starlette.types" : [
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.websockets"
+    ],
+    "starlette.websockets" : [
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types"
+    ],
+    "tests" : [
+
+    ],
+    "tests.conftest" : [
+      "starlette.testclient",
+      "tests.types"
+    ],
+    "tests.middleware" : [
+
+    ],
+    "tests.middleware.test_base" : [
+      "starlette.applications",
+      "starlette.background",
+      "starlette.middleware",
+      "starlette.middleware.base",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.testclient",
+      "starlette.types",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.middleware.test_body_limit" : [
+      "starlette.applications",
+      "starlette.exceptions",
+      "starlette.middleware",
+      "starlette.middleware.base",
+      "starlette.middleware.body_limit",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.middleware.test_cors" : [
+      "starlette.applications",
+      "starlette.middleware",
+      "starlette.middleware.cors",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "tests.types"
+    ],
+    "tests.middleware.test_errors" : [
+      "starlette.applications",
+      "starlette.background",
+      "starlette.middleware.errors",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.middleware.test_gzip" : [
+      "starlette.applications",
+      "starlette.middleware",
+      "starlette.middleware.gzip",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.middleware.test_https_redirect" : [
+      "starlette.applications",
+      "starlette.middleware",
+      "starlette.middleware.httpsredirect",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "tests.types"
+    ],
+    "tests.middleware.test_middleware" : [
+      "starlette.middleware",
+      "starlette.types"
+    ],
+    "tests.middleware.test_session" : [
+      "starlette.applications",
+      "starlette.middleware",
+      "starlette.middleware.sessions",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.testclient",
+      "tests.types"
+    ],
+    "tests.middleware.test_trusted_host" : [
+      "starlette.applications",
+      "starlette.middleware",
+      "starlette.middleware.trustedhost",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "tests.types"
+    ],
+    "tests.middleware.test_wsgi" : [
+      "starlette.middleware.wsgi",
+      "tests.types"
+    ],
+    "tests.test__utils" : [
+      "starlette._utils",
+      "starlette.types"
+    ],
+    "tests.test_applications" : [
+      "starlette.applications",
+      "starlette.endpoints",
+      "starlette.exceptions",
+      "starlette.middleware",
+      "starlette.middleware.trustedhost",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.staticfiles",
+      "starlette.status",
+      "starlette.testclient",
+      "starlette.types",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.test_authentication" : [
+      "starlette.applications",
+      "starlette.authentication",
+      "starlette.endpoints",
+      "starlette.middleware",
+      "starlette.middleware.authentication",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.test_background" : [
+      "starlette.background",
+      "starlette.responses",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.test_concurrency" : [
+      "starlette.applications",
+      "starlette.concurrency",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "tests.types"
+    ],
+    "tests.test_config" : [
+      "starlette.config",
+      "starlette.datastructures"
+    ],
+    "tests.test_convertors" : [
+      "starlette.convertors",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "tests.types"
+    ],
+    "tests.test_datastructures" : [
+      "starlette.datastructures"
+    ],
+    "tests.test_endpoints" : [
+      "starlette.endpoints",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.testclient",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.test_exceptions" : [
+      "starlette.exceptions",
+      "starlette.middleware.exceptions",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.testclient",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.test_formparsers" : [
+      "starlette.applications",
+      "starlette.datastructures",
+      "starlette.formparsers",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.test_requests" : [
+      "starlette.datastructures",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.test_responses" : [
+      "starlette.background",
+      "starlette.datastructures",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.status",
+      "starlette.testclient",
+      "starlette.types",
+      "tests.types"
+    ],
+    "tests.test_routing" : [
+      "starlette.applications",
+      "starlette.exceptions",
+      "starlette.middleware",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.testclient",
+      "starlette.types",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.test_schemas" : [
+      "starlette.applications",
+      "starlette.endpoints",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.schemas",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.test_staticfiles" : [
+      "starlette.applications",
+      "starlette.exceptions",
+      "starlette.middleware",
+      "starlette.middleware.base",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.staticfiles",
+      "tests.types"
+    ],
+    "tests.test_status" : [
+      "starlette.exceptions"
+    ],
+    "tests.test_templates" : [
+      "starlette.applications",
+      "starlette.middleware",
+      "starlette.middleware.base",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.templating",
+      "tests.types"
+    ],
+    "tests.test_testclient" : [
+      "starlette.applications",
+      "starlette.exceptions",
+      "starlette.middleware",
+      "starlette.requests",
+      "starlette.responses",
+      "starlette.routing",
+      "starlette.testclient",
+      "starlette.types",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.test_websockets" : [
+      "starlette.responses",
+      "starlette.status",
+      "starlette.testclient",
+      "starlette.types",
+      "starlette.websockets",
+      "tests.types"
+    ],
+    "tests.types" : [
+      "starlette.testclient",
+      "starlette.types"
+    ]
+  },
+  "relationships_by_type" : {
+    "calls" : 3716,
+    "depends_on" : 298,
+    "extends" : 111,
+    "implements" : 4,
+    "imports" : 337,
+    "references" : 3049,
+    "tested_by" : 1847
+  },
+  "symbols_by_kind" : {
+    "class" : 201,
+    "constant" : 126,
+    "function" : 1067,
+    "import_alias" : 1040,
+    "method" : 515,
+    "module" : 67,
+    "package" : 4,
+    "property" : 45,
+    "variable" : 160
+  }
+}

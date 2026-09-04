@@ -12,7 +12,7 @@ struct OrionIndex: ParsableCommand {
         export. No LLM is involved. See Docs/10_phase1_deterministic_code_intelligence.md.
         """,
         version: OrionCodeIntel.version,
-        subcommands: [Analyze.self, Stats.self, Export.self]
+        subcommands: [Analyze.self, Stats.self, Export.self, Query.self]
     )
 }
 

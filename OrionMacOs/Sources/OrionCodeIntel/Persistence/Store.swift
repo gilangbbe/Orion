@@ -1,0 +1,237 @@
+import Foundation
+import GRDB
+
+/// Data-access layer over `OrionDatabase`. All bulk writes go through a single write
+/// transaction with GRDB's cached prepared statements.
+public struct Store {
+    public let db: OrionDatabase
+    public init(_ db: OrionDatabase) { self.db = db }
+
+    // MARK: Repository
+
+    /// Insert or reuse the `(local_path, commit_hash)` row; always refreshes `updated_at`
+    /// and `analysis_status`.
+    @discardableResult
+    public func upsertRepository(
+        localPath: String, commitHash: String, sourceURL: String?,
+        languages: [String], status: AnalysisStatus, now: String
+    ) throws -> RepositoryRecord {
+        try db.dbQueue.write { dbc in
+            if var existing = try RepositoryRecord
+                .filter(Column("local_path") == localPath && Column("commit_hash") == commitHash)
+                .fetchOne(dbc)
+            {
+                existing.sourceURL = sourceURL ?? existing.sourceURL
+                existing.languages = languages
+                existing.analysisStatus = status.rawValue
+                existing.updatedAt = now
+                try existing.update(dbc)
+                return existing
+            }
+            let record = RepositoryRecord(
+                id: DeterministicID.newUUID(), sourceURL: sourceURL, localPath: localPath,
+                commitHash: commitHash, languages: languages, analysisStatus: status,
+                createdAt: now, updatedAt: now
+            )
+            try record.insert(dbc)
+            return record
+        }
+    }
+
+    public func setRepositoryStatus(id: String, status: AnalysisStatus, now: String) throws {
+        try db.dbQueue.write { dbc in
+            try dbc.execute(
+                sql: "UPDATE repositories SET analysis_status = ?, updated_at = ? WHERE id = ?",
+                arguments: [status.rawValue, now, id]
+            )
+        }
+    }
+
+    // MARK: Runs
+
+    public func startRun(
+        repositoryId: String, commitHash: String, startedAt: String,
+        orionVersion: String, resolver: String, grammarVersions: [String: String]
+    ) throws -> AnalysisRunRecord {
+        let run = AnalysisRunRecord(
+            id: DeterministicID.newUUID(), repositoryId: repositoryId, commitHash: commitHash,
+            status: AnalysisStatus.running.rawValue, startedAt: startedAt, finishedAt: nil,
+            orionVersion: orionVersion, resolver: resolver, grammarVersions: grammarVersions,
+            toolVersions: [:], stageTimings: [:], fileCount: 0, symbolCount: 0,
+            relationshipCount: 0, diagnosticCount: 0, error: nil
+        )
+        try db.dbQueue.write { try run.insert($0) }
+        return run
+    }
+
+    public func finishRun(_ run: AnalysisRunRecord) throws {
+        try db.dbQueue.write { try run.update($0) }
+    }
+
+    /// Delete every run (and, via cascade, files/symbols/etc.) for a `(repo, commit)`.
+    public func deleteRuns(repositoryId: String, commitHash: String) throws {
+        try db.dbQueue.write { dbc in
+            try dbc.execute(
+                sql: "DELETE FROM analysis_runs WHERE repository_id = ? AND commit_hash = ?",
+                arguments: [repositoryId, commitHash]
+            )
+        }
+    }
+
+    // MARK: Bulk inserts
+
+    public func insertFiles(_ records: [FileRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            for r in records { try r.insert(dbc) }
+        }
+    }
+
+    public func insertExternalDependencies(_ records: [ExternalDependencyRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            for r in records { try r.insert(dbc) }
+        }
+    }
+
+    public func insertSymbols(_ records: [SymbolRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            // Symbols carry a self-referential parent_symbol_id; defer the check so within-run
+            // insert order does not matter (a dangling parent still fails at commit).
+            try dbc.execute(sql: "PRAGMA defer_foreign_keys = ON")
+            for r in records { try r.insert(dbc) }
+        }
+    }
+
+    public func insertRelationships(_ records: [RelationshipRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            try dbc.execute(sql: "PRAGMA defer_foreign_keys = ON")
+            for r in records { try r.insert(dbc) }
+        }
+    }
+
+    public func updateImportCounts(_ counts: [(id: String, count: Int)]) throws {
+        guard !counts.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            for (id, count) in counts {
+                try dbc.execute(
+                    sql: "UPDATE external_dependencies SET import_count = ? WHERE id = ?",
+                    arguments: [count, id]
+                )
+            }
+        }
+    }
+
+    public func insertDiagnostics(_ records: [DiagnosticRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            for r in records { try r.insert(dbc) }
+        }
+    }
+
+    public func updateParseOk(fileIds: [String], parseOk: Bool) throws {
+        guard !fileIds.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            for start in stride(from: 0, to: fileIds.count, by: 500) {
+                let chunk = Array(fileIds[start..<min(start + 500, fileIds.count)])
+                let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+                var args: [DatabaseValueConvertible] = [parseOk]
+                args.append(contentsOf: chunk)
+                try dbc.execute(
+                    sql: "UPDATE files SET parse_ok = ? WHERE id IN (\(placeholders))",
+                    arguments: StatementArguments(args)
+                )
+            }
+        }
+    }
+
+    // MARK: Reads (stats)
+
+    /// The most recent run for a `(repo, commit?)`, preferring `succeeded`.
+    public func latestRun(commitHash: String?) throws -> AnalysisRunRecord? {
+        try db.dbQueue.read { dbc in
+            var request = AnalysisRunRecord.all()
+            if let commitHash { request = request.filter(Column("commit_hash") == commitHash) }
+            return try request
+                .order(
+                    SQL("CASE status WHEN 'succeeded' THEN 0 ELSE 1 END").sqlExpression,
+                    Column("started_at").desc
+                )
+                .fetchOne(dbc)
+        }
+    }
+
+    public func fileLanguageBreakdown(runId: String) throws -> [String: Int] {
+        try db.dbQueue.read { dbc in
+            let rows = try Row.fetchAll(
+                dbc,
+                sql: """
+                SELECT COALESCE(language, '(none)') AS lang, COUNT(*) AS n
+                FROM files WHERE run_id = ? GROUP BY lang
+                """,
+                arguments: [runId]
+            )
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0["lang"], $0["n"]) })
+        }
+    }
+
+    public func count(_ table: String, runId: String) throws -> Int {
+        try db.dbQueue.read { dbc in
+            try Int.fetchOne(
+                dbc, sql: "SELECT COUNT(*) FROM \(table) WHERE run_id = ?", arguments: [runId]
+            ) ?? 0
+        }
+    }
+
+    public func parseOkCount(runId: String) throws -> Int {
+        try db.dbQueue.read { dbc in
+            try Int.fetchOne(
+                dbc, sql: "SELECT COUNT(*) FROM files WHERE run_id = ? AND parse_ok = 1",
+                arguments: [runId]
+            ) ?? 0
+        }
+    }
+
+    // MARK: whole-run reads (export)
+
+    public func repository(id: String) throws -> RepositoryRecord? {
+        try db.dbQueue.read { try RepositoryRecord.filter(key: id).fetchOne($0) }
+    }
+
+    public func files(runId: String) throws -> [FileRecord] {
+        try db.dbQueue.read { dbc in
+            try FileRecord.filter(Column("run_id") == runId)
+                .order(Column("path")).fetchAll(dbc)
+        }
+    }
+
+    public func symbols(runId: String) throws -> [SymbolRecord] {
+        try db.dbQueue.read { dbc in
+            try SymbolRecord.filter(Column("run_id") == runId)
+                .order(Column("start_byte")).fetchAll(dbc)
+        }
+    }
+
+    public func relationships(runId: String) throws -> [RelationshipRecord] {
+        try db.dbQueue.read { dbc in
+            try RelationshipRecord.filter(Column("run_id") == runId)
+                .order(Column("id")).fetchAll(dbc)
+        }
+    }
+
+    public func externalDependencies(runId: String) throws -> [ExternalDependencyRecord] {
+        try db.dbQueue.read { dbc in
+            try ExternalDependencyRecord.filter(Column("run_id") == runId)
+                .order(Column("name")).fetchAll(dbc)
+        }
+    }
+
+    public func diagnostics(runId: String) throws -> [DiagnosticRecord] {
+        try db.dbQueue.read { dbc in
+            try DiagnosticRecord.filter(Column("run_id") == runId)
+                .order(Column("id")).fetchAll(dbc)
+        }
+    }
+}
