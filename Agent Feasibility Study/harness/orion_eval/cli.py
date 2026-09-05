@@ -272,6 +272,228 @@ def cmd_grade(args: argparse.Namespace) -> None:
             close()
 
 
+# ---------------------------------------------------------------- investigate (Phase 2)
+
+def _next_repeatability_dir(out_dir: Path) -> tuple[Path, int]:
+    """Docs/11 M6: each `investigate --repeatability` invocation is exactly ONE investigation
+    (never a loop over N) -- this just picks the next non-clobbering `runN` slot so repeated
+    manual invocations accumulate instead of overwriting each other. `runN` is 1-indexed and
+    based on what already exists on disk, not an in-memory counter, so it's safe across
+    separate process invocations run hours apart."""
+    base = out_dir / "repeatability"
+    base.mkdir(parents=True, exist_ok=True)
+    existing = sorted(
+        int(p.name[3:]) for p in base.glob("run*")
+        if p.is_dir() and p.name[3:].isdigit()
+    )
+    n = (existing[-1] + 1) if existing else 1
+    run_dir = base / f"run{n}"
+    run_dir.mkdir()
+    return run_dir, n
+
+
+def cmd_investigate(args: argparse.Namespace) -> None:
+    """Docs/11_phase2_semantic_analysis.md M1: one headless Claude Code CLI investigation
+    over a Code-Graph-exported repo, writing a candidate semantic_findings.json for
+    `orion-index ingest-semantic` (Swift) to validate and persist.
+
+    `--repeatability` (M6) redirects the three output files into an auto-numbered
+    `<out>/repeatability/runN/` slot instead of writing directly under `<out>/`, so this same
+    single-investigation command can be invoked several separate times -- by hand, one at a
+    time -- without each run clobbering the last. It never loops or runs more than one
+    investigation itself; `repeatability-report` is the separate command that reads back
+    however many `runN/` slots exist once you're done."""
+    from .semantic.investigate import READ_ONLY_TOOLS, ClaudeInvestigator
+
+    repo_root = Path(args.repo) if args.repo else VENDOR
+    out_dir = Path(args.out)
+    export_dir = out_dir / "export"
+    if not export_dir.is_dir():
+        raise SystemExit(
+            f"no {export_dir} -- run `swift run orion-index analyze {repo_root} "
+            f"--out {out_dir}` first"
+        )
+
+    investigator = ClaudeInvestigator(
+        repo_root=repo_root, export_dir=export_dir, model=args.model,
+        max_budget_usd=args.max_budget_usd, timeout_seconds=args.timeout,
+    )
+
+    if args.dry_run:
+        prompt = investigator.build_prompt()
+        print(prompt)
+        print(f"\ncommand: {investigator.build_command('<prompt above>')}")
+        return
+
+    write_dir = out_dir
+    run_label = None
+    if args.repeatability:
+        if args.write or args.raw_write or args.meta_write:
+            raise SystemExit("--repeatability picks its own filenames -- don't combine with --write/--raw-write/--meta-write")
+        write_dir, n = _next_repeatability_dir(out_dir)
+        run_label = f"run{n}"
+        print(f"repeatability {run_label} -> {write_dir}", flush=True)
+
+    print(
+        f"investigating {repo_root} (model={args.model}, "
+        f"budget=${args.max_budget_usd:.2f}, timeout={args.timeout}s) ...",
+        flush=True,
+    )
+    result = investigator.run()
+
+    raw_path = write_dir / (args.raw_write or "semantic_findings.raw.json")
+    raw_path.write_text(json.dumps(result.wrapper, indent=2, ensure_ascii=False) + "\n")
+
+    turns = result.num_turns if result.num_turns is not None else "?"
+    cost = f"${result.total_cost_usd:.4f}" if result.total_cost_usd is not None else "?"
+    duration = f"{result.duration_ms:.0f}ms" if result.duration_ms is not None else "?"
+    print(
+        f"outcome={result.outcome} ok={result.ok} extraction={result.extraction_method} "
+        f"turns={turns} cost={cost} duration={duration} session={result.session_id}"
+    )
+    if result.candidate_errors:
+        print("  candidate errors:")
+        for e in result.candidate_errors:
+            print(f"    - {e}")
+
+    # A small, Swift-owned shape (Docs/11 M2 `InvestigationMeta`) -- not the CLI's own
+    # `--output-format json` wrapper, which is internal and could change shape across
+    # versions. Written regardless of whether a candidate was extracted, so a rejected/
+    # incomplete attempt is still identifiable if `ingest-semantic --meta` is pointed at it.
+    meta_path = write_dir / (args.meta_write or "investigation_meta.json")
+    meta_path.write_text(json.dumps({
+        "model_used": result.model_used,
+        "session_id": result.session_id,
+        "num_turns": result.num_turns,
+        "total_cost_usd": result.total_cost_usd,
+        "duration_ms": result.duration_ms,
+        "tools_used": READ_ONLY_TOOLS.split(","),
+    }, indent=2, ensure_ascii=False) + "\n")
+
+    if result.candidate is not None:
+        cand_path = write_dir / (args.write or "semantic_findings.json")
+        cand_path.write_text(json.dumps(result.candidate, indent=2, ensure_ascii=False) + "\n")
+        print(f"  wrote candidate  -> {cand_path}")
+        if run_label is None:
+            print(
+                f"  next: swift run orion-index ingest-semantic {cand_path} "
+                f"--meta {meta_path} --out {out_dir}"
+            )
+        else:
+            print(f"  {run_label} done. Run again with --repeatability for the next one when ready,")
+            print(f"  or once all runs are in: python -m orion_eval.cli repeatability-report --out {out_dir}")
+    else:
+        print("  no candidate JSON extracted -- nothing written besides the raw wrapper/meta")
+    print(f"  wrote raw wrapper -> {raw_path}")
+    print(f"  wrote meta        -> {meta_path}")
+
+    if result.stderr_tail:
+        print(f"  stderr (tail): {result.stderr_tail}")
+
+
+def cmd_score_semantic(args: argparse.Namespace) -> None:
+    """Docs/11_phase2_semantic_analysis.md M5: score an exported semantic model
+    (components.jsonl + claims.jsonl) against a hand-authored gold component file."""
+    from .semantic.score import score
+
+    export_dir = Path(args.out) / "export"
+    if not export_dir.is_dir():
+        raise SystemExit(
+            f"no {export_dir} -- run `ingest-semantic --export` or `orion-index export` first"
+        )
+    report = score(Path(args.gold), export_dir, threshold=args.threshold)
+
+    print(
+        f"component alignment ({len(report.matches)} matched, "
+        f"{len(report.missed_gold)} missed, {len(report.spurious_predicted)} spurious):"
+    )
+    for m in sorted(report.matches, key=lambda m: -m.f1):
+        print(
+            f"  {m.gold_name!r:<32} <-> {m.predicted_name!r:<40} "
+            f"jaccard={m.jaccard:.2f} P={m.precision:.2f} R={m.recall:.2f} F1={m.f1:.2f}"
+        )
+    if report.missed_gold:
+        print(f"  missed (no predicted component matched):   {report.missed_gold}")
+    if report.spurious_predicted:
+        print(f"  spurious (no gold component matched):       {report.spurious_predicted}")
+    print(
+        f"macro precision={report.macro_precision:.3f} recall={report.macro_recall:.3f} "
+        f"f1={report.macro_f1:.3f}"
+    )
+
+    if report.evidence_accuracy is not None:
+        confirmed = report.evidenced_claim_count - report.contradicted_claim_count
+        print(
+            f"evidence accuracy: {report.evidence_accuracy:.3f} "
+            f"({confirmed}/{report.evidenced_claim_count} evidenced claims confirmed, "
+            f"{report.contradicted_claim_count} contradicted)"
+        )
+
+    if args.write:
+        Path(args.write).write_text(json.dumps(report.to_dict(), indent=2) + "\n")
+        print(f"wrote {args.write}")
+
+
+def cmd_repeatability_report(args: argparse.Namespace) -> None:
+    """Docs/11_phase2_semantic_analysis.md M6: read back whatever `investigate
+    --repeatability` runs exist under `<out>/repeatability/runN/` and report component-set
+    stability + cost/turn/duration variance across them. Runs no investigation itself."""
+    from .semantic.repeatability import build_report, discover_failed_runs, discover_runs
+
+    out_dir = Path(args.out)
+    run_dirs = discover_runs(out_dir)
+    failed = discover_failed_runs(out_dir)
+    if not run_dirs and not failed:
+        raise SystemExit(
+            f"no runs under {out_dir / 'repeatability'} -- "
+            f"run `investigate --repeatability --out {out_dir}` at least twice first"
+        )
+
+    if failed:
+        print(f"{len(failed)} failed run(s) (no candidate -- excluded from stability below):")
+        for run_dir, reason in failed:
+            print(f"  {run_dir.name:<6} {reason}")
+        print()
+
+    if not run_dirs:
+        print("no successful runs yet.")
+        return
+
+    report = build_report(out_dir, threshold=args.threshold)
+
+    print(f"{len(report.runs)} successful run(s) found:")
+    for r in report.runs:
+        turns = r.num_turns if r.num_turns is not None else "?"
+        cost = f"${r.total_cost_usd:.4f}" if r.total_cost_usd is not None else "?"
+        print(
+            f"  {r.label:<6} components={r.component_count:<3} "
+            f"relationships={r.relationship_count:<3} claims={r.evidenced_claim_count:<3} "
+            f"uncertainties={r.uncertainty_count:<3} turns={turns} cost={cost}"
+        )
+
+    if len(report.runs) < 2:
+        print("\nneed at least 2 runs to compute pairwise stability -- run --repeatability again")
+        return
+
+    print("\npairwise component-set stability (1.0 = identical decomposition):")
+    for p in report.pairs:
+        print(
+            f"  {p.run_a} <-> {p.run_b}   matched={p.matched} missed={p.missed} "
+            f"spurious={p.spurious} macro_f1={p.macro_f1:.3f}"
+        )
+    print(
+        f"\nmean_pairwise_f1={report.mean_pairwise_f1:.3f} "
+        f"(min={report.min_pairwise_f1:.3f} max={report.max_pairwise_f1:.3f})"
+    )
+    print(f"cost_usd:     {report.cost_usd}")
+    print(f"duration_ms:  {report.duration_ms}")
+    print(f"num_turns:    {report.num_turns}")
+
+    if args.write:
+        Path(args.write).write_text(json.dumps(report.to_dict(), indent=2) + "\n")
+        print(f"\nwrote {args.write}")
+
+
 # ---------------------------------------------------------------- leaderboard
 
 def cmd_report(args: argparse.Namespace) -> None:
@@ -330,6 +552,47 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--runs", nargs="*", help="results subdir names (default: all graded)")
     sp.add_argument("--out", default=None)
     sp.set_defaults(func=cmd_leaderboard)
+
+    sp = sub.add_parser(
+        "investigate",
+        help="run one Claude Code CLI semantic investigation over a Code Graph export (Phase 2)",
+    )
+    sp.add_argument("--out", required=True, help=".orion dir with export/ (from orion-index analyze --out)")
+    sp.add_argument("--repo", default=None, help="repo checkout to investigate (default: vendored Starlette)")
+    sp.add_argument("--model", default="claude-sonnet-5")
+    sp.add_argument("--max-budget-usd", type=float, default=2.00)
+    sp.add_argument("--timeout", type=int, default=900, help="wall-clock seconds")
+    sp.add_argument("--write", default=None, help="candidate filename under --out (default semantic_findings.json)")
+    sp.add_argument("--raw-write", default=None, help="raw wrapper filename under --out (default semantic_findings.raw.json)")
+    sp.add_argument("--meta-write", default=None, help="meta filename under --out (default investigation_meta.json)")
+    sp.add_argument("--dry-run", action="store_true", help="print the prompt/command, don't invoke claude")
+    sp.add_argument(
+        "--repeatability", action="store_true",
+        help="Docs/11 M6: write to an auto-numbered <out>/repeatability/runN/ instead of "
+             "directly under <out>/, so this command can be run several separate times (one "
+             "investigation each) without overwriting the previous run. Never runs more than "
+             "one investigation itself -- run it again by hand for the next N.",
+    )
+    sp.set_defaults(func=cmd_investigate)
+
+    sp = sub.add_parser(
+        "score-semantic",
+        help="score an exported semantic model against a gold component set (Phase 2 M5)",
+    )
+    sp.add_argument("--out", required=True, help=".orion dir with export/ (components.jsonl, claims.jsonl)")
+    sp.add_argument("--gold", required=True, help="path to a *.gold.json component file")
+    sp.add_argument("--threshold", type=float, default=0.3, help="Jaccard overlap needed to align a gold/predicted pair")
+    sp.add_argument("--write", default=None, help="write the full report as JSON to this path")
+    sp.set_defaults(func=cmd_score_semantic)
+
+    sp = sub.add_parser(
+        "repeatability-report",
+        help="compare however many `investigate --repeatability` runs exist so far (Phase 2 M6)",
+    )
+    sp.add_argument("--out", required=True, help=".orion dir with a repeatability/ subdir")
+    sp.add_argument("--threshold", type=float, default=0.3, help="Jaccard overlap needed to align a component pair")
+    sp.add_argument("--write", default=None, help="write the full report as JSON to this path")
+    sp.set_defaults(func=cmd_repeatability_report)
 
     sp = sub.add_parser("report", help="build the self-contained HTML answer-review page")
     sp.add_argument("--out", default=None, help="output path (default results/review.html)")

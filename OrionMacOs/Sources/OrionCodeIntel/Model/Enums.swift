@@ -59,3 +59,20 @@ public enum ConfidenceTier: String, Codable, Sendable, CaseIterable {
         }
     }
 }
+
+/// Outcome of one Claude Code investigation, recorded on `investigations.outcome`. Never
+/// present a `rejected`/`incomplete`/`unverified` investigation's findings as fact-tier —
+/// `Docs/06_claude_code_integration.md` §7.
+public enum InvestigationOutcome: String, Codable, Sendable, CaseIterable {
+    case verified
+    case partiallyVerified = "partially_verified"
+    case unverified
+    case incomplete
+    case rejected
+}
+
+/// A symbol's role within a component it is a member of (`component_members.role`).
+public enum ComponentMemberRole: String, Codable, Sendable, CaseIterable {
+    case core
+    case supporting
+}

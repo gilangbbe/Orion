@@ -149,6 +149,10 @@ public struct Store {
 
     // MARK: Reads (stats)
 
+    public func run(id: String) throws -> AnalysisRunRecord? {
+        try db.dbQueue.read { try AnalysisRunRecord.filter(key: id).fetchOne($0) }
+    }
+
     /// The most recent run for a `(repo, commit?)`, preferring `succeeded`.
     public func latestRun(commitHash: String?) throws -> AnalysisRunRecord? {
         try db.dbQueue.read { dbc in
@@ -214,6 +218,17 @@ public struct Store {
         }
     }
 
+    /// Look up one symbol by its exact benchmark-form anchor within a run — the join key
+    /// `SemanticImporter` uses to resolve Claude-cited evidence/member anchors
+    /// (`UNIQUE(run_id, anchor)`, so at most one match).
+    public func symbol(runId: String, anchor: String) throws -> SymbolRecord? {
+        try db.dbQueue.read { dbc in
+            try SymbolRecord
+                .filter(Column("run_id") == runId && Column("anchor") == anchor)
+                .fetchOne(dbc)
+        }
+    }
+
     public func relationships(runId: String) throws -> [RelationshipRecord] {
         try db.dbQueue.read { dbc in
             try RelationshipRecord.filter(Column("run_id") == runId)
@@ -232,6 +247,163 @@ public struct Store {
         try db.dbQueue.read { dbc in
             try DiagnosticRecord.filter(Column("run_id") == runId)
                 .order(Column("id")).fetchAll(dbc)
+        }
+    }
+
+    // MARK: Phase 2 — semantic writes (SemanticImporter steps 3-4)
+
+    public func insertInvestigation(_ record: InvestigationRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func insertComponents(_ records: [ComponentRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func insertComponentMembers(_ records: [ComponentMemberRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func insertComponentRelationships(_ records: [ComponentRelationshipRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func insertClaims(_ records: [ClaimRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func insertEvidence(_ records: [EvidenceRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func insertModelRevision(_ record: ModelRevisionRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func latestModelRevision(repositoryId: String) throws -> ModelRevisionRecord? {
+        try db.dbQueue.read { dbc in
+            try ModelRevisionRecord.filter(Column("repository_id") == repositoryId)
+                .order(Column("created_at").desc).fetchOne(dbc)
+        }
+    }
+
+    /// Backfill each symbol's single "primary" component membership (Phase 1 reserved this
+    /// column; `component_members` stays the many-to-many source of truth).
+    public func backfillComponentIds(_ assignments: [(symbolId: String, componentId: String)]) throws {
+        guard !assignments.isEmpty else { return }
+        try db.dbQueue.write { dbc in
+            for a in assignments {
+                try dbc.execute(
+                    sql: "UPDATE symbols SET component_id = ? WHERE id = ?",
+                    arguments: [a.componentId, a.symbolId]
+                )
+            }
+        }
+    }
+
+    /// Whether any Phase 1 relationship (any type, either direction) connects a symbol in
+    /// `idsA` to a symbol in `idsB` — the structural connectivity check
+    /// `SemanticImporter`'s consistency check (step 3) uses to confirm a claimed
+    /// component-to-component relationship against the actual Code Graph.
+    public func relationshipExists(runId: String, among idsA: [String], and idsB: [String]) throws -> Bool {
+        guard !idsA.isEmpty, !idsB.isEmpty else { return false }
+        return try db.dbQueue.read { dbc in
+            let phA = Array(repeating: "?", count: idsA.count).joined(separator: ",")
+            let phB = Array(repeating: "?", count: idsB.count).joined(separator: ",")
+            let sql = """
+            SELECT COUNT(*) FROM relationships
+            WHERE run_id = ?
+              AND ((source_symbol_id IN (\(phA)) AND target_symbol_id IN (\(phB)))
+                OR (source_symbol_id IN (\(phB)) AND target_symbol_id IN (\(phA))))
+            LIMIT 1
+            """
+            var args: [DatabaseValueConvertible] = [runId]
+            args.append(contentsOf: idsA)
+            args.append(contentsOf: idsB)
+            args.append(contentsOf: idsB)
+            args.append(contentsOf: idsA)
+            let count = try Int.fetchOne(dbc, sql: sql, arguments: StatementArguments(args)) ?? 0
+            return count > 0
+        }
+    }
+
+    // MARK: Phase 2 — semantic reads (SemanticExporter, M3)
+
+    public func investigations(runId: String) throws -> [InvestigationRecord] {
+        try db.dbQueue.read { dbc in
+            try InvestigationRecord.filter(Column("run_id") == runId)
+                .order(Column("created_at")).fetchAll(dbc)
+        }
+    }
+
+    /// The most recently-created investigation for a run — "the" current semantic model when
+    /// more than one investigation has been ingested over time (M6 repeatability runs).
+    public func latestInvestigation(runId: String) throws -> InvestigationRecord? {
+        try db.dbQueue.read { dbc in
+            try InvestigationRecord.filter(Column("run_id") == runId)
+                .order(Column("created_at").desc).fetchOne(dbc)
+        }
+    }
+
+    public func components(investigationId: String) throws -> [ComponentRecord] {
+        try db.dbQueue.read { dbc in
+            try ComponentRecord.filter(Column("investigation_id") == investigationId)
+                .order(Column("name")).fetchAll(dbc)
+        }
+    }
+
+    public func componentMembers(componentIds: [String]) throws -> [ComponentMemberRecord] {
+        guard !componentIds.isEmpty else { return [] }
+        return try db.dbQueue.read { dbc in
+            try ComponentMemberRecord.filter(componentIds.contains(Column("component_id")))
+                .fetchAll(dbc)
+        }
+    }
+
+    public func componentRelationships(investigationId: String) throws -> [ComponentRelationshipRecord] {
+        try db.dbQueue.read { dbc in
+            try ComponentRelationshipRecord.filter(Column("investigation_id") == investigationId)
+                .fetchAll(dbc)
+        }
+    }
+
+    public func claims(investigationId: String) throws -> [ClaimRecord] {
+        try db.dbQueue.read { dbc in
+            try ClaimRecord.filter(Column("investigation_id") == investigationId)
+                .fetchAll(dbc)
+        }
+    }
+
+    public func evidence(claimIds: [String]) throws -> [EvidenceRecord] {
+        guard !claimIds.isEmpty else { return [] }
+        return try db.dbQueue.read { dbc in
+            try EvidenceRecord.filter(claimIds.contains(Column("claim_id"))).fetchAll(dbc)
+        }
+    }
+
+    /// Whether any Phase 1 relationship connects two *different* symbols both within `ids` —
+    /// the proxy `SemanticImporter` uses to check a claim's evidence symbols actually relate to
+    /// each other, rather than being an arbitrary bag of citations (Docs/11 M2).
+    public func relationshipExistsAmongAnyPair(runId: String, symbolIds ids: [String]) throws -> Bool {
+        guard ids.count >= 2 else { return false }
+        return try db.dbQueue.read { dbc in
+            let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
+            let sql = """
+            SELECT COUNT(*) FROM relationships
+            WHERE run_id = ? AND source_symbol_id != target_symbol_id
+              AND source_symbol_id IN (\(placeholders)) AND target_symbol_id IN (\(placeholders))
+            LIMIT 1
+            """
+            var args: [DatabaseValueConvertible] = [runId]
+            args.append(contentsOf: ids)
+            args.append(contentsOf: ids)
+            let count = try Int.fetchOne(dbc, sql: sql, arguments: StatementArguments(args)) ?? 0
+            return count > 0
         }
     }
 }

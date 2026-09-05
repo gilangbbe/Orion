@@ -1,0 +1,240 @@
+{
+  "metadata": {
+    "repository": "starlette",
+    "commit_sha": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+    "authored": "2026-09-04",
+    "author": "hand-authored, Docs/11_phase2_semantic_analysis.md M5",
+    "granularity": "module + class + top-level function anchors only (no methods) -- score.py normalizes every anchor to its top-level defining symbol before comparing, so a predicted set citing methods is not penalized for going one level deeper than this file does",
+    "disclosure": "Authored with prior awareness of one specific Claude Code investigation's own component breakdown (inspected during M1/M2 development) -- not a fully blind gold set. Groupings below deliberately differ from that run's in several places (Data Structures split from Form Parsing; Concurrency Utilities split out separately) based on independent judgment, but this is a real limitation on how independent the M5 evaluation is. A blind re-author (or a second author) before drawing strong conclusions would strengthen this.",
+    "component_count": 11
+  },
+  "components": [
+    {
+      "name": "Application Assembly",
+      "description": "The top-level Starlette object users instantiate; owns configuration, the Router, middleware list, and exception handlers, and lazily builds the full ASGI middleware stack.",
+      "architectural_role": "core",
+      "member_anchors": [
+        "starlette/applications.py",
+        "starlette/applications.py::Starlette",
+        "starlette/types.py"
+      ]
+    },
+    {
+      "name": "Routing",
+      "description": "Matches an incoming ASGI scope to a handler. Router holds the route table and handles lifespan; Route/WebSocketRoute/Mount/Host implement a common matches/handle/url_path_for interface; compile_path + the Convertor classes turn '{name:type}' path segments into regexes.",
+      "architectural_role": "core",
+      "member_anchors": [
+        "starlette/routing.py",
+        "starlette/routing.py::Router",
+        "starlette/routing.py::BaseRoute",
+        "starlette/routing.py::Route",
+        "starlette/routing.py::WebSocketRoute",
+        "starlette/routing.py::Mount",
+        "starlette/routing.py::Host",
+        "starlette/routing.py::Match",
+        "starlette/routing.py::NoMatchFound",
+        "starlette/routing.py::compile_path",
+        "starlette/routing.py::replace_params",
+        "starlette/routing.py::get_name",
+        "starlette/routing.py::request_response",
+        "starlette/routing.py::websocket_session",
+        "starlette/routing.py::_DefaultLifespan",
+        "starlette/routing.py::_wrap_gen_lifespan_context",
+        "starlette/routing.py::_AsyncLiftContextManager",
+        "starlette/convertors.py",
+        "starlette/convertors.py::Convertor",
+        "starlette/convertors.py::StringConvertor",
+        "starlette/convertors.py::PathConvertor",
+        "starlette/convertors.py::IntegerConvertor",
+        "starlette/convertors.py::FloatConvertor",
+        "starlette/convertors.py::UUIDConvertor",
+        "starlette/convertors.py::register_url_convertor"
+      ]
+    },
+    {
+      "name": "HTTP & WebSocket Connections",
+      "description": "Read-side abstractions over one incoming ASGI connection: Request/HTTPConnection for http scopes, WebSocket for websocket scopes.",
+      "architectural_role": "core",
+      "member_anchors": [
+        "starlette/requests.py",
+        "starlette/requests.py::HTTPConnection",
+        "starlette/requests.py::Request",
+        "starlette/requests.py::ClientDisconnect",
+        "starlette/requests.py::cookie_parser",
+        "starlette/requests.py::empty_receive",
+        "starlette/requests.py::empty_send",
+        "starlette/websockets.py",
+        "starlette/websockets.py::WebSocket",
+        "starlette/websockets.py::WebSocketState",
+        "starlette/websockets.py::WebSocketDisconnect",
+        "starlette/websockets.py::WebSocketClose"
+      ]
+    },
+    {
+      "name": "Responses & Background Tasks",
+      "description": "The write side: Response and its concrete subclasses (HTML/plain-text/JSON/redirect/streaming/file), plus BackgroundTask(s) for post-response work.",
+      "architectural_role": "core",
+      "member_anchors": [
+        "starlette/responses.py",
+        "starlette/responses.py::Response",
+        "starlette/responses.py::HTMLResponse",
+        "starlette/responses.py::PlainTextResponse",
+        "starlette/responses.py::JSONResponse",
+        "starlette/responses.py::RedirectResponse",
+        "starlette/responses.py::StreamingResponse",
+        "starlette/responses.py::FileResponse",
+        "starlette/responses.py::MalformedRangeHeader",
+        "starlette/responses.py::RangeNotSatisfiable",
+        "starlette/background.py",
+        "starlette/background.py::BackgroundTask",
+        "starlette/background.py::BackgroundTasks"
+      ]
+    },
+    {
+      "name": "Middleware Stack",
+      "description": "The Middleware wrapper plus every concrete ASGI middleware shipped with Starlette (CORS, GZip, HTTPS redirect, trusted host, sessions, WSGI bridge, authentication, request-body limit) and the streaming-to-dispatch adapter BaseHTTPMiddleware.",
+      "architectural_role": "core",
+      "member_anchors": [
+        "starlette/middleware/__init__.py",
+        "starlette/middleware/__init__.py::Middleware",
+        "starlette/middleware/base.py",
+        "starlette/middleware/base.py::BaseHTTPMiddleware",
+        "starlette/middleware/base.py::_StreamingResponse",
+        "starlette/middleware/base.py::_CachedRequest",
+        "starlette/middleware/cors.py",
+        "starlette/middleware/cors.py::CORSMiddleware",
+        "starlette/middleware/gzip.py",
+        "starlette/middleware/gzip.py::GZipMiddleware",
+        "starlette/middleware/gzip.py::GZipResponder",
+        "starlette/middleware/gzip.py::IdentityResponder",
+        "starlette/middleware/httpsredirect.py",
+        "starlette/middleware/httpsredirect.py::HTTPSRedirectMiddleware",
+        "starlette/middleware/trustedhost.py",
+        "starlette/middleware/trustedhost.py::TrustedHostMiddleware",
+        "starlette/middleware/sessions.py",
+        "starlette/middleware/sessions.py::SessionMiddleware",
+        "starlette/middleware/sessions.py::Session",
+        "starlette/middleware/wsgi.py",
+        "starlette/middleware/wsgi.py::WSGIMiddleware",
+        "starlette/middleware/wsgi.py::WSGIResponder",
+        "starlette/middleware/wsgi.py::build_environ",
+        "starlette/middleware/authentication.py",
+        "starlette/middleware/authentication.py::AuthenticationMiddleware",
+        "starlette/middleware/body_limit.py",
+        "starlette/middleware/body_limit.py::RequestBodyLimitMiddleware",
+        "starlette/middleware/body_limit.py::RequestBodyLimitResponder"
+      ]
+    },
+    {
+      "name": "Error & Exception Handling",
+      "description": "Maps raised exceptions to responses at two levels: ServerErrorMiddleware (outermost, unhandled 500s) and ExceptionMiddleware (declared handlers), sharing the wrap_app_handling_exceptions machinery; HTTPException/WebSocketException are the exception vocabulary.",
+      "architectural_role": "core",
+      "member_anchors": [
+        "starlette/middleware/errors.py",
+        "starlette/middleware/errors.py::ServerErrorMiddleware",
+        "starlette/middleware/exceptions.py",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware",
+        "starlette/exceptions.py",
+        "starlette/exceptions.py::HTTPException",
+        "starlette/exceptions.py::WebSocketException",
+        "starlette/exceptions.py::StarletteDeprecationWarning",
+        "starlette/_exception_handler.py",
+        "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+        "starlette/_exception_handler.py::_lookup_exception_handler"
+      ]
+    },
+    {
+      "name": "Data Structures",
+      "description": "Immutable/mutable value types used throughout the request/response cycle: URL, Headers, QueryParams, the MultiDict family, FormData, UploadFile, State, Address, Secret.",
+      "architectural_role": "supporting",
+      "member_anchors": [
+        "starlette/datastructures.py",
+        "starlette/datastructures.py::URL",
+        "starlette/datastructures.py::URLPath",
+        "starlette/datastructures.py::Address",
+        "starlette/datastructures.py::Secret",
+        "starlette/datastructures.py::CommaSeparatedStrings",
+        "starlette/datastructures.py::ImmutableMultiDict",
+        "starlette/datastructures.py::MultiDict",
+        "starlette/datastructures.py::QueryParams",
+        "starlette/datastructures.py::UploadFile",
+        "starlette/datastructures.py::FormData",
+        "starlette/datastructures.py::Headers",
+        "starlette/datastructures.py::MutableHeaders",
+        "starlette/datastructures.py::State"
+      ]
+    },
+    {
+      "name": "Form & Multipart Parsing",
+      "description": "Streaming parsers that turn a request body into FormData: FormParser (urlencoded) and MultiPartParser (multipart/form-data).",
+      "architectural_role": "supporting",
+      "member_anchors": [
+        "starlette/formparsers.py",
+        "starlette/formparsers.py::FormParser",
+        "starlette/formparsers.py::MultiPartParser",
+        "starlette/formparsers.py::MultipartPart",
+        "starlette/formparsers.py::FormMessage",
+        "starlette/formparsers.py::MultiPartException"
+      ]
+    },
+    {
+      "name": "Endpoints, Static Files & Templating",
+      "description": "Optional higher-level building blocks for handlers: class-based HTTPEndpoint/WebSocketEndpoint, StaticFiles for serving a directory, Jinja2Templates for HTML rendering.",
+      "architectural_role": "supporting",
+      "member_anchors": [
+        "starlette/endpoints.py",
+        "starlette/endpoints.py::HTTPEndpoint",
+        "starlette/endpoints.py::WebSocketEndpoint",
+        "starlette/staticfiles.py",
+        "starlette/staticfiles.py::StaticFiles",
+        "starlette/staticfiles.py::NotModifiedResponse",
+        "starlette/templating.py",
+        "starlette/templating.py::Jinja2Templates",
+        "starlette/templating.py::_TemplateResponse"
+      ]
+    },
+    {
+      "name": "Async Concurrency Utilities",
+      "description": "Small internal helpers for bridging sync/async code and running iterables/callables off the event loop: run_in_threadpool, iterate_in_threadpool, is_async_callable, task-group helpers.",
+      "architectural_role": "supporting",
+      "member_anchors": [
+        "starlette/concurrency.py",
+        "starlette/concurrency.py::run_in_threadpool",
+        "starlette/concurrency.py::run_until_first_complete",
+        "starlette/concurrency.py::iterate_in_threadpool",
+        "starlette/_utils.py",
+        "starlette/_utils.py::is_async_callable",
+        "starlette/_utils.py::create_collapsing_task_group",
+        "starlette/_utils.py::get_route_path",
+        "starlette/_utils.py::AwaitableOrContextManager",
+        "starlette/_utils.py::SupportsAsyncClose"
+      ]
+    },
+    {
+      "name": "Optional Services",
+      "description": "Independent opt-in subsystems bundled with Starlette but not on the core request path: environment-based Config, the AuthenticationBackend/requires() authorization layer, OpenAPI SchemaGenerator, and the requests-based TestClient.",
+      "architectural_role": "supporting",
+      "member_anchors": [
+        "starlette/config.py",
+        "starlette/config.py::Config",
+        "starlette/config.py::Environ",
+        "starlette/config.py::EnvironError",
+        "starlette/authentication.py",
+        "starlette/authentication.py::AuthenticationBackend",
+        "starlette/authentication.py::AuthCredentials",
+        "starlette/authentication.py::BaseUser",
+        "starlette/authentication.py::SimpleUser",
+        "starlette/authentication.py::UnauthenticatedUser",
+        "starlette/authentication.py::requires",
+        "starlette/authentication.py::has_required_scope",
+        "starlette/schemas.py",
+        "starlette/schemas.py::SchemaGenerator",
+        "starlette/schemas.py::BaseSchemaGenerator",
+        "starlette/schemas.py::EndpointInfo",
+        "starlette/testclient.py",
+        "starlette/testclient.py::TestClient",
+        "starlette/testclient.py::WebSocketTestSession"
+      ]
+    }
+  ]
+}

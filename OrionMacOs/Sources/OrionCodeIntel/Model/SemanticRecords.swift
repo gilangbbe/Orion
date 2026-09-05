@@ -1,0 +1,133 @@
+import Foundation
+import GRDB
+
+/// Phase 2 persisted records (`v2_phase2_schema`). Written by `SemanticImporter` once a Claude
+/// Code candidate has passed schema + evidence validation — see
+/// `Docs/11_phase2_semantic_analysis.md` "Validation pipeline". Persistence lands in M2; these
+/// types exist from M0 so the schema is fully typed, not just SQL text.
+
+/// One Claude Code investigation over a `(repository, run)`. Always inserted, even when the
+/// outcome is `rejected` — a record of the attempt is itself useful (Docs/07 `Investigation`).
+public struct InvestigationRecord: OrionRecord {
+    public static let databaseTableName = "investigations"
+
+    public var id: String
+    public var repositoryId: String
+    public var commitHash: String
+    public var runId: String
+    public var question: String
+    public var complexity: String
+    public var schemaVersion: String?
+    public var modelUsed: String?
+    public var toolsUsed: [String]
+    public var sessionId: String?
+    public var numTurns: Int?
+    public var totalCostUsd: Double?
+    public var durationMs: Double?
+    public var outcome: String                // InvestigationOutcome
+    public var createdAt: String
+}
+
+/// A semantically-grouped component (Docs/04 §2 "Semantic knowledge"). `epistemicType` is
+/// always `INTERPRETATION` — components are never `FACT`.
+public struct ComponentRecord: OrionRecord {
+    public static let databaseTableName = "components"
+
+    public var id: String
+    public var repositoryId: String
+    public var commitHash: String
+    public var runId: String
+    public var investigationId: String
+    public var name: String
+    public var description: String?
+    public var architecturalRole: String?
+    public var confidence: Double
+    public var confidenceTier: String          // ConfidenceTier
+    public var status: String
+    public var epistemicType: String           // EpistemicType, always "INTERPRETATION"
+    public var provenance: String
+}
+
+/// Many-to-many symbol <-> component membership. `symbols.component_id` denormalizes each
+/// symbol's single highest-confidence membership for cheap joins; this table is the source of
+/// truth (a shared symbol can belong to more than one component).
+public struct ComponentMemberRecord: OrionRecord {
+    public static let databaseTableName = "component_members"
+
+    public var id: String
+    public var componentId: String
+    public var symbolId: String
+    public var confidence: Double
+    public var role: String                    // ComponentMemberRole
+}
+
+/// A component-to-component edge (e.g. "Middleware depends_on Routing"). Kept separate from
+/// the symbol-scoped `relationships` table so Phase 1's frozen schema/snapshot are untouched.
+public struct ComponentRelationshipRecord: OrionRecord {
+    public static let databaseTableName = "component_relationships"
+
+    public var id: String
+    public var repositoryId: String
+    public var commitHash: String
+    public var runId: String
+    public var investigationId: String
+    public var sourceComponentId: String
+    public var targetComponentId: String
+    public var relationshipType: String         // RelationshipType
+    public var confidence: Double
+    public var confidenceTier: String
+    public var provenance: String
+}
+
+/// A claim (Docs/04 §3 / Docs/07 `Claim`). `subjectRef`/`objectRef` are anchors or component
+/// names, not hard FKs — claims are interpretive and looser than the structural tables by
+/// design. `claimType` is `INTERPRETATION`|`INFERENCE`|`UNKNOWN` as asserted by Claude, or
+/// `CONTRADICTED` — a verdict the Swift-side consistency check assigns, never something Claude
+/// tags itself. `subjectRef` is the claim's first resolved evidence anchor when it has one (an
+/// `uncertainties[]`-derived claim has none, so it is nil there).
+public struct ClaimRecord: OrionRecord {
+    public static let databaseTableName = "claims"
+
+    public var id: String
+    public var repositoryId: String
+    public var commitHash: String
+    public var runId: String
+    public var investigationId: String
+    public var subjectRef: String?
+    public var predicate: String?
+    public var objectRef: String?
+    public var statement: String
+    public var claimType: String                // EpistemicType subset
+    public var confidence: Double
+    public var status: String
+    public var createdBy: String
+}
+
+/// Evidence for one claim (Docs/07 `Evidence`). `symbolId`/`startLine`/`endLine` are copied
+/// from the resolved symbol's own range at ingestion time — Claude cites an anchor, not a line
+/// range; the range comes from the Code Graph, not from Claude.
+public struct EvidenceRecord: OrionRecord {
+    public static let databaseTableName = "evidence"
+
+    public var id: String
+    public var claimId: String
+    public var fileId: String?
+    public var symbolId: String?
+    public var anchor: String
+    public var startLine: Int?
+    public var endLine: Int?
+    public var evidenceType: String
+}
+
+/// A coarse log entry of one semantic-layer update (Docs/07 `ModelRevision`). Phase 2 writes
+/// exactly one per successful ingestion; full diff/contradiction UX is Phase 6.
+public struct ModelRevisionRecord: OrionRecord {
+    public static let databaseTableName = "model_revisions"
+
+    public var id: String
+    public var repositoryId: String
+    public var previousRevision: String?
+    public var changeSummary: String
+    public var triggeringInvestigationId: String?
+    public var createdAt: String
+}

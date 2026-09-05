@@ -2,8 +2,9 @@ import Foundation
 import GRDB
 
 /// The Code Graph schema. One migration per schema change, never edited after commit.
-/// Phase 2 semantic tables (`components`, `claims`, `evidence`, …) arrive as later `v2_*`
-/// migrations — the `symbols.component_id` / `epistemic_type` columns already leave room.
+/// `v1_phase1_schema` is the deterministic Code Graph (Phase 1, frozen). `v2_phase2_schema`
+/// adds the semantic tables (`components`, `claims`, `evidence`, …) Phase 2 populates via
+/// `SemanticImporter` — additive only, so Phase 1's schema/snapshot are untouched.
 public enum OrionMigrations {
 
     public static func makeMigrator() -> DatabaseMigrator {
@@ -12,12 +13,19 @@ public enum OrionMigrations {
         migrator.eraseDatabaseOnSchemaChange = true
         #endif
         registerV1(&migrator)
+        registerV2(&migrator)
         return migrator
     }
 
     private static func registerV1(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v1_phase1_schema") { db in
             try db.execute(sql: Self.v1SQL)
+        }
+    }
+
+    private static func registerV2(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("v2_phase2_schema") { db in
+            try db.execute(sql: Self.v2SQL)
         }
     }
 
@@ -162,5 +170,126 @@ public enum OrionMigrations {
         end_col       INTEGER
     );
     CREATE INDEX idx_diag_scope ON diagnostics(run_id, stage, severity);
+    """
+
+    /// Phase 2 semantic tables. Additive only — no Phase 1 table is altered, so Phase 1's
+    /// golden snapshot and tests are unaffected. See
+    /// `Docs/11_phase2_semantic_analysis.md` "SQLite v2 schema". `knowledge_states` stays
+    /// reserved and unbuilt (Phase 7 — Teaching).
+    private static let v2SQL = """
+    CREATE TABLE investigations (
+        id                 TEXT PRIMARY KEY,
+        repository_id      TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        commit_hash        TEXT NOT NULL,
+        run_id             TEXT NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+        question           TEXT NOT NULL DEFAULT 'phase2_semantic_grouping',
+        complexity         TEXT NOT NULL DEFAULT 'high',
+        schema_version     TEXT,
+        model_used         TEXT,
+        tools_used         TEXT NOT NULL DEFAULT '[]',
+        session_id         TEXT,
+        num_turns          INTEGER,
+        total_cost_usd     REAL,
+        duration_ms        REAL,
+        outcome            TEXT NOT NULL DEFAULT 'unverified',
+        created_at         TEXT NOT NULL
+    );
+    CREATE INDEX idx_investigations_scope ON investigations(repository_id, commit_hash, run_id);
+
+    CREATE TABLE components (
+        id                  TEXT PRIMARY KEY,
+        repository_id       TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        commit_hash         TEXT NOT NULL,
+        run_id              TEXT NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+        investigation_id    TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+        name                TEXT NOT NULL,
+        description         TEXT,
+        architectural_role  TEXT,
+        confidence          REAL NOT NULL,
+        confidence_tier     TEXT NOT NULL,
+        status              TEXT NOT NULL DEFAULT 'active',
+        epistemic_type      TEXT NOT NULL DEFAULT 'INTERPRETATION',
+        provenance          TEXT NOT NULL DEFAULT 'claude_code',
+        -- Scoped to investigation, not run: M6 (Docs/11) runs multiple independent
+        -- investigations against the same analysis run to measure repeatability, and
+        -- Claude reusing a component name across separate investigations ("Middleware
+        -- Stack" in both) is expected, not a real duplicate -- a run_id-scoped UNIQUE
+        -- constraint blocked exactly that with a raw SQLite error. Within-one-investigation
+        -- duplicate names are still caught by SemanticImporter's own consistency check
+        -- (step 3, de-dup keeps the first occurrence) before a row is ever inserted here.
+        UNIQUE (investigation_id, name)
+    );
+    CREATE INDEX idx_components_scope ON components(repository_id, commit_hash, run_id);
+    CREATE INDEX idx_components_investigation ON components(investigation_id);
+
+    CREATE TABLE component_members (
+        id           TEXT PRIMARY KEY,
+        component_id TEXT NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+        symbol_id    TEXT NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+        confidence   REAL NOT NULL,
+        role         TEXT NOT NULL DEFAULT 'core',
+        UNIQUE (component_id, symbol_id)
+    );
+    CREATE INDEX idx_component_members_symbol ON component_members(symbol_id);
+
+    CREATE TABLE component_relationships (
+        id                   TEXT PRIMARY KEY,
+        repository_id        TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        commit_hash          TEXT NOT NULL,
+        run_id               TEXT NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+        investigation_id     TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+        source_component_id  TEXT NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+        target_component_id  TEXT NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+        relationship_type    TEXT NOT NULL,
+        confidence           REAL NOT NULL,
+        confidence_tier      TEXT NOT NULL,
+        provenance           TEXT NOT NULL DEFAULT 'claude_code',
+        UNIQUE (run_id, source_component_id, target_component_id, relationship_type)
+    );
+    CREATE INDEX idx_component_rel_scope ON component_relationships(repository_id, commit_hash, run_id);
+
+    CREATE TABLE claims (
+        id                TEXT PRIMARY KEY,
+        repository_id     TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        commit_hash       TEXT NOT NULL,
+        run_id            TEXT NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+        investigation_id  TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+        -- subject_ref/predicate/object_ref: nullable. Claude's actual candidate JSON
+        -- (Docs/11 SEMANTIC_SCHEMA) gives a claim as statement+evidence, not a structured
+        -- triple; SemanticImporter sets subject_ref to the claim's first resolved evidence
+        -- anchor when one exists (an uncertainties[]-derived claim has none).
+        subject_ref       TEXT,
+        predicate         TEXT,
+        object_ref        TEXT,
+        statement         TEXT NOT NULL,
+        claim_type        TEXT NOT NULL,
+        confidence        REAL NOT NULL,
+        status            TEXT NOT NULL DEFAULT 'active',
+        created_by        TEXT NOT NULL DEFAULT 'claude_code'
+    );
+    CREATE INDEX idx_claims_scope ON claims(repository_id, commit_hash, run_id);
+    CREATE INDEX idx_claims_investigation ON claims(investigation_id);
+
+    CREATE TABLE evidence (
+        id            TEXT PRIMARY KEY,
+        claim_id      TEXT NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
+        file_id       TEXT REFERENCES files(id) ON DELETE CASCADE,
+        symbol_id     TEXT REFERENCES symbols(id) ON DELETE CASCADE,
+        anchor        TEXT NOT NULL,
+        start_line    INTEGER,
+        end_line      INTEGER,
+        evidence_type TEXT NOT NULL DEFAULT 'source'
+    );
+    CREATE INDEX idx_evidence_claim ON evidence(claim_id);
+
+    CREATE TABLE model_revisions (
+        id                          TEXT PRIMARY KEY,
+        repository_id               TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        previous_revision           TEXT REFERENCES model_revisions(id) ON DELETE SET NULL,
+        change_summary              TEXT NOT NULL,
+        triggering_investigation_id TEXT REFERENCES investigations(id) ON DELETE CASCADE,
+        created_at                  TEXT NOT NULL
+    );
+    CREATE INDEX idx_model_revisions_repo ON model_revisions(repository_id, created_at);
     """
 }

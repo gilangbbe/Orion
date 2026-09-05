@@ -12,12 +12,6 @@ struct OrionIndex: ParsableCommand {
         export. No LLM is involved. See Docs/10_phase1_deterministic_code_intelligence.md.
         """,
         version: OrionCodeIntel.version,
-        subcommands: [Analyze.self, Stats.self, Export.self, Query.self]
+        subcommands: [Analyze.self, Stats.self, Export.self, Query.self, IngestSemantic.self]
     )
-}
-
-/// Thrown by not-yet-implemented subcommands so `--help` and wiring can be exercised in M0.
-struct NotImplemented: Error, CustomStringConvertible {
-    let milestone: String
-    var description: String { "not implemented yet (planned for \(milestone))" }
 }

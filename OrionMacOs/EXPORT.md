@@ -48,3 +48,38 @@ Phase 2's `build_structured_context(question, export_dir)` can therefore, for ea
 (`calls` / `extends` / `tested_by`) from `relationships.jsonl`, and prepend the relevant
 `modules[]` slice from `code_graph.json` — a structure-first context in place of whole-file
 concatenation. No harness file changes were made in Phase 1.
+
+## Semantic export (Phase 2, M3)
+
+Written by `ingest-semantic` (unless `--no-export`) and regenerable with `orion-index export`
+— the same command as above; it writes both layers when the run has a semantic ingestion,
+Phase-1-only files otherwise. See
+[../Docs/11_phase2_semantic_analysis.md](../Docs/11_phase2_semantic_analysis.md) for how these
+rows are produced (Claude Code CLI investigation → validation → consistency check).
+
+| file | one row / object per | key fields |
+|---|---|---|
+| `components.jsonl` | semantically-grouped component | `id`, `name`, `description`, `architectural_role`, `confidence`, `confidence_tier`, `epistemic_type`, `member_anchors[]` |
+| `claims.jsonl` | claim | `id`, `subject_ref`, `predicate`, `object_ref`, `statement`, `claim_type`, `confidence`, `evidence_ids[]` |
+| `evidence.jsonl` | evidence for one claim | `id`, `claim_id`, `anchor`, `range{start_line,end_line}`, `evidence_type` |
+| `investigations.jsonl` | one Claude Code investigation attempt (**full history for the run**, not just the latest) | `id`, `question`, `model_used`, `num_turns`, `total_cost_usd`, `duration_ms`, `outcome` |
+| `semantic_model.json` | the run's **latest** investigation (skeleton) | `investigation_id`, `components[]{name, architectural_role, member_count, confidence}`, `component_relationships[]{source, target, type, confidence_tier}` (by component **name**, not id), `uncertainty_count`, `contradiction_count` |
+
+Unlike the Phase 1 files above, semantic-export ids are **not** content-addressed — a
+component/claim/evidence/investigation row gets a random UUID, because re-ingesting the same
+run under a new investigation is expected to (and, across repeated Claude Code runs, likely
+will) produce a different set of findings. `investigations.jsonl` and `semantic_model.json`
+scope differently on purpose: the former is every attempt ever ingested for the run (an audit
+trail, like `diagnostics.jsonl`); the latter is "the" current semantic model, i.e. only the
+most recent investigation's components/relationships.
+
+`claim_type` values: `INTERPRETATION`, `INFERENCE`, `UNKNOWN` (Claude may assert any of these),
+plus `CONTRADICTED` — a verdict the Swift-side consistency check assigns when a claim's
+evidence symbols share no confirmable Phase 1 relationship; Claude never asserts it itself.
+`confidence`/`confidence_tier` on `components.jsonl`/`semantic_model.json` are likewise
+**derived** by the importer (how much of what Claude cited actually resolved/confirmed
+against the Code Graph), not self-reported by Claude — its structured-output contract has no
+per-component or per-relationship confidence field.
+
+No file here is written if the run has no investigation yet — `orion-index export` silently
+skips this section rather than erroring, and Phase 1's files are unaffected either way.

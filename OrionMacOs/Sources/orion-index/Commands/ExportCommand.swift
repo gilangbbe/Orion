@@ -34,8 +34,10 @@ struct Export: ParsableCommand {
         }
 
         let database = try OrionDatabase(path: dbPath)
-        let exportDir = try CodeGraphExporter(store: Store(database))
-            .export(to: outDir, commitHash: commit)
-        print("wrote \(exportDir.path)")
+        let store = Store(database)
+        let exportDir = try CodeGraphExporter(store: store).export(to: outDir, commitHash: commit)
+        let hasSemantic = try SemanticExporter(store: store).export(to: outDir, commitHash: commit) != nil
+
+        print("wrote \(exportDir.path)" + (hasSemantic ? " (+ semantic layer)" : ""))
     }
 }
