@@ -292,6 +292,30 @@ public struct Store {
         }
     }
 
+    // MARK: Phase 3 — agent writes
+
+    public func insertRoutingDecision(_ record: RoutingDecisionRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func routingDecisions(investigationId: String) throws -> [RoutingDecisionRecord] {
+        try db.dbQueue.read { dbc in
+            try RoutingDecisionRecord.filter(Column("investigation_id") == investigationId)
+                .order(Column("created_at")).fetchAll(dbc)
+        }
+    }
+
+    public func insertAgentToolCall(_ record: AgentToolCallRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func agentToolCalls(investigationId: String) throws -> [AgentToolCallRecord] {
+        try db.dbQueue.read { dbc in
+            try AgentToolCallRecord.filter(Column("investigation_id") == investigationId)
+                .order(Column("turn_index")).fetchAll(dbc)
+        }
+    }
+
     /// Backfill each symbol's single "primary" component membership (Phase 1 reserved this
     /// column; `component_members` stays the many-to-many source of truth).
     public func backfillComponentIds(_ assignments: [(symbolId: String, componentId: String)]) throws {

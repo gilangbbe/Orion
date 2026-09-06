@@ -5,6 +5,11 @@ import GRDB
 /// `v1_phase1_schema` is the deterministic Code Graph (Phase 1, frozen). `v2_phase2_schema`
 /// adds the semantic tables (`components`, `claims`, `evidence`, …) Phase 2 populates via
 /// `SemanticImporter` — additive only, so Phase 1's schema/snapshot are untouched.
+/// `v3_phase3_schema` adds the MLX Agent's own tables (`routing_decisions`, and later
+/// `agent_tool_calls` once Phase 3's M2 tool loop lands) — see
+/// `Docs/12_phase3_mlx_agent.md` "SQLite schema". These are agent-loop artifacts, not code-graph
+/// facts, but they live in this same migrator/Store because Phase 2 already established the
+/// precedent of one shared database rather than a second competing persistence stack.
 public enum OrionMigrations {
 
     public static func makeMigrator() -> DatabaseMigrator {
@@ -14,6 +19,7 @@ public enum OrionMigrations {
         #endif
         registerV1(&migrator)
         registerV2(&migrator)
+        registerV3(&migrator)
         return migrator
     }
 
@@ -26,6 +32,12 @@ public enum OrionMigrations {
     private static func registerV2(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v2_phase2_schema") { db in
             try db.execute(sql: Self.v2SQL)
+        }
+    }
+
+    private static func registerV3(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("v3_phase3_schema") { db in
+            try db.execute(sql: Self.v3SQL)
         }
     }
 
@@ -291,5 +303,34 @@ public enum OrionMigrations {
         created_at                  TEXT NOT NULL
     );
     CREATE INDEX idx_model_revisions_repo ON model_revisions(repository_id, created_at);
+    """
+
+    /// Phase 3 agent tables. Additive only — no Phase 1/2 table is altered. See
+    /// `Docs/12_phase3_mlx_agent.md` "SQLite schema". `routing_decisions` (M1) and
+    /// `agent_tool_calls` (M2) both amend this same pre-release migration directly rather than
+    /// adding a `v4`/`v5` — same precedent Phase 2's M2 set for amending an unshipped schema.
+    private static let v3SQL = """
+    CREATE TABLE routing_decisions (
+        id               TEXT PRIMARY KEY,
+        investigation_id TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+        depth_level      INTEGER NOT NULL,
+        method           TEXT NOT NULL,
+        confidence       TEXT NOT NULL,
+        rationale        TEXT NOT NULL,
+        created_at       TEXT NOT NULL
+    );
+    CREATE INDEX idx_routing_decisions_investigation ON routing_decisions(investigation_id);
+
+    CREATE TABLE agent_tool_calls (
+        id               TEXT PRIMARY KEY,
+        investigation_id TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+        turn_index       INTEGER NOT NULL,
+        tool_name        TEXT NOT NULL,
+        arguments        TEXT NOT NULL DEFAULT '{}',
+        result_summary   TEXT NOT NULL,
+        latency_ms       REAL,
+        created_at       TEXT NOT NULL
+    );
+    CREATE INDEX idx_agent_tool_calls_investigation ON agent_tool_calls(investigation_id, turn_index);
     """
 }

@@ -136,6 +136,10 @@ public struct SemanticConsistentOutcome: Sendable, Equatable {
 public struct SemanticIngestOutcome {
     public var investigation: InvestigationRecord
     public var consistent: SemanticConsistentOutcome
+    /// The candidate's free-form `answer` text -- only ever set by `ingestAnswer` (Phase 3);
+    /// `ingest()` (Phase 2, whole-repo component grouping) has no single natural-language
+    /// answer to report, so it stays `nil` there.
+    public var answer: String? = nil
 }
 
 public enum SemanticImportError: Error, CustomStringConvertible {
@@ -197,7 +201,15 @@ public struct SemanticImporter {
                 errors.append("component_relationships[\(i)] missing source/target")
             }
         }
-        for (i, cl) in findings.claims.enumerated() {
+        errors.append(contentsOf: validateClaimInputs(findings.claims))
+        return errors
+    }
+
+    /// Shared by `validateSchema` (Phase 2) and `validateAnswerSchema` (Phase 3) — the claim
+    /// shape is byte-for-byte identical in both schemas.
+    private func validateClaimInputs(_ claims: [SemanticClaimInput]) -> [String] {
+        var errors: [String] = []
+        for (i, cl) in claims.enumerated() {
             if cl.statement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 errors.append("claims[\(i)].statement is empty")
             }
@@ -205,6 +217,32 @@ public struct SemanticImporter {
                 errors.append("claims[\(i)].confidence '\(cl.confidence)' is not high|medium|low|unresolved")
             }
         }
+        return errors
+    }
+
+    /// Step 1 for an L3 answer (Docs/12 "Claude delegation (L3)") — narrower than
+    /// `validateSchema`: no components/component_relationships to check at all.
+    public func validateAnswerSchema(_ findings: AgentAnswerFindings) -> [String] {
+        var errors: [String] = []
+        if findings.schemaVersion != AgentAnswerSchema.currentVersion {
+            errors.append(
+                "schema_version '\(findings.schemaVersion)' != '\(AgentAnswerSchema.currentVersion)'"
+            )
+        }
+        // A length floor, not just non-empty -- found live (Docs/12 M5): a real `claude` CLI
+        // investigation occasionally returns a schema-conformant but degenerate placeholder
+        // answer (literally "test") despite dozens of real turns and real cost, and `minLength:
+        // 1` in `AgentAnswerSchema.cliJSONSchema()` doesn't stop the CLI from accepting its own
+        // output as valid. This is the only gate a locally-synthesized (depth 1/2) candidate
+        // passes through at all, since those never go through the CLI's own schema validator in
+        // the first place.
+        let trimmedAnswer = findings.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedAnswer.isEmpty {
+            errors.append("answer is empty")
+        } else if trimmedAnswer.count < 20 {
+            errors.append("answer is too short to be a real answer (\(trimmedAnswer.count) chars): \"\(trimmedAnswer)\"")
+        }
+        errors.append(contentsOf: validateClaimInputs(findings.claims))
         return errors
     }
 
@@ -260,9 +298,30 @@ public struct SemanticImporter {
             outcome.componentRelationships.append(rel)
         }
 
-        for claim in findings.claims {
+        let claimOutcome = try resolveClaimEvidence(
+            claims: findings.claims, uncertainties: findings.uncertainties, runId: runId
+        )
+        outcome.claims = claimOutcome.claims
+        outcome.droppedClaims = claimOutcome.droppedClaims
+        outcome.diagnostics.append(contentsOf: claimOutcome.diagnostics)
+
+        return outcome
+    }
+
+    /// Shared by `validateEvidence` (Phase 2, whole-repo) and `ingestAnswer` (Phase 3, one
+    /// question, no components at all) — the claim-evidence-resolution logic is identical
+    /// either way. Docs/12_phase3_mlx_agent.md "Claude delegation (L3)": "ingestion reuses
+    /// Phase 2's validation pipeline, not a rebuilt one."
+    private func resolveClaimEvidence(
+        claims: [SemanticClaimInput], uncertainties: [String], runId: String
+    ) throws -> (claims: [ValidatedClaim], droppedClaims: [String], diagnostics: [SemanticDiagnostic]) {
+        var validated: [ValidatedClaim] = []
+        var dropped: [String] = []
+        var diagnostics: [SemanticDiagnostic] = []
+
+        for claim in claims {
             var resolved: [ResolvedEvidence] = []
-            var dropped: [String] = []
+            var droppedAnchors: [String] = []
             for anchor in claim.evidence {
                 if let symbol = try store.symbol(runId: runId, anchor: anchor) {
                     resolved.append(ResolvedEvidence(
@@ -270,31 +329,31 @@ public struct SemanticImporter {
                         fileId: symbol.fileId, startLine: symbol.startLine, endLine: symbol.endLine
                     ))
                 } else {
-                    dropped.append(anchor)
-                    outcome.diagnostics.append(.anchorUnresolved(context: "claim", anchor: anchor))
+                    droppedAnchors.append(anchor)
+                    diagnostics.append(.anchorUnresolved(context: "claim", anchor: anchor))
                 }
             }
             guard !resolved.isEmpty else {
-                outcome.droppedClaims.append(claim.statement)
-                outcome.diagnostics.append(
+                dropped.append(claim.statement)
+                diagnostics.append(
                     .claimDropped(statement: claim.statement, reason: "no resolvable evidence")
                 )
                 continue
             }
-            outcome.claims.append(ValidatedClaim(
+            validated.append(ValidatedClaim(
                 claimType: claim.claimType, statement: claim.statement,
                 confidence: claim.confidence, evidence: resolved
             ))
         }
 
-        for text in findings.uncertainties {
-            outcome.claims.append(ValidatedClaim(
+        for text in uncertainties {
+            validated.append(ValidatedClaim(
                 claimType: .unknown, statement: text,
                 confidence: ConfidenceTier.unresolved.rawValue, evidence: []
             ))
         }
 
-        return outcome
+        return (validated, dropped, diagnostics)
     }
 
     // MARK: step 3 — consistency check
@@ -368,23 +427,37 @@ public struct SemanticImporter {
             ))
         }
 
-        for claim in validated.claims {
+        let claimResult = try checkClaimConsistency(validated.claims, runId: runId)
+        out.claims = claimResult.claims
+        out.diagnostics.append(contentsOf: claimResult.diagnostics)
+
+        return out
+    }
+
+    /// Shared by `applyConsistencyCheck` (Phase 2) and `ingestAnswer` (Phase 3) — same
+    /// structural-connectivity proxy either way (Docs/11 M2 risk #6: one level of
+    /// `parent_symbol_id` only, not a full ancestor walk).
+    private func checkClaimConsistency(
+        _ claims: [ValidatedClaim], runId: String
+    ) throws -> (claims: [ClaimToPersist], diagnostics: [SemanticDiagnostic]) {
+        var persisted: [ClaimToPersist] = []
+        var diagnostics: [SemanticDiagnostic] = []
+        for claim in claims {
             var claimType = claim.claimType.epistemicType
             if claim.evidence.count >= 2 {
                 let ids = Self.idsWithParents(claim.evidence)
                 let connected = try store.relationshipExistsAmongAnyPair(runId: runId, symbolIds: ids)
                 if !connected {
                     claimType = .contradicted
-                    out.diagnostics.append(.claimContradicted(statement: claim.statement))
+                    diagnostics.append(.claimContradicted(statement: claim.statement))
                 }
             }
-            out.claims.append(ClaimToPersist(
+            persisted.append(ClaimToPersist(
                 claimType: claimType, statement: claim.statement,
                 confidence: claim.confidence, evidence: claim.evidence
             ))
         }
-
-        return out
+        return (persisted, diagnostics)
     }
 
     /// Each resolved item's own symbol id plus its enclosing symbol's id, deduplicated — the
@@ -469,11 +542,12 @@ public struct SemanticImporter {
     @discardableResult
     private func persistInvestigation(
         run: AnalysisRunRecord, meta: InvestigationMeta?, schemaVersion: String?,
-        outcome: InvestigationOutcome, now: String
+        outcome: InvestigationOutcome, now: String,
+        question: String = "phase2_semantic_grouping", complexity: String = "high"
     ) throws -> InvestigationRecord {
         let record = InvestigationRecord(
             id: DeterministicID.newUUID(), repositoryId: run.repositoryId, commitHash: run.commitHash,
-            runId: run.id, question: "phase2_semantic_grouping", complexity: "high",
+            runId: run.id, question: question, complexity: complexity,
             schemaVersion: schemaVersion, modelUsed: meta?.modelUsed,
             toolsUsed: meta?.toolsUsed ?? [], sessionId: meta?.sessionId, numTurns: meta?.numTurns,
             totalCostUsd: meta?.totalCostUsd, durationMs: meta?.durationMs,
@@ -481,6 +555,33 @@ public struct SemanticImporter {
         )
         try store.insertInvestigation(record)
         return record
+    }
+
+    /// Shared by `persist` (Phase 2) and `ingestAnswer` (Phase 3) — building a `ClaimRecord` +
+    /// its `EvidenceRecord`s from a validated `ClaimToPersist` is identical either way.
+    private func buildClaimRecords(
+        _ claims: [ClaimToPersist], run: AnalysisRunRecord, investigationId: String,
+        createdBy: String = "claude_code"
+    ) -> (claims: [ClaimRecord], evidence: [EvidenceRecord]) {
+        var claimRecords: [ClaimRecord] = []
+        var evidenceRecords: [EvidenceRecord] = []
+        for c in claims {
+            let claimId = DeterministicID.newUUID()
+            let confidenceScore = ConfidenceTier(rawValue: c.confidence)?.score ?? ConfidenceTier.unresolved.score
+            claimRecords.append(ClaimRecord(
+                id: claimId, repositoryId: run.repositoryId, commitHash: run.commitHash, runId: run.id,
+                investigationId: investigationId, subjectRef: c.evidence.first?.anchor, predicate: nil,
+                objectRef: nil, statement: c.statement, claimType: c.claimType.rawValue,
+                confidence: confidenceScore, status: "active", createdBy: createdBy
+            ))
+            for e in c.evidence {
+                evidenceRecords.append(EvidenceRecord(
+                    id: DeterministicID.newUUID(), claimId: claimId, fileId: e.fileId, symbolId: e.symbolId,
+                    anchor: e.anchor, startLine: e.startLine, endLine: e.endLine, evidenceType: "source"
+                ))
+            }
+        }
+        return (claimRecords, evidenceRecords)
     }
 
     private func persist(
@@ -526,24 +627,9 @@ public struct SemanticImporter {
             ))
         }
 
-        var claimRecords: [ClaimRecord] = []
-        var evidenceRecords: [EvidenceRecord] = []
-        for c in consistent.claims {
-            let claimId = DeterministicID.newUUID()
-            let confidenceScore = ConfidenceTier(rawValue: c.confidence)?.score ?? ConfidenceTier.unresolved.score
-            claimRecords.append(ClaimRecord(
-                id: claimId, repositoryId: run.repositoryId, commitHash: run.commitHash, runId: run.id,
-                investigationId: investigation.id, subjectRef: c.evidence.first?.anchor, predicate: nil,
-                objectRef: nil, statement: c.statement, claimType: c.claimType.rawValue,
-                confidence: confidenceScore, status: "active", createdBy: "claude_code"
-            ))
-            for e in c.evidence {
-                evidenceRecords.append(EvidenceRecord(
-                    id: DeterministicID.newUUID(), claimId: claimId, fileId: e.fileId, symbolId: e.symbolId,
-                    anchor: e.anchor, startLine: e.startLine, endLine: e.endLine, evidenceType: "source"
-                ))
-            }
-        }
+        let (claimRecords, evidenceRecords) = buildClaimRecords(
+            consistent.claims, run: run, investigationId: investigation.id
+        )
 
         try store.insertComponents(componentRecords)
         try store.insertComponentMembers(memberRecords)
@@ -614,5 +700,97 @@ public struct SemanticImporter {
         try persist(consistent, run: run, investigation: investigation, now: now)
 
         return SemanticIngestOutcome(investigation: investigation, consistent: consistent)
+    }
+
+    /// L3 (Claude delegation) entry point — Docs/12_phase3_mlx_agent.md "Claude delegation
+    /// (L3)". Shares steps 2-4 with `ingest()` via the extracted helpers above; differs in
+    /// step 1's schema and in never touching `components`/`component_relationships` at all — an
+    /// L3 answer only ever adds `claims`/`evidence` against `question`'s own investigation, it
+    /// never mutates the component graph (see Docs/12 "What Phase 3 is not").
+    ///
+    /// Takes `candidateData` in-memory rather than a `candidateURL` like `ingest()` does: Phase
+    /// 2's Python CLI bridge and Swift ingester are two separate processes handed off via a
+    /// file; Phase 3's `ClaudeCodeInvestigator` and this importer run in the same Swift
+    /// process, so there is no cross-process boundary to write a temp file across.
+    public func ingestAnswer(
+        candidateData: Data, meta: InvestigationMeta?, question: String,
+        run: AnalysisRunRecord, now: String, complexity: String = "high",
+        createdBy: String = "claude_code"
+    ) throws -> SemanticIngestOutcome {
+        let findings: AgentAnswerFindings
+        do {
+            findings = try JSONDecoder().decode(AgentAnswerFindings.self, from: candidateData)
+        } catch {
+            let inv = try persistInvestigation(
+                run: run, meta: meta, schemaVersion: nil, outcome: .rejected, now: now,
+                question: question, complexity: complexity
+            )
+            throw SemanticImportError.decodeFailed(underlying: "\(error)", investigation: inv)
+        }
+
+        let schemaErrors = validateAnswerSchema(findings)
+        guard schemaErrors.isEmpty else {
+            let inv = try persistInvestigation(
+                run: run, meta: meta, schemaVersion: findings.schemaVersion, outcome: .rejected,
+                now: now, question: question, complexity: complexity
+            )
+            try store.insertDiagnostics(diagnosticRecords(
+                for: schemaErrors, code: "SCHEMA_INVALID", severity: "error",
+                run: run, investigationId: inv.id
+            ))
+            throw SemanticImportError.schemaInvalid(schemaErrors, investigation: inv)
+        }
+
+        let claimOutcome = try resolveClaimEvidence(
+            claims: findings.claims, uncertainties: findings.uncertainties, runId: run.id
+        )
+        let consistency = try checkClaimConsistency(claimOutcome.claims, runId: run.id)
+
+        var consistent = SemanticConsistentOutcome()
+        consistent.claims = consistency.claims
+        consistent.droppedClaims = claimOutcome.droppedClaims
+        consistent.diagnostics = claimOutcome.diagnostics + consistency.diagnostics
+
+        let outcome = classifyAnswerOutcome(consistent)
+        let investigation = try persistInvestigation(
+            run: run, meta: meta, schemaVersion: findings.schemaVersion, outcome: outcome,
+            now: now, question: question, complexity: complexity
+        )
+
+        let (claimRecords, evidenceRecords) = buildClaimRecords(
+            consistent.claims, run: run, investigationId: investigation.id, createdBy: createdBy
+        )
+        try store.insertClaims(claimRecords)
+        try store.insertEvidence(evidenceRecords)
+        try store.insertDiagnostics(diagnosticRecords(
+            for: consistent.diagnostics, run: run, investigationId: investigation.id
+        ))
+
+        if !claimRecords.isEmpty {
+            let previous = try store.latestModelRevision(repositoryId: run.repositoryId)
+            let revision = ModelRevisionRecord(
+                id: DeterministicID.newUUID(), repositoryId: run.repositoryId,
+                previousRevision: previous?.id,
+                changeSummary: "Ingested \(claimRecords.count) claims answering "
+                    + "investigation \(investigation.id).",
+                triggeringInvestigationId: investigation.id, createdAt: now
+            )
+            try store.insertModelRevision(revision)
+        }
+
+        return SemanticIngestOutcome(investigation: investigation, consistent: consistent, answer: findings.answer)
+    }
+
+    /// Component-free version of `classifyOutcome`. Unlike a whole-repo investigation, an
+    /// answer with *no* claims/uncertainties at all (a pure prose answer, nothing to
+    /// substantiate) is `.verified`, not `.unverified` — there was nothing to fail.
+    private func classifyAnswerOutcome(_ consistent: SemanticConsistentOutcome) -> InvestigationOutcome {
+        guard !consistent.claims.isEmpty || !consistent.droppedClaims.isEmpty else {
+            return .verified
+        }
+        guard !consistent.claims.isEmpty else { return .unverified }
+        let anyIssues = !consistent.droppedClaims.isEmpty
+            || consistent.claims.contains { $0.claimType == .contradicted }
+        return anyIssues ? .partiallyVerified : .verified
     }
 }

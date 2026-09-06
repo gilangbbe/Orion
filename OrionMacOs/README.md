@@ -29,6 +29,39 @@ swift run orion-index --help
   unavailable the pipeline still emits files, symbols, and syntactic import edges, and records
   a `SCIP_UNAVAILABLE` diagnostic.
 
+## OrionAgent (Phase 3) — first-run model download
+
+`Sources/OrionAgent/` and its `orion-agent ask` CLI (design:
+[`../Docs/12_phase3_mlx_agent.md`](../Docs/12_phase3_mlx_agent.md)) load a local
+`mlx-community/Qwen3-8B-4bit` checkpoint for depth 1/2 questions. **The first `ask` on a fresh
+machine downloads the real weights (~4.3GB) from the Hugging Face Hub** — `orion-agent` prints
+download progress to stderr while this happens (a silent multi-minute wait otherwise looks like
+a hung process, not a slow one); every run after that loads from the on-disk cache in seconds.
+
+That cache lives wherever `swift-huggingface`'s `HubClient` puts it — same resolution order the
+Python `huggingface_hub` library uses, so a cache is shareable between the two:
+
+1. `HF_HUB_CACHE` environment variable, if set.
+2. `HF_HOME` environment variable + `/hub`, if set.
+3. Otherwise `~/.cache/huggingface/hub` (confirmed on this machine: a real `orion-agent` run
+   landed the checkpoint at `~/.cache/huggingface/hub/models--mlx-community--Qwen3-8B-4bit`,
+   ~4.3GB on disk).
+
+Deleting that directory (or the one model's subdirectory within it) forces a re-download next
+run; nothing else in this repo depends on its contents.
+
+Building/running an MLX-touching binary (`orion-agent`, or any `OrionAgentTests` gated behind
+`ORION_AGENT_LIVE_MODEL_TEST=1`) needs `xcodebuild`, not plain `swift build`/`swift test` —
+`mlx-swift`'s Metal shaders are compiled as an Xcode build phase that plain SwiftPM's build
+system never runs, so a plain `swift build` links fine but fails at runtime with "Failed to load
+the default metallib" the moment a model actually loads:
+
+```sh
+xcodebuild -scheme orion-agent -destination 'platform=macOS' -derivedDataPath .build/xcodebuild \
+  -skipPackagePluginValidation -skipMacroValidation build
+.build/xcodebuild/Build/Products/Debug/orion-agent ask <repo> "<question>"
+```
+
 ## Status
 
 **Phase 1 complete — M0–M8, `swift test` (127) green.**

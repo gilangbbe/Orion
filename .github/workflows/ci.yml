@@ -22,10 +22,25 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Available Xcode versions (diagnostic -- Package.swift needs macOS 26 SDK support)
+        run: ls /Applications | grep -i xcode || true
+
       - name: Build
         run: swift build
 
-      # The Starlette integration tests XCTSkip when the (gitignored) vendored corpus
-      # and/or npx are absent, so CI exercises the ~100 unit tests.
+      # Network-free by construction, not just by convention (Docs/12_phase3_mlx_agent.md M6):
+      # the Starlette integration tests XCTSkip when the (gitignored) vendored corpus and/or
+      # npx are absent (never present on a fresh CI checkout), and every MLX-model/`claude`-CLI
+      # test in OrionAgentTests XCTSkips unless an explicit ORION_AGENT_LIVE_* env var is set
+      # (never set here). The --skip list below is defense in depth on top of that runtime
+      # gating, not a substitute for it -- if one of these tests' own guard were ever weakened
+      # or removed, CI still can't accidentally start a live model load or a paid `claude` call.
       - name: Test
-        run: swift test
+        run: |
+          swift test \
+            --skip ActionLoopLiveTests \
+            --skip FoundationModelsToolCallingLiveTests \
+            --skip ClaudeCodeInvestigatorLiveTests \
+            --skip Qwen3AgentTests \
+            --skip ModelBackedDepthClassifierLiveTests \
+            --skip Qwen3NonThinkingToolCallingLiveTests

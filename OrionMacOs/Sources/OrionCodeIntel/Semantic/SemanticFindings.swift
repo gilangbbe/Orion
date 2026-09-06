@@ -82,6 +82,23 @@ public struct InvestigationMeta: Decodable, Sendable {
     public var durationMs: Double?
     public var toolsUsed: [String]?
 
+    /// Explicit, since the auto-synthesized memberwise initializer for a `Decodable` struct is
+    /// only `internal` by default — invisible outside `OrionCodeIntel`. Needed by
+    /// `OrionAgent`'s `ClaudeCodeInvestigationResult.investigationMeta` (Phase 3 M3), which
+    /// builds one directly from a live CLI result rather than decoding it from Phase 2's
+    /// sidecar JSON file.
+    public init(
+        modelUsed: String? = nil, sessionId: String? = nil, numTurns: Int? = nil,
+        totalCostUsd: Double? = nil, durationMs: Double? = nil, toolsUsed: [String]? = nil
+    ) {
+        self.modelUsed = modelUsed
+        self.sessionId = sessionId
+        self.numTurns = numTurns
+        self.totalCostUsd = totalCostUsd
+        self.durationMs = durationMs
+        self.toolsUsed = toolsUsed
+    }
+
     enum CodingKeys: String, CodingKey {
         case modelUsed = "model_used"
         case sessionId = "session_id"

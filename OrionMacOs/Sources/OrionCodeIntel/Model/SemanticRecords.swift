@@ -8,7 +8,7 @@ import GRDB
 
 /// One Claude Code investigation over a `(repository, run)`. Always inserted, even when the
 /// outcome is `rejected` — a record of the attempt is itself useful (Docs/07 `Investigation`).
-public struct InvestigationRecord: OrionRecord {
+public struct InvestigationRecord: OrionRecord, Sendable {
     public static let databaseTableName = "investigations"
 
     public var id: String
@@ -26,6 +26,34 @@ public struct InvestigationRecord: OrionRecord {
     public var durationMs: Double?
     public var outcome: String                // InvestigationOutcome
     public var createdAt: String
+
+    /// Explicit, since the auto-synthesized memberwise initializer for a `Decodable`-conforming
+    /// struct is only `internal` by default — invisible outside `OrionCodeIntel`. Needed by
+    /// `OrionAgent`'s `AgentSession` (Phase 3 M4), which persists a bare investigation row
+    /// directly for an L3 timeout/error that never reaches `SemanticImporter.ingestAnswer`'s
+    /// own (in-module) construction of one.
+    public init(
+        id: String, repositoryId: String, commitHash: String, runId: String, question: String,
+        complexity: String, schemaVersion: String? = nil, modelUsed: String? = nil,
+        toolsUsed: [String] = [], sessionId: String? = nil, numTurns: Int? = nil,
+        totalCostUsd: Double? = nil, durationMs: Double? = nil, outcome: String, createdAt: String
+    ) {
+        self.id = id
+        self.repositoryId = repositoryId
+        self.commitHash = commitHash
+        self.runId = runId
+        self.question = question
+        self.complexity = complexity
+        self.schemaVersion = schemaVersion
+        self.modelUsed = modelUsed
+        self.toolsUsed = toolsUsed
+        self.sessionId = sessionId
+        self.numTurns = numTurns
+        self.totalCostUsd = totalCostUsd
+        self.durationMs = durationMs
+        self.outcome = outcome
+        self.createdAt = createdAt
+    }
 }
 
 /// A semantically-grouped component (Docs/04 §2 "Semantic knowledge"). `epistemicType` is
