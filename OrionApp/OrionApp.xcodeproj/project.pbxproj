@@ -1,0 +1,720 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02B8C269AB606A7917AB9099 /* ConfidenceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F581D75EB4C199D1CC251B9 /* ConfidenceBadge.swift */; };
+		0B449ED68136B089047FB002 /* SemanticInvestigationSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF47C3D3A3791E80930E81A9 /* SemanticInvestigationSessionTests.swift */; };
+		0DBBCC0DE2ED5552A52938ED /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A704943849A7044E8732D3 /* ContentView.swift */; };
+		105604708EDD9F47BF91758A /* ClaudeBinaryLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB57CBBC2EE8FE2CAB782F9E /* ClaudeBinaryLocator.swift */; };
+		1676CA483BA8498082E1E01F /* BuildArchitectureModelSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 166D27095250F231FD989ABE /* BuildArchitectureModelSheet.swift */; };
+		1AA17F740231CC2F4A9AEC8E /* AnalysisRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04EB5EB8D80D2647D1DD2E78 /* AnalysisRunner.swift */; };
+		299D28937BBB4912CD215C45 /* AnalysisProgressTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EB605A0701A3819EF74E80 /* AnalysisProgressTracker.swift */; };
+		2FF3F0C0E0A19442314A828D /* EvidenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215BB9238308E760BE1A5657 /* EvidenceView.swift */; };
+		355B39092ACB296A1D45FD98 /* SemanticInvestigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9357B8EDC92320C5AFF2EAF8 /* SemanticInvestigator.swift */; };
+		3A85356F2A3AB04311375E27 /* SemanticInvestigationRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D70C16267105351054B0284 /* SemanticInvestigationRunner.swift */; };
+		44A652E5241DF3BAF18E95DA /* AskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10485303531361ADD51C1C56 /* AskView.swift */; };
+		4738317F48F02EA2B81D16ED /* AppPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69137106786DDCB5ABAE9EBC /* AppPaths.swift */; };
+		4858AF4702B25871C5FDB15A /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = 8B11A55D0C309FA1C2987798 /* Grape */; };
+		4DEC3A70EA99C207619B4B7A /* RecentRepositoriesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 936E7B2551979768731E36E4 /* RecentRepositoriesTests.swift */; };
+		57CFEF8EA22A6CDC96139D02 /* RepositorySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C434D70663329C76E90E5CA5 /* RepositorySession.swift */; };
+		5C74873DBB3A8AB534FDB645 /* ComponentDetailLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF93E96D5825BFD83DC5AFDA /* ComponentDetailLoaderTests.swift */; };
+		61E7E605819B66A35D23FAF4 /* ComponentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = D926CBC2778E0DF2DD847C69 /* ComponentDetail.swift */; };
+		65857998B12DBC55778BE315 /* ArchitectureModelLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2A06F83CB36C04CFA9F66 /* ArchitectureModelLoaderTests.swift */; };
+		682676BB556C9183B7B126B8 /* ComponentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A9004FB528C7E997F4450E /* ComponentDetailView.swift */; };
+		691AA93B3B9F958F1976CDC0 /* ClaudeBinaryLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D1294ECBD2DE9547E8444C /* ClaudeBinaryLocatorTests.swift */; };
+		6977D212F3A73C51C95B2228 /* OrionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F653CFBCC56FBACEA865D6 /* OrionApp.swift */; };
+		700973EFC8B33A3A885CCA94 /* OrionCodeIntel in Frameworks */ = {isa = PBXBuildFile; productRef = 5E0366F62E91C79D09AEB216 /* OrionCodeIntel */; };
+		729FEB0AED3A6EB2A2219F8B /* EpistemicTagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A177C9F4DA981AC25BA6C085 /* EpistemicTagTests.swift */; };
+		7A13DDE7E5F6314A7BC6AECA /* EvidenceSourceLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B4E2DBE881104A54EF6E8 /* EvidenceSourceLoaderTests.swift */; };
+		7FF68F210ED7C06E72AA4AAD /* AskRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88B788B511B8397652B7FA83 /* AskRunner.swift */; };
+		82D3A924B94E7C2890A0D231 /* ArchitectureModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A877FC8E43EA84C0E44565 /* ArchitectureModel.swift */; };
+		891ACB996ED0EF8A458F2C53 /* EpistemicBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2FDE984243942001D666B5 /* EpistemicBadge.swift */; };
+		8B79024908C59CF2A72AD20C /* AnalysisProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0792BB8FF1F869A1EEBD26F /* AnalysisProgressView.swift */; };
+		8CA65DC7C3853AA787D2F192 /* OpenRepositoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB502A462EEA4DD9001231E /* OpenRepositoryView.swift */; };
+		9847C874076A1C5B10E38D51 /* RepositoryClonerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAFF262945894FA88BBC28D /* RepositoryClonerTests.swift */; };
+		9B472F8D51E736B4212A4646 /* AnalysisRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD05896B2D5A99D1B814F0F0 /* AnalysisRunnerTests.swift */; };
+		9C7226646F37B53613886BAB /* EpistemicTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D34413DE76A0BC6670D83DC /* EpistemicTag.swift */; };
+		9D88E1E3B279DCC40E124082 /* ArchitectureOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FE43027AAE7708E1B676E96 /* ArchitectureOverviewView.swift */; };
+		A06AD265EFC4DE9B870C39C9 /* RecentRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EB7A66051C05ADFB1458EB /* RecentRepositories.swift */; };
+		A139CC7DA7D906144BAD1295 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F8A5A891D19187DE712BDFC2 /* Assets.xcassets */; };
+		AB83F64E7D0F0216410E3348 /* AppPathsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD77C5E379EB7BA2AE811BE0 /* AppPathsTests.swift */; };
+		AC3CFE2F25790D81AB8D89AC /* SemanticInvestigationRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 778C2FB4908974B952193368 /* SemanticInvestigationRunnerTests.swift */; };
+		B96386D80DFB2C6B1FAD002B /* OrionAgent in Frameworks */ = {isa = PBXBuildFile; productRef = B491120E9B7E460D1FB7E851 /* OrionAgent */; };
+		C580CC98E02DC8677BF9E21A /* RepositorySessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574FC06FC326865EC42C15DA /* RepositorySessionTests.swift */; };
+		E34C968EEA923E86FD7740F2 /* AnalysisProgressTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B47652A1A65DB5D56F1678C /* AnalysisProgressTrackerTests.swift */; };
+		E85570295B34C5C937F77501 /* CodebaseModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50959C1B5267FAFE7B816395 /* CodebaseModelStore.swift */; };
+		E8EA4533663E5EC8E4A93A53 /* SemanticInvestigatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B321767377BA15BF30993A34 /* SemanticInvestigatorTests.swift */; };
+		EFEAED7DC044D3C73FAFC9F7 /* RepositoryCloner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F439C68520D945A2417478D /* RepositoryCloner.swift */; };
+		F207E84F81F3D750E8E63754 /* EvidenceSnippet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10CB020ABA3E58204C690ADD /* EvidenceSnippet.swift */; };
+		F3D2DDD17CC8BA7F4BBB3602 /* AskRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836CAD26D97ACA9EFA67F40B /* AskRunnerTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		67627959F87072104997B8FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 220A057A9C8D48E778F97846 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18F7AC9187D50B74DEBBD5DF;
+			remoteInfo = Orion;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		04EB5EB8D80D2647D1DD2E78 /* AnalysisRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisRunner.swift; sourceTree = "<group>"; };
+		096A1AB2CFAAD75E26532896 /* Orion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Orion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0D70C16267105351054B0284 /* SemanticInvestigationRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticInvestigationRunner.swift; sourceTree = "<group>"; };
+		0F439C68520D945A2417478D /* RepositoryCloner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryCloner.swift; sourceTree = "<group>"; };
+		10485303531361ADD51C1C56 /* AskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskView.swift; sourceTree = "<group>"; };
+		10CB020ABA3E58204C690ADD /* EvidenceSnippet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceSnippet.swift; sourceTree = "<group>"; };
+		166D27095250F231FD989ABE /* BuildArchitectureModelSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildArchitectureModelSheet.swift; sourceTree = "<group>"; };
+		215BB9238308E760BE1A5657 /* EvidenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceView.swift; sourceTree = "<group>"; };
+		28BB88A916BF5C8DE06C1DE1 /* OrionAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OrionAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B47652A1A65DB5D56F1678C /* AnalysisProgressTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisProgressTrackerTests.swift; sourceTree = "<group>"; };
+		419B4E2DBE881104A54EF6E8 /* EvidenceSourceLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceSourceLoaderTests.swift; sourceTree = "<group>"; };
+		4D34413DE76A0BC6670D83DC /* EpistemicTag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemicTag.swift; sourceTree = "<group>"; };
+		4FE43027AAE7708E1B676E96 /* ArchitectureOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureOverviewView.swift; sourceTree = "<group>"; };
+		50959C1B5267FAFE7B816395 /* CodebaseModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodebaseModelStore.swift; sourceTree = "<group>"; };
+		54EB7A66051C05ADFB1458EB /* RecentRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentRepositories.swift; sourceTree = "<group>"; };
+		574FC06FC326865EC42C15DA /* RepositorySessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositorySessionTests.swift; sourceTree = "<group>"; };
+		5C2FDE984243942001D666B5 /* EpistemicBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemicBadge.swift; sourceTree = "<group>"; };
+		5FB502A462EEA4DD9001231E /* OpenRepositoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenRepositoryView.swift; sourceTree = "<group>"; };
+		69137106786DDCB5ABAE9EBC /* AppPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPaths.swift; sourceTree = "<group>"; };
+		6F581D75EB4C199D1CC251B9 /* ConfidenceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceBadge.swift; sourceTree = "<group>"; };
+		778C2FB4908974B952193368 /* SemanticInvestigationRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticInvestigationRunnerTests.swift; sourceTree = "<group>"; };
+		836CAD26D97ACA9EFA67F40B /* AskRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskRunnerTests.swift; sourceTree = "<group>"; };
+		88B788B511B8397652B7FA83 /* AskRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskRunner.swift; sourceTree = "<group>"; };
+		89D1294ECBD2DE9547E8444C /* ClaudeBinaryLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeBinaryLocatorTests.swift; sourceTree = "<group>"; };
+		8CE2A06F83CB36C04CFA9F66 /* ArchitectureModelLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureModelLoaderTests.swift; sourceTree = "<group>"; };
+		9357B8EDC92320C5AFF2EAF8 /* SemanticInvestigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticInvestigator.swift; sourceTree = "<group>"; };
+		936E7B2551979768731E36E4 /* RecentRepositoriesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentRepositoriesTests.swift; sourceTree = "<group>"; };
+		99F653CFBCC56FBACEA865D6 /* OrionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrionApp.swift; sourceTree = "<group>"; };
+		A177C9F4DA981AC25BA6C085 /* EpistemicTagTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemicTagTests.swift; sourceTree = "<group>"; };
+		A1EB605A0701A3819EF74E80 /* AnalysisProgressTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisProgressTracker.swift; sourceTree = "<group>"; };
+		B321767377BA15BF30993A34 /* SemanticInvestigatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticInvestigatorTests.swift; sourceTree = "<group>"; };
+		BD77C5E379EB7BA2AE811BE0 /* AppPathsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPathsTests.swift; sourceTree = "<group>"; };
+		BEAFF262945894FA88BBC28D /* RepositoryClonerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryClonerTests.swift; sourceTree = "<group>"; };
+		C434D70663329C76E90E5CA5 /* RepositorySession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositorySession.swift; sourceTree = "<group>"; };
+		CD05896B2D5A99D1B814F0F0 /* AnalysisRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisRunnerTests.swift; sourceTree = "<group>"; };
+		CF47C3D3A3791E80930E81A9 /* SemanticInvestigationSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticInvestigationSessionTests.swift; sourceTree = "<group>"; };
+		D1A9004FB528C7E997F4450E /* ComponentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetailView.swift; sourceTree = "<group>"; };
+		D2A877FC8E43EA84C0E44565 /* ArchitectureModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureModel.swift; sourceTree = "<group>"; };
+		D926CBC2778E0DF2DD847C69 /* ComponentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetail.swift; sourceTree = "<group>"; };
+		DB57CBBC2EE8FE2CAB782F9E /* ClaudeBinaryLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeBinaryLocator.swift; sourceTree = "<group>"; };
+		E0792BB8FF1F869A1EEBD26F /* AnalysisProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisProgressView.swift; sourceTree = "<group>"; };
+		EF93E96D5825BFD83DC5AFDA /* ComponentDetailLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetailLoaderTests.swift; sourceTree = "<group>"; };
+		F3DD2E5F39F0699C96E0A396 /* OrionMacOs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OrionMacOs; path = ../OrionMacOs; sourceTree = SOURCE_ROOT; };
+		F5A704943849A7044E8732D3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F8A5A891D19187DE712BDFC2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5FA7E66C6A88C248B713D838 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				700973EFC8B33A3A885CCA94 /* OrionCodeIntel in Frameworks */,
+				B96386D80DFB2C6B1FAD002B /* OrionAgent in Frameworks */,
+				4858AF4702B25871C5FDB15A /* Grape in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		13F36B805142E3ED329BBE4C /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6F581D75EB4C199D1CC251B9 /* ConfidenceBadge.swift */,
+				5C2FDE984243942001D666B5 /* EpistemicBadge.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		2BB52C0A6D449464C7BAA815 /* OrionAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				2B47652A1A65DB5D56F1678C /* AnalysisProgressTrackerTests.swift */,
+				CD05896B2D5A99D1B814F0F0 /* AnalysisRunnerTests.swift */,
+				BD77C5E379EB7BA2AE811BE0 /* AppPathsTests.swift */,
+				8CE2A06F83CB36C04CFA9F66 /* ArchitectureModelLoaderTests.swift */,
+				836CAD26D97ACA9EFA67F40B /* AskRunnerTests.swift */,
+				89D1294ECBD2DE9547E8444C /* ClaudeBinaryLocatorTests.swift */,
+				EF93E96D5825BFD83DC5AFDA /* ComponentDetailLoaderTests.swift */,
+				A177C9F4DA981AC25BA6C085 /* EpistemicTagTests.swift */,
+				419B4E2DBE881104A54EF6E8 /* EvidenceSourceLoaderTests.swift */,
+				936E7B2551979768731E36E4 /* RecentRepositoriesTests.swift */,
+				BEAFF262945894FA88BBC28D /* RepositoryClonerTests.swift */,
+				574FC06FC326865EC42C15DA /* RepositorySessionTests.swift */,
+				778C2FB4908974B952193368 /* SemanticInvestigationRunnerTests.swift */,
+				CF47C3D3A3791E80930E81A9 /* SemanticInvestigationSessionTests.swift */,
+				B321767377BA15BF30993A34 /* SemanticInvestigatorTests.swift */,
+			);
+			path = OrionAppTests;
+			sourceTree = "<group>";
+		};
+		3BCC22D546D148C0E421499B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				096A1AB2CFAAD75E26532896 /* Orion.app */,
+				28BB88A916BF5C8DE06C1DE1 /* OrionAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		3D459DEDFFCCC2A372B575D1 /* Ingestion */ = {
+			isa = PBXGroup;
+			children = (
+				A1EB605A0701A3819EF74E80 /* AnalysisProgressTracker.swift */,
+				04EB5EB8D80D2647D1DD2E78 /* AnalysisRunner.swift */,
+				88B788B511B8397652B7FA83 /* AskRunner.swift */,
+				DB57CBBC2EE8FE2CAB782F9E /* ClaudeBinaryLocator.swift */,
+				0D70C16267105351054B0284 /* SemanticInvestigationRunner.swift */,
+				9357B8EDC92320C5AFF2EAF8 /* SemanticInvestigator.swift */,
+			);
+			path = Ingestion;
+			sourceTree = "<group>";
+		};
+		40AAFCDE3878D9B414E931A5 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				69137106786DDCB5ABAE9EBC /* AppPaths.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		5251D6C88C5A87ED6A972EF4 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				D2A877FC8E43EA84C0E44565 /* ArchitectureModel.swift */,
+				50959C1B5267FAFE7B816395 /* CodebaseModelStore.swift */,
+				D926CBC2778E0DF2DD847C69 /* ComponentDetail.swift */,
+				4D34413DE76A0BC6670D83DC /* EpistemicTag.swift */,
+				10CB020ABA3E58204C690ADD /* EvidenceSnippet.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		6E07E0C622125DC8A27E4A62 = {
+			isa = PBXGroup;
+			children = (
+				F08D6B9CDBB25C0FC146F237 /* Orion */,
+				8D2E3E2A074A6CB864B69488 /* Packages */,
+				9608008A6DB93170928CA530 /* Tests */,
+				3BCC22D546D148C0E421499B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8BF1FEB9C6CDC27C6B5F3F58 /* Repository */ = {
+			isa = PBXGroup;
+			children = (
+				54EB7A66051C05ADFB1458EB /* RecentRepositories.swift */,
+				0F439C68520D945A2417478D /* RepositoryCloner.swift */,
+				C434D70663329C76E90E5CA5 /* RepositorySession.swift */,
+			);
+			path = Repository;
+			sourceTree = "<group>";
+		};
+		8D2E3E2A074A6CB864B69488 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				F3DD2E5F39F0699C96E0A396 /* OrionMacOs */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		9608008A6DB93170928CA530 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				2BB52C0A6D449464C7BAA815 /* OrionAppTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		B85A0DAFC4E628535CE74DD0 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				E0792BB8FF1F869A1EEBD26F /* AnalysisProgressView.swift */,
+				4FE43027AAE7708E1B676E96 /* ArchitectureOverviewView.swift */,
+				10485303531361ADD51C1C56 /* AskView.swift */,
+				166D27095250F231FD989ABE /* BuildArchitectureModelSheet.swift */,
+				D1A9004FB528C7E997F4450E /* ComponentDetailView.swift */,
+				215BB9238308E760BE1A5657 /* EvidenceView.swift */,
+				5FB502A462EEA4DD9001231E /* OpenRepositoryView.swift */,
+				13F36B805142E3ED329BBE4C /* Shared */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		F08D6B9CDBB25C0FC146F237 /* Orion */ = {
+			isa = PBXGroup;
+			children = (
+				F8A5A891D19187DE712BDFC2 /* Assets.xcassets */,
+				F5A704943849A7044E8732D3 /* ContentView.swift */,
+				99F653CFBCC56FBACEA865D6 /* OrionApp.swift */,
+				3D459DEDFFCCC2A372B575D1 /* Ingestion */,
+				5251D6C88C5A87ED6A972EF4 /* Model */,
+				8BF1FEB9C6CDC27C6B5F3F58 /* Repository */,
+				40AAFCDE3878D9B414E931A5 /* Support */,
+				B85A0DAFC4E628535CE74DD0 /* Views */,
+			);
+			path = Orion;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		18F7AC9187D50B74DEBBD5DF /* Orion */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8445479269BACCFA413B7E49 /* Build configuration list for PBXNativeTarget "Orion" */;
+			buildPhases = (
+				38D1931C2D9DD5D6659463F7 /* Sources */,
+				E834A951764531F814D58F88 /* Resources */,
+				5FA7E66C6A88C248B713D838 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Orion;
+			packageProductDependencies = (
+				5E0366F62E91C79D09AEB216 /* OrionCodeIntel */,
+				B491120E9B7E460D1FB7E851 /* OrionAgent */,
+				8B11A55D0C309FA1C2987798 /* Grape */,
+			);
+			productName = Orion;
+			productReference = 096A1AB2CFAAD75E26532896 /* Orion.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C7A8A055CE2148EE4D0F60D5 /* OrionAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEE0FF60B9971A6944F4501B /* Build configuration list for PBXNativeTarget "OrionAppTests" */;
+			buildPhases = (
+				AF433B7C615C00EFE953B5E7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0CDB8117E490F73D9B116528 /* PBXTargetDependency */,
+			);
+			name = OrionAppTests;
+			packageProductDependencies = (
+			);
+			productName = OrionAppTests;
+			productReference = 28BB88A916BF5C8DE06C1DE1 /* OrionAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		220A057A9C8D48E778F97846 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					18F7AC9187D50B74DEBBD5DF = {
+						ProvisioningStyle = Automatic;
+					};
+					C7A8A055CE2148EE4D0F60D5 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = DE3525FDD1A65D42C4DEADE3 /* Build configuration list for PBXProject "OrionApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6E07E0C622125DC8A27E4A62;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FC2DED1F43109E7E037B540E /* XCRemoteSwiftPackageReference "Grape" */,
+				65D498F5CCED02CDDB35AEA8 /* XCLocalSwiftPackageReference "../OrionMacOs" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 3BCC22D546D148C0E421499B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				18F7AC9187D50B74DEBBD5DF /* Orion */,
+				C7A8A055CE2148EE4D0F60D5 /* OrionAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E834A951764531F814D58F88 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A139CC7DA7D906144BAD1295 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		38D1931C2D9DD5D6659463F7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				299D28937BBB4912CD215C45 /* AnalysisProgressTracker.swift in Sources */,
+				8B79024908C59CF2A72AD20C /* AnalysisProgressView.swift in Sources */,
+				1AA17F740231CC2F4A9AEC8E /* AnalysisRunner.swift in Sources */,
+				4738317F48F02EA2B81D16ED /* AppPaths.swift in Sources */,
+				82D3A924B94E7C2890A0D231 /* ArchitectureModel.swift in Sources */,
+				9D88E1E3B279DCC40E124082 /* ArchitectureOverviewView.swift in Sources */,
+				7FF68F210ED7C06E72AA4AAD /* AskRunner.swift in Sources */,
+				44A652E5241DF3BAF18E95DA /* AskView.swift in Sources */,
+				1676CA483BA8498082E1E01F /* BuildArchitectureModelSheet.swift in Sources */,
+				105604708EDD9F47BF91758A /* ClaudeBinaryLocator.swift in Sources */,
+				E85570295B34C5C937F77501 /* CodebaseModelStore.swift in Sources */,
+				61E7E605819B66A35D23FAF4 /* ComponentDetail.swift in Sources */,
+				682676BB556C9183B7B126B8 /* ComponentDetailView.swift in Sources */,
+				02B8C269AB606A7917AB9099 /* ConfidenceBadge.swift in Sources */,
+				0DBBCC0DE2ED5552A52938ED /* ContentView.swift in Sources */,
+				891ACB996ED0EF8A458F2C53 /* EpistemicBadge.swift in Sources */,
+				9C7226646F37B53613886BAB /* EpistemicTag.swift in Sources */,
+				F207E84F81F3D750E8E63754 /* EvidenceSnippet.swift in Sources */,
+				2FF3F0C0E0A19442314A828D /* EvidenceView.swift in Sources */,
+				8CA65DC7C3853AA787D2F192 /* OpenRepositoryView.swift in Sources */,
+				6977D212F3A73C51C95B2228 /* OrionApp.swift in Sources */,
+				A06AD265EFC4DE9B870C39C9 /* RecentRepositories.swift in Sources */,
+				EFEAED7DC044D3C73FAFC9F7 /* RepositoryCloner.swift in Sources */,
+				57CFEF8EA22A6CDC96139D02 /* RepositorySession.swift in Sources */,
+				3A85356F2A3AB04311375E27 /* SemanticInvestigationRunner.swift in Sources */,
+				355B39092ACB296A1D45FD98 /* SemanticInvestigator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF433B7C615C00EFE953B5E7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E34C968EEA923E86FD7740F2 /* AnalysisProgressTrackerTests.swift in Sources */,
+				9B472F8D51E736B4212A4646 /* AnalysisRunnerTests.swift in Sources */,
+				AB83F64E7D0F0216410E3348 /* AppPathsTests.swift in Sources */,
+				65857998B12DBC55778BE315 /* ArchitectureModelLoaderTests.swift in Sources */,
+				F3D2DDD17CC8BA7F4BBB3602 /* AskRunnerTests.swift in Sources */,
+				691AA93B3B9F958F1976CDC0 /* ClaudeBinaryLocatorTests.swift in Sources */,
+				5C74873DBB3A8AB534FDB645 /* ComponentDetailLoaderTests.swift in Sources */,
+				729FEB0AED3A6EB2A2219F8B /* EpistemicTagTests.swift in Sources */,
+				7A13DDE7E5F6314A7BC6AECA /* EvidenceSourceLoaderTests.swift in Sources */,
+				4DEC3A70EA99C207619B4B7A /* RecentRepositoriesTests.swift in Sources */,
+				9847C874076A1C5B10E38D51 /* RepositoryClonerTests.swift in Sources */,
+				C580CC98E02DC8677BF9E21A /* RepositorySessionTests.swift in Sources */,
+				AC3CFE2F25790D81AB8D89AC /* SemanticInvestigationRunnerTests.swift in Sources */,
+				0B449ED68136B089047FB002 /* SemanticInvestigationSessionTests.swift in Sources */,
+				E8EA4533663E5EC8E4A93A53 /* SemanticInvestigatorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0CDB8117E490F73D9B116528 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18F7AC9187D50B74DEBBD5DF /* Orion */;
+			targetProxy = 67627959F87072104997B8FC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		082071D76DDD03C85BC5F7CF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7651AB86C8A42788F1F6DF3F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Orion;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.orion.OrionApp;
+				PRODUCT_NAME = Orion;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C79DD178022ED04F5CF5F432 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.orion.OrionAppTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Orion.app/Contents/MacOS/Orion";
+			};
+			name = Release;
+		};
+		E0C84B304F394AAAAF41C513 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Orion;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.orion.OrionApp;
+				PRODUCT_NAME = Orion;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		EC4639AEEA94A113457F521E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		ED46DCE0E8A2E5412A5F33B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.orion.OrionAppTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Orion.app/Contents/MacOS/Orion";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8445479269BACCFA413B7E49 /* Build configuration list for PBXNativeTarget "Orion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E0C84B304F394AAAAF41C513 /* Debug */,
+				7651AB86C8A42788F1F6DF3F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DE3525FDD1A65D42C4DEADE3 /* Build configuration list for PBXProject "OrionApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				082071D76DDD03C85BC5F7CF /* Debug */,
+				EC4639AEEA94A113457F521E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DEE0FF60B9971A6944F4501B /* Build configuration list for PBXNativeTarget "OrionAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ED46DCE0E8A2E5412A5F33B2 /* Debug */,
+				C79DD178022ED04F5CF5F432 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		65D498F5CCED02CDDB35AEA8 /* XCLocalSwiftPackageReference "../OrionMacOs" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../OrionMacOs;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FC2DED1F43109E7E037B540E /* XCRemoteSwiftPackageReference "Grape" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SwiftGraphs/Grape";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5E0366F62E91C79D09AEB216 /* OrionCodeIntel */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OrionCodeIntel;
+		};
+		8B11A55D0C309FA1C2987798 /* Grape */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC2DED1F43109E7E037B540E /* XCRemoteSwiftPackageReference "Grape" */;
+			productName = Grape;
+		};
+		B491120E9B7E460D1FB7E851 /* OrionAgent */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OrionAgent;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 220A057A9C8D48E778F97846 /* Project object */;
+}

@@ -10,7 +10,9 @@ public struct AnalysisPipeline {
         self.database = database
     }
 
-    public func run(_ input: AnalysisInput) throws -> AnalysisResult {
+    public func run(
+        _ input: AnalysisInput, progress: (any AnalysisProgressReporting)? = nil
+    ) throws -> AnalysisResult {
         let timings = StageTimings()
         let fm = FileManager.default
 
@@ -18,6 +20,8 @@ public struct AnalysisPipeline {
         guard fm.fileExists(atPath: input.repoPath.path, isDirectory: &isDir), isDir.boolValue else {
             throw PipelineError.notADirectory(input.repoPath.path)
         }
+
+        progress?.pipelineDidStart(stage: .ingestion)
 
         // --- resolve commit (optionally checking out, always restoring) --------------
         let git = GitRunner(repoPath: input.repoPath)
@@ -125,6 +129,7 @@ public struct AnalysisPipeline {
                     absolutePath: input.repoPath.appendingPathComponent(sf.relPath).path
                 )
             }
+            progress?.pipelineDidStart(stage: .ast)
             let outcomes = timings.measure("parse") {
                 PythonParsePass().run(specs, jobs: jobs)
             }
@@ -166,6 +171,7 @@ public struct AnalysisPipeline {
                     modulePath: sf.modulePath, isPackageInit: sf.isPackageInit
                 )
             }
+            progress?.pipelineDidStart(stage: .symbols)
             let fileSymbols = try timings.measure("symbols") {
                 try SymbolExtractionPass().run(symbolInputs)
             }
@@ -213,6 +219,7 @@ public struct AnalysisPipeline {
             try store.insertExternalDependencies(externalDeps)
 
             // imports + dependency graph (M4)
+            progress?.pipelineDidStart(stage: .imports)
             let dep = timings.measure("imports") {
                 DependencyGraphBuilder(
                     repositoryId: repo.id, commitHash: commitHash, runId: run.id
@@ -235,6 +242,7 @@ public struct AnalysisPipeline {
             }
 
             // SCIP resolution: calls / extends / implements (M5)
+            progress?.pipelineDidStart(stage: .scip)
             var resolverLabel = "none"
             var scipRelationships: [RelationshipRecord] = []
             if input.resolve {
@@ -253,6 +261,7 @@ public struct AnalysisPipeline {
                         try Scip_Index(serializedBytes: data)
                     }
                     let joiner = SymbolJoiner(files: fileRecords, symbols: symbolRecords)
+                    progress?.pipelineDidStart(stage: .relationships)
                     let scipOut = timings.measure("resolve") {
                         ScipRelationshipBuilder(
                             repositoryId: repo.id, commitHash: commitHash, runId: run.id
@@ -272,6 +281,7 @@ public struct AnalysisPipeline {
             }
 
             // test mapping: tested_by (M6)
+            progress?.pipelineDidStart(stage: .testMapping)
             let testedBy = timings.measure("tests") {
                 TestMapper(repositoryId: repo.id, commitHash: commitHash, runId: run.id)
                     .build(
@@ -286,6 +296,7 @@ public struct AnalysisPipeline {
             let relationshipCount = dep.relationships.count + scipRelationships.count + testedBy.count
 
             // finalize
+            progress?.pipelineDidStart(stage: .assembly)
             let finishedAt = Timestamp.now()
             var finished = run
             finished.status = AnalysisStatus.succeeded.rawValue

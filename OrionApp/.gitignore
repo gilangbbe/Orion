@@ -1,0 +1,10 @@
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# SwiftPM (local package resolution artifacts; Package.resolved for this project is
+# regenerated from OrionMacOs's pins + Grape's -- not hand-maintained here)
+.build/
+.swiftpm/
