@@ -21,6 +21,14 @@ enum AnalysisProgressStage: String, CaseIterable {
         case .assembly: return .buildingArchitecture
         }
     }
+
+    /// Docs/14_phase4_5_ui_ux_redesign.md §8 M2: the stepper's 0-3 position for a given real
+    /// pipeline stage -- `uiStage(for:)` already does the 8-stage -> 4-phase collapse; this also
+    /// exposes where that phase sits in `allCases`, so a view can mark every phase up to and
+    /// including the current one as done without recomputing the lookup itself.
+    static func uiPhaseIndex(for stage: PipelineStageID) -> Int {
+        allCases.firstIndex(of: uiStage(for: stage)) ?? 0
+    }
 }
 
 /// Forwards `OrionCodeIntel.AnalysisPipeline`'s per-stage callback into observable state the UI

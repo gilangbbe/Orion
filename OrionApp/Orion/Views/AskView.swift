@@ -1,36 +1,71 @@
 import SwiftUI
 
-private struct AskTranscriptEntry: Identifiable {
-    let id: UUID
-    let question: String
-    var outcome: AskOutcome?
-}
-
-/// Docs/13_phase4_architecture_ui.md M7 / Docs/05 Stage 4-5's adaptive-exploration UX: a
-/// question box wired directly to `AgentSession.ask(_:)` (via `AskRunner`), in-process, no CLI
-/// subprocess. Routing/tool-trace detail is hidden by default behind an "Explain" disclosure
-/// (Docs/05 §8's advanced diagnostic view, mirroring `orion-agent ask --explain`). Keeps its own
-/// UI-local transcript across questions in this repository session -- `AgentSession` itself has
-/// no cross-question memory (Docs/12), so each entry is an independent `ask` call.
+/// Docs/14_phase4_5_ui_ux_redesign.md §4.6/§8 M4: a master-detail list, not a chat transcript.
+///
+/// The first pass of this redesign kept a single flowing transcript (every question and answer in
+/// one scrolling column, ChatGPT-style) -- the wrong model for this app specifically. Orion's
+/// premise is that a developer returns to a specific answer as reference material (Docs/04 §6),
+/// not that they're having one continuous conversation; finding what you asked about a component
+/// two days ago meant scrolling past every unrelated question in between. This is the fix: a
+/// searchable, component-grouped question list on the left, the selected question's full answer
+/// on the right -- matching the rest of the app (a scannable list, click through to detail)
+/// instead of a chat app.
 struct AskView: View {
     let repoRoot: URL
     let outputDirectory: URL
+    let history: AskHistory
+    let diagnosticsSession: DiagnosticsSession
 
     @State private var questionText = ""
-    @State private var transcript: [AskTranscriptEntry] = []
-    @State private var isAsking = false
+    @State private var search = ""
+    @State private var collapsedGroups: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
-            if transcript.isEmpty {
+            if history.entries.isEmpty {
                 emptyState
             } else {
-                transcriptList
+                HStack(spacing: 0) {
+                    questionList
+                    Divider()
+                    detail
+                }
             }
             Divider()
+            if let scope = history.pendingScope {
+                scopeChip(scope)
+            }
             inputBar
         }
-        .frame(minWidth: 520, minHeight: 480)
+    }
+
+    /// Docs/14 §8 M8.5 item 6: makes the pending scope from "Ask about {name}" (or the lack of
+    /// one) a visible, deliberate state rather than an invisible flag -- and the × is the real
+    /// "ask a general question instead" affordance the moment a scope is showing. When nothing is
+    /// scoped, the plain input bar below already *is* the general-question flow, so no separate
+    /// control is needed for that case.
+    private func scopeChip(_ scope: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.caption2)
+            Text("Asking about \(scope)")
+                .font(.caption)
+            Button {
+                history.pendingScope = nil
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Ask a general question instead")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(DesignTokens.accent.opacity(0.12))
+        .clipShape(Capsule())
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
     }
 
     private var emptyState: some View {
@@ -45,53 +80,141 @@ struct AskView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var transcriptList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
-                ForEach(transcript) { entry in
-                    AskEntryView(repoRoot: repoRoot, question: entry.question, outcome: entry.outcome)
+    // MARK: - Left: the question list
+
+    private var questionList: some View {
+        VStack(spacing: 0) {
+            TextField("Search your questions…", text: $search)
+                .textFieldStyle(.roundedBorder)
+                .padding(10)
+            let groups = history.groups(matching: search)
+            if groups.isEmpty {
+                Text("No questions match.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(groups) { group in
+                        Section(group.name, isExpanded: expandedBinding(for: group.name)) {
+                            ForEach(group.entries) { entry in
+                                questionRow(entry)
+                            }
+                        }
+                    }
+                }
+                .listStyle(.sidebar)
+            }
+        }
+        .frame(width: 260)
+    }
+
+    private func expandedBinding(for groupName: String) -> Binding<Bool> {
+        Binding(
+            get: { !collapsedGroups.contains(groupName) },
+            set: { isExpanded in
+                if isExpanded {
+                    collapsedGroups.remove(groupName)
+                } else {
+                    collapsedGroups.insert(groupName)
+                }
+            })
+    }
+
+    private func questionRow(_ entry: AskHistoryEntry) -> some View {
+        Button {
+            history.selectedID = entry.id
+        } label: {
+            HStack(alignment: .top, spacing: 6) {
+                outcomeDot(entry.outcome)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.question)
+                        .font(.callout)
+                        .lineLimit(2)
+                        .foregroundStyle(.primary)
+                    Text(entry.askedAt, format: .relative(presentation: .named))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(16)
+            .padding(.vertical, 2)
         }
-        .defaultScrollAnchor(.bottom)
+        .buttonStyle(.plain)
+        .listRowBackground(
+            entry.id == history.selectedID ? Color.accentColor.opacity(0.15) : Color.clear)
     }
+
+    @ViewBuilder
+    private func outcomeDot(_ outcome: AskOutcome?) -> some View {
+        switch outcome {
+        case nil:
+            ProgressView().controlSize(.mini)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+        case .answered(let summary):
+            if summary.isUngroundedVerified || summary.partial {
+                Image(systemName: summary.partial ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            } else {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+            }
+        }
+    }
+
+    // MARK: - Right: the selected question's answer
+
+    @ViewBuilder
+    private var detail: some View {
+        if let selected = history.entries.first(where: { $0.id == history.selectedID }) {
+            ScrollView {
+                AskEntryView(repoRoot: repoRoot, question: selected.question, outcome: selected.outcome)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            ContentUnavailableView(
+                "Select a question", systemImage: "bubble.left.and.bubble.right",
+                description: Text("Choose a question on the left to see its answer."))
+        }
+    }
+
+    // MARK: - Bottom: asking a new question
 
     private var inputBar: some View {
         HStack(spacing: 8) {
-            TextField("Ask a question…", text: $questionText)
+            TextField("Ask a new question about this repository…", text: $questionText)
                 .textFieldStyle(.roundedBorder)
-                .disabled(isAsking)
                 .onSubmit(submit)
-            if isAsking {
-                ProgressView().controlSize(.small)
-            } else {
-                Button("Ask", action: submit)
-                    .disabled(questionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+            Button("Ask", action: submit)
+                .disabled(questionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(12)
     }
 
     private func submit() {
         let question = questionText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, !isAsking else { return }
+        guard !question.isEmpty else { return }
         questionText = ""
-        let entryId = UUID()
-        transcript.append(AskTranscriptEntry(id: entryId, question: question, outcome: nil))
-        isAsking = true
+        let id = history.ask(question, component: history.pendingScope)
         Task {
             let outcome = await AskRunner.ask(
                 question: question, repoRoot: repoRoot, outputDirectory: outputDirectory)
-            if let index = transcript.firstIndex(where: { $0.id == entryId }) {
-                transcript[index].outcome = outcome
-            }
-            isAsking = false
+            history.resolve(id, outcome: outcome)
+            diagnosticsSession.recordAsk(question: question, outcome: outcome)
         }
     }
 }
 
-private struct AskEntryView: View {
+/// Unchanged content from before this redesign -- outcome label (including the Docs/12 Risk #5
+/// "Not independently checked" treatment for ungrounded depth-1 answers), the answer text, claims
+/// with clickable evidence, and routing detail behind "Explain." Only its container changed, from
+/// one entry in a scrolling transcript to the sole content of the detail pane.
+struct AskEntryView: View {
     let repoRoot: URL
     let question: String
     let outcome: AskOutcome?
@@ -99,8 +222,8 @@ private struct AskEntryView: View {
     @State private var selectedEvidence: EvidenceDetail?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(question).font(.headline)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(question).font(.title3.bold())
             switch outcome {
             case nil:
                 HStack(spacing: 6) {
@@ -120,10 +243,6 @@ private struct AskEntryView: View {
                 answeredView(summary)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .sheet(item: $selectedEvidence) { evidence in
             EvidenceView(repoRoot: repoRoot, evidence: evidence)
         }
@@ -133,7 +252,7 @@ private struct AskEntryView: View {
     private func answeredView(_ summary: AskResultSummary) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             outcomeLabel(summary)
-            Text(summary.answerText)
+            MarkdownText(raw: summary.answerText)
             if !summary.claims.isEmpty {
                 claimsSection(summary.claims)
             } else if summary.claimCount > 0 || summary.droppedClaimCount > 0 {
@@ -165,9 +284,13 @@ private struct AskEntryView: View {
                         EpistemicBadge(rawValue: claim.claimType)
                         ConfidenceBadge(tier: claim.confidence)
                     }
-                    Text(claim.statement).font(.callout)
+                    MarkdownText(raw: claim.statement).font(.callout)
                     if !claim.evidence.isEmpty {
-                        HStack(spacing: 8) {
+                        // Docs/14 §8 M8.6: one evidence link per line -- see
+                        // `ComponentDetailView.claimsList`'s identical fix for the full reasoning;
+                        // an `HStack` here squeezed each anchor into its own narrow wrapped
+                        // column instead of using the row's full width.
+                        VStack(alignment: .leading, spacing: 4) {
                             ForEach(claim.evidence) { evidence in
                                 Button {
                                     selectedEvidence = evidence
@@ -219,7 +342,7 @@ private struct AskEntryView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Depth \(summary.depth) · \(summary.routingMethod) · confidence: \(summary.routingConfidence)")
                 .foregroundStyle(.secondary)
-            Text(summary.rationale)
+            MarkdownText(raw: summary.rationale)
                 .foregroundStyle(.secondary)
             if !summary.toolCalls.isEmpty {
                 Divider()

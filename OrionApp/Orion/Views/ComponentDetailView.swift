@@ -3,14 +3,21 @@ import SwiftUI
 /// Docs/13_phase4_architecture_ui.md M5 / Docs/05 Stage 4 / Docs/08 "component cards": Purpose,
 /// member list (grouped by kind), Dependencies, Claims & Evidence, Confidence. A structural
 /// (Phase-1-only) node is plainly labeled as such -- no semantic grouping, no claims -- rather
-/// than presented the same way a real investigated component is (Docs/13's own instruction).
-/// Epistemic type and confidence tier both use the shared `EpistemicBadge`/`ConfidenceBadge`
-/// (Docs/13 M6) -- this view's own ad-hoc badges were retrofitted there.
+/// than presented the same way a real investigated component is.
+///
+/// Docs/14_phase4_5_ui_ux_redesign.md §4.5/§8 M3: lives inside `ContentView`'s shared inspector
+/// now, not its own `.sheet` -- the component's name is the inspector's shared title (this view no
+/// longer draws its own `header(_:)`), and this view now also owns the "Ask about {name}" button
+/// (Docs/05 Stage 4: "the developer can ask questions about the selected component"). §8 M4 first
+/// had this button file a canned question immediately; §8 M8.5 item 6 replaced that with a real
+/// hand-off -- see `askAbout(_:)`'s own doc comment.
 struct ComponentDetailView: View {
     let outputDirectory: URL
     let repoRoot: URL
     let node: ArchitectureNode
     let layer: ArchitectureLayer
+    let shellState: AppShellState
+    let askHistory: AskHistory
 
     @State private var detail: ComponentDetail?
     @State private var loadError: String?
@@ -25,7 +32,7 @@ struct ComponentDetailView: View {
             } else if let detail {
                 content(detail)
             } else {
-                ProgressView().frame(minWidth: 480, minHeight: 360)
+                ProgressView()
             }
         }
         .task { await load() }
@@ -44,12 +51,20 @@ struct ComponentDetailView: View {
         }
     }
 
+    /// Docs/14 §8 M4's original hand-off asked a canned question ("Tell me more about {name}.")
+    /// immediately -- §8 M8.5 item 6 replaces that: switches to Ask and marks the *next* question
+    /// as scoped to this component (`AskHistory.pendingScope`, its own doc comment has the full
+    /// reasoning), but files nothing and calls `AskRunner` for nothing until the developer actually
+    /// types and submits their own question in `AskView`'s input bar.
+    private func askAbout(_ name: String) {
+        shellState.destination = .ask
+        askHistory.pendingScope = name
+    }
+
     @ViewBuilder
     private func content(_ detail: ComponentDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                header(detail)
-
                 if detail.isStructural {
                     Label(
                         "Structural view — from Phase 1 deterministic analysis only, not a semantic grouping.",
@@ -59,10 +74,22 @@ struct ComponentDetailView: View {
                     .foregroundStyle(.secondary)
                 }
 
+                if let tier = detail.confidenceTier {
+                    ConfidenceBadge(tier: tier)
+                }
+
+                Button {
+                    askAbout(detail.name)
+                } label: {
+                    Label("Ask about \(detail.name)", systemImage: "bubble.left.and.bubble.right")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
                 if let subtitle = detail.subtitle {
                     section("Purpose") {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(subtitle)
+                            MarkdownText(raw: subtitle)
                             EpistemicBadge(rawValue: detail.epistemicType)
                         }
                     }
@@ -86,18 +113,8 @@ struct ComponentDetailView: View {
                     }
                 }
             }
-            .padding(20)
-        }
-        .frame(minWidth: 480, minHeight: 480)
-    }
-
-    private func header(_ detail: ComponentDetail) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(detail.name).font(.title2.bold())
-            Spacer()
-            if let tier = detail.confidenceTier {
-                ConfidenceBadge(tier: tier)
-            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -149,8 +166,15 @@ struct ComponentDetailView: View {
                         Spacer()
                         ConfidenceBadge(tier: claim.confidence)
                     }
-                    Text(claim.statement)
-                    HStack(spacing: 8) {
+                    MarkdownText(raw: claim.statement)
+                    // Docs/14 §8 M8.6: one evidence link per line, not a side-by-side `HStack` --
+                    // a real `anchor` is a full repo-relative path plus `::symbol`, easily longer
+                    // than a third of the inspector's width; squeezed into an `HStack` alongside
+                    // its siblings, each link's `Text` wrapped inside its own narrow column
+                    // instead of using the row's actual full width, turning three anchors into
+                    // an unreadable three-column mess. A full-width leading row per link fixes it
+                    // regardless of how long any single anchor gets.
+                    VStack(alignment: .leading, spacing: 4) {
                         ForEach(claim.evidence) { evidence in
                             evidenceLink(evidence.anchor, evidence: evidence)
                         }

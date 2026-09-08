@@ -229,4 +229,43 @@ final class ArchitectureModelLoaderTests: XCTestCase {
         }
         XCTAssertEqual(model.nodes.count, 1)  // the one real module, from Phase 1 data
     }
+
+    /// Docs/14_phase4_5_ui_ux_redesign.md §8 M5: a real bug found live during this milestone's own
+    /// verification -- `investigations` is one shared table for both a whole-architecture
+    /// investigation and every one-off Ask question answered at depth 3, with no `kind` column
+    /// telling them apart. The loader used to just grab the single newest row of either kind, so
+    /// asking one depth-3 question after a real architecture investigation silently regressed
+    /// Overview back to "no architecture investigation yet" even though the components were still
+    /// in the database. This reproduces that exact live sequence and pins the fix.
+    func testLoadStaysOnTheSemanticModelAfterALaterAskInvestigation() throws {
+        let repoRoot = try makeRepoRoot()
+        try "def foo():\n    pass\n".write(
+            to: repoRoot.appendingPathComponent("a.py"), atomically: true, encoding: .utf8)
+        let outputDirectory = try analyze(repoRoot)
+        try ingestSemanticFindings(
+            """
+            {"schema_version": "phase2.v1", "components": [{"name": "Core", "members": ["a.py::foo"]}], "component_relationships": [], "claims": [], "uncertainties": []}
+            """, into: outputDirectory)
+
+        // Simulate a real depth-3 Ask question answered *after* the architecture investigation --
+        // `AgentSession`'s own investigation row, which always carries the real question text,
+        // never the "phase2_semantic_grouping" marker.
+        let database = try OrionDatabase(
+            path: outputDirectory.appendingPathComponent("orion.db").path)
+        let store = Store(database)
+        let run = try XCTUnwrap(store.latestRun(commitHash: nil))
+        try store.insertInvestigation(
+            InvestigationRecord(
+                id: "ask-investigation-after-architecture", repositoryId: run.repositoryId,
+                commitHash: run.commitHash, runId: run.id, question: "What does foo do?",
+                complexity: "low", outcome: "verified", createdAt: "2099-01-01T00:00:00Z"))
+
+        let model = try ArchitectureModelLoader.load(outputDirectory: outputDirectory)
+
+        guard case .semantic(_, let componentCount, _) = model.layer else {
+            return XCTFail(
+                "expected .semantic to survive a later ask investigation, got \(model.layer)")
+        }
+        XCTAssertEqual(componentCount, 1)
+    }
 }

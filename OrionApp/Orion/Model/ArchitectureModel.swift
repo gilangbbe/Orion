@@ -57,7 +57,7 @@ enum ArchitectureModelLoader {
                 layer: .structural(moduleCount: 0), nodes: [], edges: [], uncertainties: [])
         }
 
-        if let investigation = try store.latestInvestigation(runId: run.id) {
+        if let investigation = try latestArchitectureInvestigation(store: store, runId: run.id) {
             let components = try store.components(investigationId: investigation.id)
             if !components.isEmpty {
                 return try buildSemanticModel(
@@ -65,6 +65,25 @@ enum ArchitectureModelLoader {
             }
         }
         return try buildStructuralModel(store: store, runId: run.id)
+    }
+
+    /// Docs/14_phase4_5_ui_ux_redesign.md §8 M5: a real bug found live during this milestone's own
+    /// verification, not part of its planned scope. `investigations` is one shared table for both
+    /// a whole-architecture "Build Architecture Model" pass (Docs/11's phase2.v1 schema -- its
+    /// `question` column is always the literal marker `"phase2_semantic_grouping"`, see
+    /// `Migrations.swift`'s own column default) and every one-off Ask question answered at depth 3
+    /// (Docs/12), with no separate `kind` column to tell them apart. `store.latestInvestigation(runId:)`
+    /// just grabs the single newest row of *either* kind -- so asking even one depth-3 question
+    /// after a real architecture investigation silently regressed the whole Architecture Overview
+    /// back to "no architecture investigation yet." The semantic components were still sitting in
+    /// the database the entire time; they just stopped being what this loader looked at. Filters
+    /// to the stable marker instead of trusting recency alone.
+    private static func latestArchitectureInvestigation(
+        store: CodebaseModelStore, runId: String
+    ) throws -> InvestigationRecord? {
+        try store.investigations(runId: runId)
+            .filter { $0.question == "phase2_semantic_grouping" }
+            .max { $0.createdAt < $1.createdAt }
     }
 
     private static func buildSemanticModel(

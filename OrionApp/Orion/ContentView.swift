@@ -5,35 +5,24 @@ import SwiftUI
 /// Renders `RepositorySession.state`. `.task(id:)` below is what actually drives
 /// `idle -> opening -> analyzing` into `.ready`/`.failed` for real (Docs/13 M2) -- the app-level
 /// wiring `AnalysisRunner` itself deliberately doesn't do on its own.
+///
+/// Docs/14_phase4_5_ui_ux_redesign.md §8 M1: `.ready` is now a `NavigationSplitView` shell
+/// (`readyState(_:)`) instead of a single toolbar-and-sheets screen -- Ask and "Open Another
+/// Repository" moved out of `body`'s own toolbar into the sidebar, since Ask is a `Destination`
+/// now, not a sheet. `.idle`/`.opening`/`.analyzing`/`.failed` are untouched (Docs/14 §8 M2's job).
 struct ContentView: View {
     let session: RepositorySession
     @State private var isPresentingOpenSheet = false
     @State private var progressTracker = AnalysisProgressTracker()
     @State private var semanticSession = SemanticInvestigationSession()
     @State private var isPresentingBuildModelSheet = false
-    @State private var isPresentingAskSheet = false
+    @State private var shellState = AppShellState()
+    @State private var askHistory = AskHistory()
+    @State private var diagnosticsSession = DiagnosticsSession()
 
     var body: some View {
         content
             .frame(minWidth: 640, minHeight: 420)
-            .toolbar {
-                if case .ready = session.state {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            isPresentingAskSheet = true
-                        } label: {
-                            Label("Ask…", systemImage: "bubble.left.and.bubble.right")
-                        }
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isPresentingOpenSheet = true
-                    } label: {
-                        Label("Open Repository…", systemImage: "folder.badge.plus")
-                    }
-                }
-            }
             .sheet(isPresented: $isPresentingOpenSheet) {
                 OpenRepositoryView(session: session)
             }
@@ -44,22 +33,24 @@ struct ContentView: View {
                         session: semanticSession)
                 }
             }
-            .sheet(isPresented: $isPresentingAskSheet) {
-                if case .ready(let summary) = session.state {
-                    AskView(repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory)
-                }
-            }
             .task(id: session.state) {
                 switch session.state {
                 case .opening:
-                    // A fresh repository attempt -- any previous repo's semantic investigation
-                    // state is no longer relevant.
+                    // A fresh repository attempt -- any previous repo's semantic investigation,
+                    // shell-navigation, and Ask history is no longer relevant.
                     semanticSession = SemanticInvestigationSession()
+                    shellState = AppShellState()
+                    askHistory = AskHistory()
+                    diagnosticsSession = DiagnosticsSession()
                 case .analyzing:
                     guard let repoRoot = session.resolvedRepoRoot else { return }
                     progressTracker = AnalysisProgressTracker()
                     await AnalysisRunner.run(
                         repoRoot: repoRoot, session: session, progress: progressTracker)
+                    // Docs/14 §8 M8: the completed run's stage log, captured once here rather
+                    // than live during analysis -- `AnalysisProgressView`'s own disclosure already
+                    // shows it live; Diagnostics is where it survives after that screen is gone.
+                    diagnosticsSession.recordAnalysis(stageHistory: progressTracker.stageHistory)
                 default:
                     break
                 }
@@ -70,7 +61,7 @@ struct ContentView: View {
     private var content: some View {
         switch session.state {
         case .idle:
-            emptyState
+            WelcomeView(session: session)
         case .opening(let input):
             ProgressView(openingLabel(for: input))
         case .analyzing:
@@ -84,86 +75,268 @@ struct ContentView: View {
         }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)  // decorative; the text below already says this
-            Text("No repository open")
-                .font(.title2)
-            Text("Open a local checkout or a GitHub URL to build its Codebase Mental Model.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
-            Text(linkedLibrariesFooter)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 24)
+    /// Docs/14 §4.1/§8 M1: the `NavigationSplitView` shell -- a sidebar of `Destination`s plus
+    /// repo identity/Build-Model status, and a detail column showing whichever destination is
+    /// selected, with the M3-reserved inspector attached at this level. Every destination's
+    /// content is still exactly its pre-existing implementation (`ArchitectureOverviewView`,
+    /// `AskView`) for now -- M1 is a structural relocation, not a per-screen redesign.
+    private func readyState(_ summary: RepositorySummary) -> some View {
+        NavigationSplitView {
+            sidebar(summary)
+        } detail: {
+            // Docs/14 §8 M8.7: `HSplitView`, not `.inspector()`/`.inspectorColumnWidth` -- real
+            // drag-testing (both this doc's own synthetic testing and, decisively, a real
+            // trackpad) found the native inspector column's resize handle only shrinks toward
+            // `min`, never grows past `ideal`, on this SDK (macOS 26.5), no matter what `max` is
+            // set to. `HSplitView` wraps `NSSplitView` directly -- the same mature, real
+            // AppKit-native divider-drag mechanism that already resizes `NavigationSplitView`'s
+            // own sidebar column correctly (confirmed by the same testing) -- so per-pane
+            // `.frame(minWidth:idealWidth:maxWidth:)` is the actual fix, not a hand-rolled
+            // `DragGesture` reinventing what `NSSplitView` already does correctly.
+            HSplitView {
+                destinationContent(summary)
+                    .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
+                if shellState.inspectorContent != nil {
+                    inspectorBody(summary)
+                        // Docs/14 §7 Decision 1 / §8 M8.7: 308px floor (the prototype's proven
+                        // default), 480px ceiling (roughly 1.5x the floor -- enough room for the
+                        // M8.6 evidence-link rows and Dependencies section without a wide
+                        // inspector dominating a modest window).
+                        .frame(minWidth: 308, idealWidth: 308, maxWidth: 480, maxHeight: .infinity)
+                        .background(.regularMaterial)
+                }
+            }
+            .navigationTitle(shellState.destination.rawValue)
+            // Docs/14 §8 M8.5 item 3: the Diagram/List toggle lives beside the destination
+            // title now, not inline in `ArchitectureOverviewView`'s own banner -- meaningless
+            // outside Overview, so only shown there.
+            .toolbar {
+                if shellState.destination == .overview {
+                    ToolbarItem(placement: .primaryAction) {
+                        Picker("View", selection: viewModeBinding) {
+                            ForEach(ArchitectureViewMode.allCases) { mode in
+                                Label(
+                                    mode.rawValue,
+                                    systemImage: mode == .diagram
+                                        ? "point.3.connected.trianglepath.dotted" : "list.bullet"
+                                )
+                                .tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelStyle(.iconOnly)
+                        .fixedSize()
+                        .accessibilityLabel("Switch between diagram and list view")
+                    }
+                }
+            }
         }
     }
 
-    /// Docs/05 Stage 1's populated header (compact, once analysis finishes) above the
-    /// Architecture Overview (Docs/13 M4) -- the real diagram is the primary content now; the
-    /// repo stats collapse into a disclosure so the diagram gets the space it deserves.
-    private func readyState(_ summary: RepositorySummary) -> some View {
-        VStack(spacing: 0) {
-            readyHeader(summary)
-            Divider()
+    private var viewModeBinding: Binding<ArchitectureViewMode> {
+        Binding(get: { shellState.viewMode }, set: { shellState.viewMode = $0 })
+    }
+
+    @ViewBuilder
+    private func destinationContent(_ summary: RepositorySummary) -> some View {
+        switch shellState.destination {
+        case .overview:
             ArchitectureOverviewView(
                 repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory,
-                semanticSession: semanticSession
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                semanticSession: semanticSession, shellState: shellState)
+        case .ask:
+            // Docs/14 §4.6/§8 M4: the real master-detail redesign, backed by `askHistory` so it
+            // survives navigating away and back (see `AskHistory`'s own doc comment for why that
+            // isn't just `AskView`'s local `@State`).
+            AskView(
+                repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory,
+                history: askHistory, diagnosticsSession: diagnosticsSession)
+        case .changes:
+            // Docs/14 §4.7/§8 M6: real screen, sample-backed data (Docs/14 §7 Decision 3) -- see
+            // `ModelChangeSample`'s own doc comment for why.
+            ModelChangesView()
+        case .teaching:
+            // Docs/14 §4.8/§8 M7: real screen, sample-backed data (Docs/14 §7 Decision 3) -- see
+            // `TeachingSample`'s own doc comment for why.
+            TeachingView(sample: .tokenManagerVsSessionManager)
+        case .diagnostics:
+            // Docs/14 §4.9/§8 M8: the real screen, last-only per §7 Decision 2 --
+            // `DiagnosticsSession`'s own doc comment explains why it isn't a rolling log.
+            // §8 M8.5 item 1: also carries the Repository detail relocated out of the sidebar's
+            // now-removed disclosure -- `summary` is passed along for that section.
+            DiagnosticsView(session: diagnosticsSession, summary: summary)
         }
     }
 
-    private func readyHeader(_ summary: RepositorySummary) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(summary.repoRoot.lastPathComponent).font(.headline)
-                DisclosureGroup("\(summary.fileCount) files · \(summary.symbolCount) symbols · \(summary.relationshipCount) relationships") {
-                    VStack(alignment: .leading, spacing: 2) {
-                        LabeledContent("Repository", value: summary.repoRoot.path)
-                        LabeledContent("Languages", value: summary.languages.joined(separator: ", "))
-                        LabeledContent("Resolver", value: summary.resolver)
-                        if summary.resolver == "none" {
-                            // Docs/06 §7 failure transparency: `resolver == "none"` in a real
-                            // run always means SCIP (scip-python/npx) was unavailable, not a
-                            // deliberate choice -- the app never passes --no-resolve itself.
-                            // Calls/extends/implements simply don't exist without it; say so
-                            // plainly rather than leaving a bare "none" for the user to puzzle
-                            // over (Docs/13 M8).
-                            Text(
-                                "scip-python (Pyright) wasn't available, so call/extends/"
-                                    + "implements edges weren't resolved. Symbols, imports, and "
-                                    + "module structure are still complete."
-                            )
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
-                        }
-                        if summary.parseErrorCount > 0 {
-                            LabeledContent("Parse errors", value: "\(summary.parseErrorCount)")
-                                .foregroundStyle(.orange)
-                        }
-                        if summary.diagnosticCount > 0 {
-                            LabeledContent("Diagnostics", value: "\(summary.diagnosticCount)")
-                        }
-                        LabeledContent(
-                            "Analysis time", value: String(format: "%.0f ms", summary.totalDurationMs))
-                    }
-                    .font(.caption)
-                    .padding(.top, 4)
+    /// Docs/14 §4.4/§8 M3: a selected node's detail, or the Open Questions list, never both --
+    /// only `ArchitectureOverviewView` ever sets `shellState.inspectorContent`. The header row
+    /// (title + close) is shared chrome here rather than each case's own -- `ComponentDetailView`
+    /// no longer draws its own title now that it lives in this inspector instead of its own sheet.
+    private func inspectorBody(_ summary: RepositorySummary) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(inspectorTitle).font(.headline)
+                Spacer()
+                Button {
+                    shellState.inspectorContent = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
             }
-            Spacer()
-            semanticInvestigationSection
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            Divider()
+            Group {
+                switch shellState.inspectorContent {
+                case .node(let node, let layer):
+                    // Docs/14 §8 M8.5 item 4: `.id(node.id)` is the actual fix, not incidental --
+                    // without it SwiftUI treats every selection here as an update to the same
+                    // `ComponentDetailView` instance (this `switch` gives the case itself no new
+                    // identity across two different nodes), so its `.task` never re-runs and
+                    // `@State detail` keeps showing the previously selected node. Giving the view
+                    // explicit per-node identity makes SwiftUI tear it down and recreate it --
+                    // and every `@State` on it -- on every selection instead.
+                    ComponentDetailView(
+                        outputDirectory: summary.outputDirectory, repoRoot: summary.repoRoot,
+                        node: node, layer: layer, shellState: shellState, askHistory: askHistory
+                    )
+                    .id(node.id)
+                case .openQuestions(let uncertainties):
+                    OpenQuestionsPanel(uncertainties: uncertainties)
+                case nil:
+                    EmptyView()
+                }
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+    }
+
+    private var inspectorTitle: String {
+        switch shellState.inspectorContent {
+        case .node(let node, _): return node.name
+        case .openQuestions(let uncertainties): return "Open Questions (\(uncertainties.count))"
+        case nil: return ""
+        }
+    }
+
+    private func sidebar(_ summary: RepositorySummary) -> some View {
+        List(selection: sidebarSelection) {
+            Section {
+                ForEach(Destination.primary) { destination in
+                    sidebarRow(destination).tag(destination)
+                }
+            }
+            Section("Advanced") {
+                ForEach(Destination.advanced) { destination in
+                    sidebarRow(destination).tag(destination)
+                }
+            }
+        }
+        .safeAreaInset(edge: .top) { sidebarHeader(summary) }
+        .safeAreaInset(edge: .bottom) { sidebarFooter }
+    }
+
+    /// Docs/14 §4.7/§8 M6: Model Changes is the first destination that needs an unread-style
+    /// count badge -- `sidebarBadgeCount(for:)` is the one place a future destination adds one,
+    /// rather than each row growing its own ad-hoc conditional.
+    private func sidebarRow(_ destination: Destination) -> some View {
+        HStack {
+            Label(destination.rawValue, systemImage: destination.systemImage)
+            if let count = sidebarBadgeCount(for: destination) {
+                Spacer()
+                Text("\(count)")
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(DesignTokens.accent)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+        }
+    }
+
+    private func sidebarBadgeCount(for destination: Destination) -> Int? {
+        switch destination {
+        case .changes:
+            return ModelChangeSample.entries.isEmpty ? nil : ModelChangeSample.entries.count
+        default:
+            return nil
+        }
+    }
+
+    /// Docs/14 §8 M3: no manual inspector-clearing here anymore -- `AppShellState.destination`'s
+    /// own setter does that as a side effect of the destination actually changing.
+    private var sidebarSelection: Binding<Destination?> {
+        Binding(
+            get: { shellState.destination },
+            set: { newValue in
+                if let newValue { shellState.destination = newValue }
+            })
+    }
+
+    /// Docs/14 §4.1: repo identity in the sidebar's top `safeAreaInset`.
+    ///
+    /// Docs/14 §8 M8.5 item 1: this used to be a `DisclosureGroup` wrapping the summary line --
+    /// carried over unchanged from Docs/13's pre-4.5 header, per this doc's own earlier comment
+    /// here. Reproduced live and confirmed real: expanding it didn't just reveal the detail
+    /// underneath, it collapsed the *entire* sidebar and the detail column to a blank state
+    /// (root cause not fully isolated -- candidate is a `DisclosureGroup` expanding inside a
+    /// `List`'s `.safeAreaInset(edge: .top)` fighting `NavigationSplitView`'s own layout pass).
+    /// Fixed by removing the disclosure entirely; the detail it used to reveal (Repository path,
+    /// Languages, Resolver, the `resolver == "none"` transparency caption, parse errors,
+    /// diagnostics, analysis time) moved to Diagnostics's new "Repository" section instead of
+    /// disappearing -- see `DiagnosticsView.repositorySection(_:)`.
+    /// Docs/14 §8 M8.8 item 2: both `Text`s now explicitly respect the sidebar's own width instead
+    /// of sizing to their own intrinsic (unwrapped) content -- without `.frame(maxWidth: .infinity)`
+    /// on the `VStack`, a long repository name or the stats line could demand more width than the
+    /// sidebar column actually has, protruding past its right edge rather than wrapping or
+    /// truncating within it. The repo name truncates (`.lineLimit(1)`, matching the pattern
+    /// `AskHistoryEntry` rows and other single-line labels already use elsewhere in this app); the
+    /// stats line wraps instead (`.fixedSize(horizontal: false, vertical: true)`, the same
+    /// technique `WelcomeView`'s own subtitle already uses for exactly this "long `Text` in a
+    /// constrained column" shape) since truncating counts would hide real information a developer
+    /// might actually want to read in full.
+    private func sidebarHeader(_ summary: RepositorySummary) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(summary.repoRoot.lastPathComponent)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Text(
+                "\(summary.fileCount) files · \(summary.symbolCount) symbols · \(summary.relationshipCount) relationships"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    /// Docs/14 §4.1: Build Architecture Model status (Docs/13 M3, relocated from the old
+    /// `readyHeader`'s trailing half -- `.trailing` alignment there only made sense beside the
+    /// identity block in a horizontal header; a vertical sidebar footer wants `.leading`, so that
+    /// one alignment value changed, nothing else) plus "Open Another Repository," pinned below
+    /// the destination list so both persist across every destination instead of only Overview.
+    private var sidebarFooter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            semanticInvestigationSection
+            Button {
+                isPresentingOpenSheet = true
+            } label: {
+                Label("Open Another Repository…", systemImage: "folder.badge.plus")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
     }
 
     /// Docs/13 M3: the explicit, cost-gated "Build Architecture Model" action and its outcome --
@@ -182,7 +355,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         case .completed(let summary):
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Label(
                     "\(summary.componentCount) components: \(summary.outcome)",
                     systemImage: summary.outcome == "verified" ? "checkmark.seal.fill" : "exclamationmark.seal"
@@ -198,7 +371,7 @@ struct ContentView: View {
                     .controlSize(.small)
             }
         case .failed(let message):
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Label("Architecture model failed", systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -225,10 +398,9 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
-            Button("Try Again") {
-                session.reset()
-                isPresentingOpenSheet = true
-            }
+            // Docs/14 §8 M2: resetting alone is enough now -- `.idle` shows `WelcomeView`'s
+            // embedded form directly, so there's no separate sheet left to also trigger here.
+            Button("Try Again") { session.reset() }
         }
     }
 
@@ -237,16 +409,6 @@ struct ContentView: View {
         case .localPath: return "Opening…"
         case .gitHubURL: return "Cloning…"
         }
-    }
-
-    /// A real, side-effect-free reference into each linked library -- proof this target
-    /// actually links `OrionCodeIntel` and `OrionAgent` (not just resolves the packages),
-    /// without loading the MLX model or touching the network. Dropped once later milestones
-    /// give the app more organic reasons to import both directly.
-    private var linkedLibrariesFooter: String {
-        let sample = DepthHeuristics.classify("What does AuthService do?")
-        return
-            "OrionCodeIntel \(OrionCodeIntel.version) · OrionAgent linked (sample depth: \(sample?.depth.description ?? "nil"))"
     }
 }
 

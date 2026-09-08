@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  * { box-sizing: border-box; }
+  .orion-legend {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --bg-page: oklch(0.97 0.003 250);
+    --bg-card: oklch(1 0 0);
+    --border-hairline: oklch(0.85 0.006 250);
+    --text-primary: oklch(0.22 0.01 250);
+    --text-secondary: oklch(0.48 0.012 250);
+    --text-tertiary: oklch(0.65 0.01 250);
+    --accent: oklch(0.60 0.12 200);
+    --fact: oklch(0.60 0.14 152); --fact-soft: oklch(0.60 0.14 152 / 0.14);
+    --interp: oklch(0.55 0.16 322); --interp-soft: oklch(0.55 0.16 322 / 0.13);
+    --infer: oklch(0.53 0.15 278); --infer-soft: oklch(0.53 0.15 278 / 0.13);
+    --unk: oklch(0.55 0.01 260); --unk-soft: oklch(0.55 0.01 260 / 0.13);
+    --contra: oklch(0.58 0.19 25); --contra-soft: oklch(0.58 0.19 25 / 0.13);
+    --conf-high: oklch(0.55 0.16 258);
+    --conf-medium: oklch(0.72 0.13 85);
+    --conf-low: oklch(0.65 0.17 45);
+    --conf-unresolved: oklch(0.60 0.01 260);
+    color: var(--text-primary);
+    background: var(--bg-page);
+    width: 100%;
+    min-height: 100%;
+  }
+  .orion-legend.dark {
+    --bg-page: oklch(0.16 0.008 250);
+    --bg-card: oklch(0.23 0.01 250);
+    --border-hairline: oklch(0.34 0.012 250);
+    --text-primary: oklch(0.95 0.004 250);
+    --text-secondary: oklch(0.74 0.008 250);
+    --text-tertiary: oklch(0.54 0.01 250);
+    --fact: oklch(0.72 0.15 152); --fact-soft: oklch(0.72 0.15 152 / 0.16);
+    --interp: oklch(0.70 0.16 322); --interp-soft: oklch(0.70 0.16 322 / 0.16);
+    --infer: oklch(0.68 0.15 278); --infer-soft: oklch(0.68 0.15 278 / 0.16);
+    --unk: oklch(0.68 0.01 260); --unk-soft: oklch(0.68 0.01 260 / 0.16);
+    --contra: oklch(0.68 0.19 25); --contra-soft: oklch(0.68 0.19 25 / 0.16);
+    --conf-high: oklch(0.70 0.14 258);
+    --conf-medium: oklch(0.78 0.13 85);
+    --conf-low: oklch(0.72 0.16 45);
+    --conf-unresolved: oklch(0.62 0.01 260);
+  }
+  .section { max-width: 980px; margin: 0 auto; padding: 40px 32px; }
+  .swatch { border: 1px solid var(--border-hairline); border-radius: 12px; background: var(--bg-card); padding: 16px; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+</style>
+</helmet>
+
+<div class="orion-legend">
+  <div class="section" style="padding-top:56px;padding-bottom:24px;border-bottom:1px solid var(--border-hairline);">
+    <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Phase 4.5</div>
+    <div style="font-size:32px;font-weight:700;letter-spacing:-0.01em;">Orion Design Language</div>
+    <div style="font-size:14px;color:var(--text-secondary);margin-top:8px;max-width:640px;line-height:1.5;">The tokens and components behind the Main prototype &mdash; edit swatches, spacing and type directly on this sheet, then re-read it whenever the SwiftUI build needs exact values.</div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow">Typography &mdash; SF Pro (system)</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:16px;"><div style="width:150px;font-size:11px;color:var(--text-tertiary);">Large Title / 34·700</div><div style="font-size:34px;font-weight:700;">See what your code does</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;"><div style="width:150px;font-size:11px;color:var(--text-tertiary);">Title 2 / 20·650</div><div style="font-size:20px;font-weight:650;">Architecture Overview</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;"><div style="width:150px;font-size:11px;color:var(--text-tertiary);">Headline / 16·650</div><div style="font-size:16px;font-weight:650;">Authentication</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;"><div style="width:150px;font-size:11px;color:var(--text-tertiary);">Body / 13·400</div><div style="font-size:13px;">Coordinates authentication and session management across the app.</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;"><div style="width:150px;font-size:11px;color:var(--text-tertiary);">Caption / 11·600</div><div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Open Questions</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;"><div style="width:150px;font-size:11px;color:var(--text-tertiary);">Mono / 11.5·400</div><div style="font-family:var(--font-mono);font-size:11.5px;color:var(--accent);">AuthService.swift:42&ndash;58</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow">Epistemic Color &mdash; Docs/04's five knowledge types</div>
+    <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;max-width:700px;line-height:1.5;">Filled capsule + icon. This axis answers &ldquo;what kind of knowledge is this,&rdquo; and never reuses the confidence hues below &mdash; a FACT can still be low-confidence, and an INFERENCE can still be well-supported.</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+      <div class="swatch"><div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:var(--fact-soft);color:var(--fact);font-size:11px;font-weight:700;margin-bottom:8px;">Fact</div><div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.60 .14 152)</div><div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">Directly established from code or tool output.</div></div>
+      <div class="swatch"><div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:var(--interp-soft);color:var(--interp);font-size:11px;font-weight:700;margin-bottom:8px;">Interpretation</div><div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.55 .16 322)</div><div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">Semantic reading by an LLM.</div></div>
+      <div class="swatch"><div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:var(--infer-soft);color:var(--infer);font-size:11px;font-weight:700;margin-bottom:8px;">Inference</div><div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.53 .15 278)</div><div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">Conclusion derived from multiple facts.</div></div>
+      <div class="swatch"><div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:var(--unk-soft);color:var(--unk);font-size:11px;font-weight:700;margin-bottom:8px;">Unknown</div><div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.55 .01 260)</div><div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">Insufficient evidence to say.</div></div>
+      <div class="swatch"><div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:var(--contra-soft);color:var(--contra);font-size:11px;font-weight:700;margin-bottom:8px;">Contradicted</div><div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.58 .19 25)</div><div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">Conflicting evidence exists.</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow">Confidence Color &mdash; how sure, not what kind</div>
+    <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;max-width:700px;line-height:1.5;">Outlined capsule + a 3-bar signal meter, never a filled capsule &mdash; so confidence is never mistaken for an epistemic badge at a glance, even in grayscale or for a colorblind viewer.</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <div class="swatch">
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;border:1.3px solid var(--conf-high);color:var(--conf-high);font-size:11px;font-weight:700;margin-bottom:8px;">
+          <span style="display:inline-flex;align-items:flex-end;gap:1.5px;"><span style="width:3px;height:5px;background:var(--conf-high);border-radius:1px;"></span><span style="width:3px;height:7px;background:var(--conf-high);border-radius:1px;"></span><span style="width:3px;height:9px;background:var(--conf-high);border-radius:1px;"></span></span>High
+        </div>
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.55 .16 258)</div>
+      </div>
+      <div class="swatch">
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;border:1.3px solid var(--conf-medium);color:var(--conf-medium);font-size:11px;font-weight:700;margin-bottom:8px;">
+          <span style="display:inline-flex;align-items:flex-end;gap:1.5px;"><span style="width:3px;height:5px;background:var(--conf-medium);border-radius:1px;"></span><span style="width:3px;height:7px;background:var(--conf-medium);border-radius:1px;"></span><span style="width:3px;height:9px;background:var(--border-hairline);border-radius:1px;"></span></span>Medium
+        </div>
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.72 .13 85)</div>
+      </div>
+      <div class="swatch">
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;border:1.3px solid var(--conf-low);color:var(--conf-low);font-size:11px;font-weight:700;margin-bottom:8px;">
+          <span style="display:inline-flex;align-items:flex-end;gap:1.5px;"><span style="width:3px;height:5px;background:var(--conf-low);border-radius:1px;"></span><span style="width:3px;height:7px;background:var(--border-hairline);border-radius:1px;"></span><span style="width:3px;height:9px;background:var(--border-hairline);border-radius:1px;"></span></span>Low
+        </div>
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.65 .17 45)</div>
+      </div>
+      <div class="swatch">
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;border:1.3px solid var(--conf-unresolved);color:var(--conf-unresolved);font-size:11px;font-weight:700;margin-bottom:8px;">
+          <span style="display:inline-flex;align-items:flex-end;gap:1.5px;"><span style="width:3px;height:5px;background:var(--border-hairline);border-radius:1px;"></span><span style="width:3px;height:7px;background:var(--border-hairline);border-radius:1px;"></span><span style="width:3px;height:9px;background:var(--border-hairline);border-radius:1px;"></span></span>Unresolved
+        </div>
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">oklch(.60 .01 260)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow">Spacing &amp; Radius</div>
+    <div style="display:flex;gap:22px;flex-wrap:wrap;">
+      <div>
+        <div style="display:flex;align-items:flex-end;gap:6px;margin-bottom:8px;">
+          <div style="width:4px;height:20px;background:var(--accent);"></div><div style="width:8px;height:20px;background:var(--accent);"></div><div style="width:12px;height:20px;background:var(--accent);"></div><div style="width:16px;height:20px;background:var(--accent);"></div><div style="width:20px;height:20px;background:var(--accent);"></div><div style="width:24px;height:20px;background:var(--accent);"></div><div style="width:32px;height:20px;background:var(--accent);"></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--text-tertiary);font-family:var(--font-mono);">4 · 8 · 12 · 16 · 20 · 24 · 32 px</div>
+      </div>
+      <div>
+        <div style="display:flex;gap:10px;margin-bottom:8px;">
+          <div style="width:36px;height:36px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:16px;"></div>
+          <div style="width:36px;height:36px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:12px;"></div>
+          <div style="width:36px;height:36px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:9px;"></div>
+          <div style="width:36px;height:36px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:999px;"></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--text-tertiary);font-family:var(--font-mono);">window 16 · panel 12 · control 9 · badge pill</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow">Materials</div>
+    <div style="border-radius:14px;overflow:hidden;position:relative;height:130px;background:linear-gradient(135deg, oklch(0.75 0.1 260), oklch(0.8 0.08 30) 60%, oklch(0.72 0.09 200));">
+      <div style="position:absolute;top:16px;left:16px;width:200px;padding:12px 14px;border-radius:10px;background:oklch(0.96 0.005 250 / 0.7);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid oklch(1 0 0 / 0.4);font-size:11px;font-weight:600;">Sidebar / Toolbar glass — blur(24px) saturate(180%)</div>
+      <div style="position:absolute;top:16px;right:16px;width:190px;padding:12px 14px;border-radius:10px;background:oklch(1 0 0 / 0.94);border:1px solid oklch(1 0 0 / 0.5);font-size:11px;font-weight:600;">Cards &amp; sheets — opaque, no blur</div>
+    </div>
+  </div>
+
+  <div class="section" style="padding-bottom:64px;">
+    <div class="eyebrow">Buttons</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <button style="background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;">Start Investigation</button>
+      <button style="background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;color:var(--text-primary);">Cancel</button>
+      <button style="background:none;border:none;padding:8px 4px;font-size:12.5px;font-weight:600;color:var(--text-secondary);">Try Another</button>
+      <button style="background:var(--border-hairline);color:var(--text-tertiary);border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;">Disabled</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

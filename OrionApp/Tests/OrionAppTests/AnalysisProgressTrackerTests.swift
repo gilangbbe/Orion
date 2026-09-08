@@ -30,6 +30,30 @@ final class AnalysisProgressStageTests: XCTestCase {
         // Guards against a future PipelineStageID case being added without updating this test.
         XCTAssertEqual(Set(Self.expected.keys), Set(PipelineStageID.allCases))
     }
+
+    /// Docs/14_phase4_5_ui_ux_redesign.md §8 M2's stepper index -- table-tested the same way as
+    /// `uiStage(for:)` above, since it's just that mapping's position in `allCases`.
+    func testUIPhaseIndexMatchesTheStagesPositionInAllCases() {
+        for stage in PipelineStageID.allCases {
+            let expectedIndex = AnalysisProgressStage.allCases.firstIndex(
+                of: Self.expected[stage]!)!
+            XCTAssertEqual(
+                AnalysisProgressStage.uiPhaseIndex(for: stage), expectedIndex,
+                "unexpected phase index for \(stage)")
+        }
+    }
+
+    func testUIPhaseIndexIsMonotonicNonDecreasingInPipelineExecutionOrder() {
+        // The stepper only makes sense if later pipeline stages never map to an earlier phase --
+        // this is what actually lets the view mark "phases before the current one" as done.
+        var previousIndex = -1
+        for stage in PipelineStageID.allCases {
+            let index = AnalysisProgressStage.uiPhaseIndex(for: stage)
+            XCTAssertGreaterThanOrEqual(
+                index, previousIndex, "\(stage) regressed to an earlier phase")
+            previousIndex = index
+        }
+    }
 }
 
 final class AnalysisProgressTrackerTests: XCTestCase {

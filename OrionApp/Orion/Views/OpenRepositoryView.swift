@@ -1,19 +1,22 @@
 import SwiftUI
 
-/// Docs/13_phase4_architecture_ui.md Decision 2's sheet: a local folder or a GitHub URL, plus a
-/// recents list for quick reopen. Purely input collection -- `RepositorySession.open(_:)` does
-/// the real work, so this view has nothing to unit-test beyond what's already covered by
-/// `RepositorySessionTests`/`RepositoryClonerTests`; correctness here is verified manually
-/// (Docs/13 "Testing & verification").
-struct OpenRepositoryView: View {
+/// Docs/14_phase4_5_ui_ux_redesign.md §4.2/§8 M2: the actual open-a-repository form -- Local
+/// Folder/GitHub URL tabs, the picker/field, and a Recents list -- shared verbatim between
+/// `WelcomeView`'s embedded card (Docs/05 Stage 1's entry point) and `OpenRepositoryView` below,
+/// which now only wraps this for the "Open Another Repository" sheet shown from an already-`.ready`
+/// session (Docs/13_phase4_architecture_ui.md Decision 2's original sheet, since M1 moved its
+/// trigger from the toolbar into the sidebar). `onWillOpen` lets a sheet host dismiss itself right
+/// before `RepositorySession.open(_:)` fires; `WelcomeView` passes the default no-op since there's
+/// nothing to dismiss when the form is embedded directly in the window.
+struct OpenRepositoryForm: View {
     private enum Mode: String, CaseIterable, Identifiable {
         case localFolder = "Local Folder"
         case gitHubURL = "GitHub URL"
         var id: String { rawValue }
     }
 
-    @Environment(\.dismiss) private var dismiss
     let session: RepositorySession
+    var onWillOpen: () -> Void = {}
     private let recents: RecentRepositories
 
     @State private var mode: Mode = .localFolder
@@ -22,15 +25,17 @@ struct OpenRepositoryView: View {
     @State private var validationError: String?
     @State private var recentEntries: [RecentRepositoryEntry] = []
 
-    init(session: RepositorySession, recents: RecentRepositories = RecentRepositories()) {
+    init(
+        session: RepositorySession, onWillOpen: @escaping () -> Void = {},
+        recents: RecentRepositories = RecentRepositories()
+    ) {
         self.session = session
+        self.onWillOpen = onWillOpen
         self.recents = recents
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Open Repository").font(.title2.bold())
-
             Picker("", selection: $mode) {
                 ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -43,7 +48,9 @@ struct OpenRepositoryView: View {
                     isPickingFolder = true
                 } label: {
                     Label("Choose Folder…", systemImage: "folder")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.glassProminent)
                 .fileImporter(isPresented: $isPickingFolder, allowedContentTypes: [.folder]) {
                     result in
                     switch result {
@@ -57,6 +64,7 @@ struct OpenRepositoryView: View {
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(openGitHubURL)
                     Button("Clone", action: openGitHubURL)
+                        .buttonStyle(.glassProminent)
                         .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 Text("Public HTTPS URLs only in this version -- no private repositories yet.")
@@ -73,6 +81,11 @@ struct OpenRepositoryView: View {
             if !recentEntries.isEmpty {
                 Divider()
                 Text("Recent").font(.headline)
+                // A bounded height, not just `.listStyle(.plain)`, matters here specifically
+                // because `WelcomeView` embeds this form inside its own `ScrollView` -- a `List`
+                // nested in a `ScrollView` with no explicit height silently collapses to near-zero
+                // instead of showing its rows (a real bug caught visually, not assumed away: it
+                // rendered as an empty "Recent" section with nothing under it).
                 List(recentEntries) { entry in
                     Button {
                         reopen(entry)
@@ -88,17 +101,16 @@ struct OpenRepositoryView: View {
                     .buttonStyle(.plain)
                 }
                 .listStyle(.plain)
+                .frame(minHeight: 120, maxHeight: 240)
             }
         }
-        .padding(24)
-        .frame(minWidth: 420, minHeight: 360)
         .onAppear { recentEntries = recents.load() }
     }
 
     private func openLocalPath(_ url: URL) {
         validationError = nil
         recents.recordOpened(input: url.path, displayName: url.lastPathComponent)
-        dismiss()
+        onWillOpen()
         Task { await session.open(.localPath(url)) }
     }
 
@@ -112,16 +124,34 @@ struct OpenRepositoryView: View {
             return
         }
         recents.recordOpened(input: trimmed, displayName: url.lastPathComponent)
-        dismiss()
+        onWillOpen()
         Task { await session.open(.gitHubURL(url)) }
     }
 
     private func reopen(_ entry: RecentRepositoryEntry) {
-        dismiss()
+        onWillOpen()
         if let url = URL(string: entry.input), url.scheme?.lowercased() == "https" {
             Task { await session.open(.gitHubURL(url)) }
         } else {
             Task { await session.open(.localPath(URL(fileURLWithPath: entry.input))) }
         }
+    }
+}
+
+/// The "Open Another Repository" sheet, shown only from an already-`.ready` session (M1's sidebar
+/// footer) -- `WelcomeView` is what a repository-less session shows now, so this is no longer
+/// Docs/05 Stage 1's own first screen, just a modal re-entry point. Thin chrome around
+/// `OpenRepositoryForm`, dismissing itself right before a new open begins.
+struct OpenRepositoryView: View {
+    @Environment(\.dismiss) private var dismiss
+    let session: RepositorySession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Open Repository").font(.title2.bold())
+            OpenRepositoryForm(session: session, onWillOpen: { dismiss() })
+        }
+        .padding(24)
+        .frame(minWidth: 420, minHeight: 360)
     }
 }

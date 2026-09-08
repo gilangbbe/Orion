@@ -1,22 +1,38 @@
 import OrionCodeIntel
 import SwiftUI
 
-/// Docs/08's "confidence" bullet -- a separate axis from `EpistemicBadge`'s epistemic type
-/// (Docs/04's FACT/INTERPRETATION/... vocabulary answers "what kind of knowledge is this,"
-/// `ConfidenceTier` answers "how sure are we"). Shown alongside `EpistemicBadge` wherever a
-/// component, dependency, or claim carries a confidence tier. `color(forTier:)` is `static` so
-/// `ArchitectureOverviewView`'s node/edge coloring can share the exact same mapping rather than
-/// drifting from this badge's own colors.
+/// Docs/14_phase4_5_ui_ux_redesign.md §3 / M0: confidence renders as an OUTLINED capsule with a
+/// 3-bar signal meter, never a filled capsule -- `EpistemicBadge` already owns the filled-capsule
+/// look for "what kind of knowledge is this," so confidence ("how sure are we," a genuinely
+/// independent axis, Docs/08) needs to be distinguishable by *shape*, not only by the two badges
+/// happening to use different hues. This is a real, not hypothetical, problem: `EpistemicTag.unknown`
+/// and `ConfidenceTier.unresolved` are both gray, and the two badges sit side by side constantly (a
+/// component, a claim) -- two identical-looking filled gray pills told a viewer nothing extra. An
+/// outlined pill next to a filled one reads as two different kinds of information before either
+/// color or label is even read, which is the actual point (WCAG's "use of color" -- never the only
+/// channel that carries meaning).
 struct ConfidenceBadge: View {
     let tier: String
 
     static func color(forTier tier: String) -> Color {
         switch tier.lowercased() {
-        case "high": return .blue
-        case "medium": return .yellow
-        case "low": return .orange
-        case "unresolved": return .gray
+        case "high": return DesignTokens.confidenceHigh
+        case "medium": return DesignTokens.confidenceMedium
+        case "low": return DesignTokens.confidenceLow
+        case "unresolved": return DesignTokens.confidenceUnresolved
         default: return .secondary
+        }
+    }
+
+    /// How many of the meter's 3 bars are filled for a given tier. An unrecognized tier reads as
+    /// 0 -- the same as `unresolved` -- rather than guessing; an unknown string is never more
+    /// confident than "unresolved."
+    static func barsFilled(forTier tier: String) -> Int {
+        switch tier.lowercased() {
+        case "high": return 3
+        case "medium": return 2
+        case "low": return 1
+        default: return 0
         }
     }
 
@@ -31,13 +47,39 @@ struct ConfidenceBadge: View {
     }
 
     var body: some View {
-        Text(tier.capitalized)
-            .font(.caption2.bold())
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .foregroundStyle(Self.color(forTier: tier))
-            .background(Self.color(forTier: tier).opacity(0.15))
-            .clipShape(Capsule())
+        let color = Self.color(forTier: tier)
+        Label {
+            Text(tier.capitalized)
+        } icon: {
+            SignalBars(filled: Self.barsFilled(forTier: tier), color: color)
+        }
+        .font(.caption2.bold())
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .foregroundStyle(color)
+        .background(Capsule().strokeBorder(color, lineWidth: 1.3))
+    }
+}
+
+/// The signal meter itself -- ascending bar heights, filled from the left. An unfilled bar is
+/// always drawn in a neutral secondary tone, never a faded version of the tier's own hue, which
+/// would just read as a lighter copy of the same badge instead of a genuinely "off" bar.
+private struct SignalBars: View {
+    let filled: Int
+    let color: Color
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 1.5) {
+            bar(height: 5, isOn: filled >= 1)
+            bar(height: 7, isOn: filled >= 2)
+            bar(height: 9, isOn: filled >= 3)
+        }
+    }
+
+    private func bar(height: CGFloat, isOn: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 0.75)
+            .fill(isOn ? color : Color.secondary.opacity(0.35))
+            .frame(width: 3, height: height)
     }
 }
 

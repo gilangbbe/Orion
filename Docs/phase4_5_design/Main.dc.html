@@ -1,0 +1,1273 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  * { box-sizing: border-box; }
+  .orion { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif; }
+  .orion, .orion .dark-scope {
+    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --bg-desktop: linear-gradient(160deg, oklch(0.86 0.03 250), oklch(0.90 0.02 30) 55%, oklch(0.88 0.03 200));
+    --bg-window: oklch(0.985 0.002 250);
+    --bg-sidebar: oklch(0.94 0.006 250 / 0.78);
+    --bg-toolbar: oklch(0.98 0.002 250 / 0.6);
+    --bg-content: oklch(0.995 0.001 250);
+    --bg-card: oklch(1 0 0);
+    --bg-card-soft: oklch(0.97 0.003 250);
+    --bg-inspector: oklch(0.965 0.005 250 / 0.85);
+    --bg-hover: oklch(0.9 0.006 250 / 0.7);
+    --bg-active: oklch(0.62 0.12 200 / 0.14);
+    --border-hairline: oklch(0.85 0.006 250);
+    --border-strong: oklch(0.75 0.008 250);
+    --text-primary: oklch(0.22 0.01 250);
+    --text-secondary: oklch(0.48 0.012 250);
+    --text-tertiary: oklch(0.65 0.01 250);
+    --accent: oklch(0.60 0.12 200);
+    --accent-strong: oklch(0.50 0.13 200);
+    --accent-soft: oklch(0.60 0.12 200 / 0.13);
+    --fact: oklch(0.60 0.14 152); --fact-soft: oklch(0.60 0.14 152 / 0.14);
+    --interp: oklch(0.55 0.16 322); --interp-soft: oklch(0.55 0.16 322 / 0.13);
+    --infer: oklch(0.53 0.15 278); --infer-soft: oklch(0.53 0.15 278 / 0.13);
+    --unk: oklch(0.55 0.01 260); --unk-soft: oklch(0.55 0.01 260 / 0.13);
+    --contra: oklch(0.58 0.19 25); --contra-soft: oklch(0.58 0.19 25 / 0.13);
+    --conf-high: oklch(0.55 0.16 258);
+    --conf-medium: oklch(0.72 0.13 85);
+    --conf-low: oklch(0.65 0.17 45);
+    --conf-unresolved: oklch(0.60 0.01 260);
+    --shadow-window: 0 30px 80px -20px oklch(0.2 0.02 250 / 0.45), 0 4px 18px oklch(0.2 0.02 250 / 0.22);
+    --shadow-panel: 0 18px 40px -12px oklch(0.2 0.02 250 / 0.30);
+  }
+  .orion.dark {
+    --bg-desktop: linear-gradient(160deg, oklch(0.22 0.02 260), oklch(0.15 0.02 280) 70%);
+    --bg-window: oklch(0.185 0.008 250);
+    --bg-sidebar: oklch(0.24 0.012 250 / 0.8);
+    --bg-toolbar: oklch(0.21 0.01 250 / 0.62);
+    --bg-content: oklch(0.17 0.008 250);
+    --bg-card: oklch(0.235 0.01 250);
+    --bg-card-soft: oklch(0.21 0.01 250);
+    --bg-inspector: oklch(0.225 0.012 250 / 0.86);
+    --bg-hover: oklch(0.32 0.012 250 / 0.7);
+    --bg-active: oklch(0.62 0.12 200 / 0.22);
+    --border-hairline: oklch(0.34 0.012 250);
+    --border-strong: oklch(0.44 0.014 250);
+    --text-primary: oklch(0.95 0.004 250);
+    --text-secondary: oklch(0.74 0.008 250);
+    --text-tertiary: oklch(0.54 0.01 250);
+    --fact: oklch(0.72 0.15 152); --fact-soft: oklch(0.72 0.15 152 / 0.16);
+    --interp: oklch(0.70 0.16 322); --interp-soft: oklch(0.70 0.16 322 / 0.16);
+    --infer: oklch(0.68 0.15 278); --infer-soft: oklch(0.68 0.15 278 / 0.16);
+    --unk: oklch(0.68 0.01 260); --unk-soft: oklch(0.68 0.01 260 / 0.16);
+    --contra: oklch(0.68 0.19 25); --contra-soft: oklch(0.68 0.19 25 / 0.16);
+    --conf-high: oklch(0.70 0.14 258);
+    --conf-medium: oklch(0.78 0.13 85);
+    --conf-low: oklch(0.72 0.16 45);
+    --conf-unresolved: oklch(0.62 0.01 260);
+    --shadow-window: 0 30px 90px -20px oklch(0 0 0 / 0.7), 0 4px 22px oklch(0 0 0 / 0.45);
+    --shadow-panel: 0 18px 44px -12px oklch(0 0 0 / 0.5);
+  }
+  .orion ::-webkit-scrollbar { width: 9px; height: 9px; }
+  .orion ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+  .orion ::-webkit-scrollbar-track { background: transparent; }
+  .orion a { color: var(--accent); text-decoration: none; }
+  .orion a:hover { color: var(--accent-strong); }
+  .orion button { font-family: inherit; cursor: default; }
+  .orion input, .orion textarea { font-family: inherit; }
+  @keyframes orionSpin { to { transform: rotate(360deg); } }
+  @keyframes orionFadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes orionFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes orionPop { from { opacity: 0; transform: scale(0.97) translateY(4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .o-spin { animation: orionSpin 0.85s linear infinite; }
+  .o-fade-up { animation: orionFadeUp 0.28s ease both; }
+  .o-fade-in { animation: orionFadeIn 0.2s ease both; }
+  .o-pop { animation: orionPop 0.2s cubic-bezier(.2,.9,.3,1.2) both; }
+  .o-navrow:hover { background: var(--bg-hover); }
+  .o-navrow-active { background: var(--bg-active) !important; }
+  .o-card-hover:hover { background: var(--bg-hover); }
+</style>
+</helmet>
+
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+<defs>
+<symbol id="i-orion" viewBox="0 0 24 24"><circle cx="5" cy="19" r="2" fill="currentColor"/><circle cx="12" cy="6" r="2" fill="currentColor"/><circle cx="19" cy="19" r="2" fill="currentColor"/><path d="M5 19 12 6 19 19" stroke="currentColor" stroke-width="1.4" fill="none" stroke-dasharray="1,3.2" stroke-linecap="round"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4l2 2h9a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M9 15l6-6M10 6l1.5-1.5a3.5 3.5 0 0 1 5 5L15 11M14 18l-1.5 1.5a3.5 3.5 0 0 1-5-5L9 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z" fill="currentColor"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z" fill="currentColor"/></symbol>
+<symbol id="i-bubble" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H9l-4 3.5V16h-.5A1.5 1.5 0 0 1 3 14.5v-9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-diagram" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="18" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.1 8.1L10 15M15.9 8.1L14 15M8.4 7h7.2" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="4" cy="6" r="1.3" fill="currentColor"/><circle cx="4" cy="12" r="1.3" fill="currentColor"/><circle cx="4" cy="18" r="1.3" fill="currentColor"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 8v4.5l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M12 5L2 9.5 12 14l10-4.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 11.5v4c0 1.2 2.7 2.5 6 2.5s6-1.3 6-2.5v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-chevron-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-chevron-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.4 6.4 0 0 0 10.5 10.5z" fill="currentColor"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2.5v2.4M12 19v2.4M21.5 12h-2.4M4.9 12H2.5M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2 5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-seal" viewBox="0 0 24 24"><path d="M9 12.5l2 2 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3l2 1.6 2.5-.4 1 2.3 2.3 1-.4 2.5L21 12l-1.6 2 .4 2.5-2.3 1-1 2.3-2.5-.4L12 21l-2-1.6-2.5.4-1-2.3-2.3-1 .4-2.5L3 12l1.6-2-.4-2.5 2.3-1 1-2.3 2.5.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+<symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 8v6M6 12h8M14 12l2 0" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-question" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 9.3a2.5 2.5 0 1 1 3.7 2.2c-.9.5-1.2 1-1.2 2" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="16.6" r="0.9" fill="currentColor"/></symbol>
+<symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 10v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17" r="0.9" fill="currentColor"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-7-6.5 16-2.3-6.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="M9 8l-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</defs>
+</svg>
+
+<div class="{{rootClass}}" style="width:100%;min-height:900px;display:flex;align-items:center;justify-content:center;background:var(--bg-desktop);padding:48px;">
+
+  <div style="width:1344px;height:804px;border-radius:16px;box-shadow:var(--shadow-window);background:var(--bg-window);position:relative;overflow:hidden;color:var(--text-primary);">
+
+    <!-- ===================== WELCOME ===================== -->
+    <sc-if value="{{isWelcome}}" hint-placeholder-val="{{true}}">
+      <div style="position:absolute;inset:0;display:flex;">
+        <div style="flex:1.1;display:flex;flex-direction:column;justify-content:center;padding:0 72px;">
+          <svg width="40" height="40" style="color:var(--accent);margin-bottom:22px;"><use href="#i-orion"/></svg>
+          <div style="font-size:36px;font-weight:700;letter-spacing:-0.01em;line-height:1.15;max-width:420px;">See what your code actually does.</div>
+          <div style="font-size:15px;color:var(--text-secondary);margin-top:14px;max-width:400px;line-height:1.55;">Orion reconstructs a repository's architecture with evidence and confidence attached to every claim &mdash; not another dependency graph you have to take on faith.</div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;padding:40px 56px 40px 0;">
+          <div style="width:100%;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:14px;box-shadow:var(--shadow-panel);padding:24px;" class="o-fade-up">
+            <div style="font-size:17px;font-weight:650;margin-bottom:16px;">Open Repository</div>
+            <div style="display:flex;background:var(--bg-card-soft);border-radius:9px;padding:3px;gap:2px;margin-bottom:16px;">
+              <button onClick="{{setModeLocal}}" style="{{localTabStyle}}flex:1;border:none;border-radius:7px;padding:6px 0;font-size:12.5px;font-weight:600;">Local Folder</button>
+              <button onClick="{{setModeGithub}}" style="{{githubTabStyle}}flex:1;border:none;border-radius:7px;padding:6px 0;font-size:12.5px;font-weight:600;">GitHub URL</button>
+            </div>
+            <sc-if value="{{isModeLocal}}" hint-placeholder-val="{{true}}">
+              <button onClick="{{openLocal}}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);color:white;border:none;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;">
+                <svg width="15" height="15"><use href="#i-folder"/></svg>Choose Folder&hellip;
+              </button>
+            </sc-if>
+            <sc-if value="{{isModeGithub}}" hint-placeholder-val="{{false}}">
+              <div style="display:flex;gap:6px;">
+                <input value="{{urlText}}" onChange="{{setUrlText}}" placeholder="https://github.com/owner/repo" style="flex:1;min-width:0;border:1px solid var(--border-hairline);border-radius:8px;padding:0 10px;height:32px;font-size:12.5px;background:var(--bg-card);color:var(--text-primary);"/>
+                <button onClick="{{openGithub}}" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0 14px;font-size:12.5px;font-weight:600;">Clone</button>
+              </div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-top:7px;">Public HTTPS URLs only &mdash; no private repositories yet.</div>
+            </sc-if>
+            <div style="height:1px;background:var(--border-hairline);margin:18px 0 12px;"></div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Recent</div>
+            <sc-for list="{{recents}}" as="entry" hint-placeholder-count="2">
+              <button onClick="{{entry.pick}}" class="o-card-hover" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;border:none;background:transparent;border-radius:7px;padding:7px 6px;">
+                <svg width="14" height="14" style="color:var(--text-tertiary);flex-shrink:0;"><use href="{{entry.icon}}"/></svg>
+                <div style="min-width:0;flex:1;">
+                  <div style="font-size:12.5px;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{entry.name}}</div>
+                  <div style="font-size:10.5px;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{entry.path}}</div>
+                </div>
+                <div style="font-size:10px;color:var(--text-tertiary);flex-shrink:0;">{{entry.when}}</div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===================== OPENING ===================== -->
+    <sc-if value="{{isOpening}}" hint-placeholder-val="{{false}}">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+        <svg width="22" height="22" class="o-spin" style="color:var(--text-tertiary);"><use href="#i-clock"/></svg>
+        <div style="font-size:15px;font-weight:600;">{{openingLabel}}</div>
+        <div style="font-size:12px;color:var(--text-tertiary);">{{repoPath}}</div>
+      </div>
+    </sc-if>
+
+    <!-- ===================== ANALYZING ===================== -->
+    <sc-if value="{{isAnalyzing}}" hint-placeholder-val="{{false}}">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div style="width:380px;">
+          <div style="text-align:center;margin-bottom:26px;">
+            <div style="font-size:17px;font-weight:650;">{{repoName}}</div>
+            <div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;">{{repoPath}}</div>
+          </div>
+          <sc-for list="{{analysisPhases}}" as="phase" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:11px;padding:9px 4px;">
+              <div style="width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:{{phase.dotBg}};border:1.5px solid {{phase.dotBorder}};">
+                <sc-if value="{{phase.done}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" style="color:white;"><use href="#i-check"/></svg></sc-if>
+                <sc-if value="{{phase.active}}" hint-placeholder-val="{{true}}"><svg width="11" height="11" class="o-spin" style="color:var(--accent);"><use href="#i-clock"/></svg></sc-if>
+              </div>
+              <div style="font-size:13px;font-weight:{{phase.weight}};color:{{phase.textColor}};">{{phase.label}}</div>
+            </div>
+          </sc-for>
+          <button onClick="{{toggleAdvancedProgress}}" style="margin-top:18px;background:none;border:none;display:flex;align-items:center;gap:5px;color:var(--text-tertiary);font-size:11.5px;padding:0;">
+            <svg width="11" height="11"><use href="{{advancedProgressIcon}}"/></svg>Advanced
+          </button>
+          <sc-if value="{{showAdvancedProgress}}" hint-placeholder-val="{{false}}">
+            <div class="o-fade-in" style="margin-top:8px;background:var(--bg-card-soft);border-radius:8px;padding:10px 12px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-tertiary);line-height:1.7;">
+              <div>clone_repository &mdash; 0.4s</div>
+              <div>parse_structure (tree-sitter) &mdash; 1.2s</div>
+              <div>resolve_symbols (scip-python) &mdash; 2.1s</div>
+              <div>persist_code_graph &mdash; 0.3s</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===================== READY SHELL ===================== -->
+    <sc-if value="{{isReady}}" hint-placeholder-val="{{false}}">
+      <div style="position:absolute;inset:0;display:flex;">
+
+        <!-- SIDEBAR -->
+        <div style="width:236px;flex-shrink:0;background:var(--bg-sidebar);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-right:1px solid var(--border-hairline);display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:7px;padding:14px 14px 10px;">
+            <div style="width:11px;height:11px;border-radius:999px;background:#ec6a5e;"></div>
+            <div style="width:11px;height:11px;border-radius:999px;background:#f4bf50;"></div>
+            <div style="width:11px;height:11px;border-radius:999px;background:#61c454;"></div>
+          </div>
+          <div style="padding:6px 16px 14px;border-bottom:1px solid var(--border-hairline);">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <svg width="17" height="17" style="color:var(--accent);flex-shrink:0;"><use href="#i-orion"/></svg>
+              <div style="font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{repoName}}</div>
+            </div>
+            <div style="font-size:10.5px;color:var(--text-tertiary);margin-top:5px;">{{repoStats}}</div>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;padding:10px 10px;">
+            <sc-for list="{{navPrimary}}" as="item" hint-placeholder-count="4">
+              <button onClick="{{item.pick}}" class="{{item.rowClass}}" style="width:100%;display:flex;align-items:center;gap:9px;border:none;background:transparent;border-radius:7px;padding:7px 9px;margin-bottom:1px;text-align:left;">
+                <svg width="15" height="15" style="color:{{item.iconColor}};flex-shrink:0;"><use href="{{item.icon}}"/></svg>
+                <div style="font-size:12.5px;font-weight:{{item.weight}};color:{{item.textColor}};flex:1;">{{item.label}}</div>
+                <sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}">
+                  <div style="background:var(--accent);color:white;font-size:9.5px;font-weight:700;border-radius:999px;min-width:15px;height:15px;display:flex;align-items:center;justify-content:center;padding:0 4px;">{{item.badge}}</div>
+                </sc-if>
+              </button>
+            </sc-for>
+            <div style="font-size:9.5px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.05em;padding:12px 9px 5px;">Advanced</div>
+            <sc-for list="{{navAdvanced}}" as="item" hint-placeholder-count="1">
+              <button onClick="{{item.pick}}" class="{{item.rowClass}}" style="width:100%;display:flex;align-items:center;gap:9px;border:none;background:transparent;border-radius:7px;padding:7px 9px;text-align:left;">
+                <svg width="15" height="15" style="color:{{item.iconColor}};flex-shrink:0;"><use href="{{item.icon}}"/></svg>
+                <div style="font-size:12.5px;font-weight:{{item.weight}};color:{{item.textColor}};flex:1;">{{item.label}}</div>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="padding:12px;border-top:1px solid var(--border-hairline);">
+            <sc-if value="{{buildIsIdle}}" hint-placeholder-val="{{true}}">
+              <button onClick="{{openBuildSheet}}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:8px;padding:8px 0;font-size:12px;font-weight:600;color:var(--text-primary);">
+                <svg width="13" height="13" style="color:var(--interp);"><use href="#i-sparkles"/></svg>Build Architecture Model&hellip;
+              </button>
+            </sc-if>
+            <sc-if value="{{buildIsRunning}}" hint-placeholder-val="{{false}}">
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 2px;">
+                <svg width="13" height="13" class="o-spin" style="color:var(--text-tertiary);"><use href="#i-clock"/></svg>
+                <div style="font-size:11.5px;color:var(--text-secondary);">Investigating&hellip;</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{buildIsDone}}" hint-placeholder-val="{{false}}">
+              <div style="padding:2px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--fact);">
+                  <svg width="13" height="13"><use href="#i-seal"/></svg>6 components verified
+                </div>
+                <div style="font-size:10.5px;color:var(--text-tertiary);margin-top:2px;">Cost: $0.63 &middot; 3m 40s</div>
+              </div>
+            </sc-if>
+            <button onClick="{{openOpenSheet}}" class="o-card-hover" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;border:none;border-radius:8px;padding:7px 0;font-size:11.5px;color:var(--text-secondary);margin-top:6px;">
+              <svg width="12" height="12"><use href="#i-folder"/></svg>Open Another Repository&hellip;
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+          <!-- TOOLBAR -->
+          <div style="height:52px;flex-shrink:0;background:var(--bg-toolbar);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-bottom:1px solid var(--border-hairline);display:flex;align-items:center;padding:0 18px;gap:12px;">
+            <div style="font-size:14.5px;font-weight:650;">{{destinationTitle}}</div>
+            <div style="flex:1;"></div>
+            <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+              <div style="display:flex;background:var(--bg-card-soft);border-radius:7px;padding:2px;gap:1px;">
+                <button onClick="{{setViewDiagram}}" style="{{diagramTabStyle}}border:none;border-radius:5px;padding:5px 9px;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;">
+                  <svg width="13" height="13"><use href="#i-diagram"/></svg>Diagram
+                </button>
+                <button onClick="{{setViewList}}" style="{{listTabStyle}}border:none;border-radius:5px;padding:5px 9px;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;">
+                  <svg width="13" height="13"><use href="#i-list"/></svg>List
+                </button>
+              </div>
+            </sc-if>
+            <button onClick="{{toggleDark}}" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--border-hairline);background:var(--bg-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);">
+              <svg width="14" height="14"><use href="{{themeIcon}}"/></svg>
+            </button>
+          </div>
+
+          <!-- BODY -->
+          <div style="flex:1;min-height:0;display:flex;position:relative;">
+
+            <!-- OVERVIEW -->
+            <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="padding:10px 20px;background:{{layerBannerBg}};border-bottom:1px solid var(--border-hairline);display:flex;align-items:center;gap:10px;">
+                  <svg width="14" height="14" style="color:{{layerBannerColor}};"><use href="{{layerBannerIcon}}"/></svg>
+                  <div style="font-size:12px;color:{{layerBannerColor}};font-weight:600;flex:1;">{{layerBannerText}}</div>
+                </div>
+                <button onClick="{{openQuestionsPanel}}" class="o-card-hover" style="width:100%;text-align:left;border:none;background:transparent;border-bottom:1px solid var(--border-hairline);padding:9px 20px;display:flex;align-items:center;gap:9px;">
+                  <svg width="13" height="13" style="color:var(--unk);flex-shrink:0;"><use href="#i-question"/></svg>
+                  <div style="font-size:11.5px;font-weight:700;color:var(--text-primary);flex-shrink:0;">Open Questions ({{openQuestionsCount}})</div>
+                  <div style="font-size:11.5px;color:var(--text-tertiary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{openQuestionsPreview}}</div>
+                  <svg width="12" height="12" style="color:var(--text-tertiary);flex-shrink:0;"><use href="#i-chevron-r"/></svg>
+                </button>
+
+                <sc-if value="{{isDiagramView}}" hint-placeholder-val="{{true}}">
+                  <div style="flex:1;position:relative;overflow:hidden;background:
+                    radial-gradient(circle at 1px 1px, var(--border-hairline) 1px, transparent 0) 0 0/22px 22px;">
+                    <svg width="100%" height="100%" viewBox="0 0 760 460" style="display:block;">
+                      <sc-for list="{{edges}}" as="e" hint-placeholder-count="7">
+                        <line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.stroke}}" stroke-width="1.6" stroke-dasharray="{{e.dash}}"/>
+                      </sc-for>
+                      <sc-for list="{{nodes}}" as="n" hint-placeholder-count="8">
+                        <g onClick="{{n.pick}}" style="cursor:pointer;">
+                          <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.ringR}}" fill="none" stroke="var(--accent)" stroke-width="2" style="opacity:{{n.ringOpacity}};"/>
+                          <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}" fill="{{n.fill}}" stroke="{{n.stroke}}" stroke-width="1.6"/>
+                          <text x="{{n.x}}" y="{{n.labelY}}" text-anchor="middle" style="font-size:11px;font-weight:600;fill:var(--text-primary);font-family:-apple-system,sans-serif;">{{n.name}}</text>
+                        </g>
+                      </sc-for>
+                    </svg>
+                    <div style="position:absolute;left:16px;bottom:14px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:8px;padding:8px 10px;font-size:10.5px;color:var(--text-secondary);box-shadow:var(--shadow-panel);">
+                      <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:999px;background:var(--interp);"></div>Semantic component &nbsp;&middot;&nbsp; <div style="width:8px;height:8px;border-radius:999px;background:var(--unk);"></div>Structural module</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{isListView}}" hint-placeholder-val="{{false}}">
+                  <div style="flex:1;overflow-y:auto;padding:6px 14px;">
+                    <sc-for list="{{nodes}}" as="n" hint-placeholder-count="8">
+                      <button onClick="{{n.pick}}" class="o-card-hover" style="width:100%;text-align:left;border:none;background:transparent;border-bottom:1px solid var(--border-hairline);padding:11px 8px;display:flex;align-items:center;gap:10px;">
+                        <div style="width:9px;height:9px;border-radius:999px;background:{{n.fill}};flex-shrink:0;"></div>
+                        <div style="flex:1;min-width:0;">
+                          <div style="font-size:13px;font-weight:600;">{{n.name}}</div>
+                          <div style="font-size:11px;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{n.subtitle}}</div>
+                        </div>
+                        <sc-if value="{{n.hasConf}}" hint-placeholder-val="{{true}}">
+                          <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;border:1.3px solid {{n.conf.color}};color:{{n.conf.color}};font-size:10.5px;font-weight:600;flex-shrink:0;">
+                            <span style="display:inline-flex;align-items:flex-end;gap:1.5px;">
+                              <span style="width:3px;height:5px;border-radius:1px;background:{{n.conf.bar1}};"></span>
+                              <span style="width:3px;height:7px;border-radius:1px;background:{{n.conf.bar2}};"></span>
+                              <span style="width:3px;height:9px;border-radius:1px;background:{{n.conf.bar3}};"></span>
+                            </span>{{n.conf.label}}
+                          </span>
+                        </sc-if>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- ASK -->
+            <sc-if value="{{isAsk}}" hint-placeholder-val="{{false}}">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+                <div style="flex:1;min-height:0;display:flex;">
+
+                  <!-- Question list (left) — grouped by component, vertically (never horizontally) so
+                       neither a long component name nor a large number of components can break layout -->
+                  <div style="width:272px;flex-shrink:0;border-right:1px solid var(--border-hairline);display:flex;flex-direction:column;">
+                    <div style="padding:10px 12px;border-bottom:1px solid var(--border-hairline);">
+                      <input value="{{askSearch}}" onChange="{{setAskSearch}}" placeholder="Search your questions&hellip;" style="width:100%;border:1px solid var(--border-hairline);border-radius:8px;padding:0 10px;height:28px;font-size:12px;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;"/>
+                    </div>
+                    <div style="flex:1;overflow-y:auto;">
+                      <sc-if value="{{askListEmpty}}" hint-placeholder-val="{{false}}">
+                        <div style="padding:22px 14px;font-size:12px;color:var(--text-tertiary);text-align:center;">No questions match.</div>
+                      </sc-if>
+                      <sc-for list="{{askGroups}}" as="g" hint-placeholder-count="3">
+                        <div>
+                          <button onClick="{{g.toggle}}" style="width:100%;text-align:left;border:none;background:var(--bg-card-soft);border-bottom:1px solid var(--border-hairline);padding:7px 12px;display:flex;align-items:center;gap:6px;">
+                            <svg width="10" height="10" style="color:var(--text-tertiary);flex-shrink:0;"><use href="{{g.chevronIcon}}"/></svg>
+                            <div style="font-size:10.5px;font-weight:700;color:var(--text-secondary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{g.name}}</div>
+                            <div style="font-size:9.5px;color:var(--text-tertiary);flex-shrink:0;">{{g.count}}</div>
+                          </button>
+                          <sc-if value="{{g.expanded}}" hint-placeholder-val="{{true}}">
+                            <sc-for list="{{g.items}}" as="t" hint-placeholder-count="2">
+                              <button onClick="{{t.select}}" style="width:100%;text-align:left;border:none;background:{{t.rowBg}};border-bottom:1px solid var(--border-hairline);padding:9px 12px 9px 24px;display:block;">
+                                <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+                                  <svg width="9" height="9" style="color:{{t.dotColor}};flex-shrink:0;"><use href="{{t.dotIcon}}"/></svg>
+                                  <div style="font-size:9px;color:var(--text-tertiary);flex:1;">{{t.when}}</div>
+                                </div>
+                                <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{t.question}}</div>
+                              </button>
+                            </sc-for>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <!-- Selected answer (right) -->
+                  <div style="flex:1;min-width:0;overflow-y:auto;padding:20px 24px;">
+                    <sc-if value="{{hasAskSelection}}" hint-placeholder-val="{{true}}">
+                      <div class="o-fade-up" style="max-width:640px;">
+                        <div style="font-size:15px;font-weight:650;margin-bottom:9px;">{{sel.question}}</div>
+                        <div style="background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:10px;padding:15px 17px;">
+                          <sc-if value="{{sel.thinking}}" hint-placeholder-val="{{false}}">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                              <svg width="13" height="13" class="o-spin" style="color:var(--text-tertiary);"><use href="#i-clock"/></svg>
+                              <div style="font-size:12px;color:var(--text-tertiary);">Thinking&hellip;</div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{sel.answered}}" hint-placeholder-val="{{true}}">
+                            <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:{{sel.outcomeColor}};margin-bottom:8px;">
+                              <svg width="12" height="12"><use href="{{sel.outcomeIcon}}"/></svg>{{sel.outcomeLabel}}
+                            </div>
+                            <div style="font-size:13px;line-height:1.55;color:var(--text-primary);">{{sel.answer}}</div>
+                            <sc-if value="{{sel.hasClaims}}" hint-placeholder-val="{{false}}">
+                              <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                                <sc-for list="{{sel.claims}}" as="c" hint-placeholder-count="2">
+                                  <div style="border-top:1px solid var(--border-hairline);padding-top:8px;">
+                                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                      <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:{{c.epi.bg}};color:{{c.epi.color}};font-size:10px;font-weight:700;">
+                                        <svg width="10" height="10"><use href="{{c.epi.icon}}"/></svg>{{c.epi.label}}
+                                      </span>
+                                      <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;border:1.2px solid {{c.conf.color}};color:{{c.conf.color}};font-size:10px;font-weight:700;">{{c.conf.label}}</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-secondary);">{{c.statement}}</div>
+                                    <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
+                                      <sc-for list="{{c.evidence}}" as="ev" hint-placeholder-count="1">
+                                        <button onClick="{{ev.pick}}" style="border:none;background:none;padding:0;font-family:var(--font-mono);font-size:11px;color:var(--accent);">{{ev.anchor}}</button>
+                                      </sc-for>
+                                    </div>
+                                  </div>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                            <button onClick="{{sel.toggleExplain}}" style="margin-top:9px;border:none;background:none;padding:0;display:flex;align-items:center;gap:5px;color:var(--text-tertiary);font-size:10.5px;">
+                              <svg width="10" height="10"><use href="{{sel.explainIcon}}"/></svg>Explain
+                            </button>
+                            <sc-if value="{{sel.showExplain}}" hint-placeholder-val="{{false}}">
+                              <div class="o-fade-in" style="margin-top:6px;background:var(--bg-card-soft);border-radius:7px;padding:9px 11px;font-size:10.5px;color:var(--text-tertiary);line-height:1.6;">
+                                <div>{{sel.routingLine}}</div>
+                                <div style="margin-top:3px;">{{sel.rationale}}</div>
+                                <sc-if value="{{sel.hasTools}}" hint-placeholder-val="{{false}}">
+                                  <div style="margin-top:6px;font-family:var(--font-mono);">
+                                    <sc-for list="{{sel.tools}}" as="tc" hint-placeholder-count="1">
+                                      <div>[{{tc.i}}] {{tc.name}}({{tc.args}}) &rarr; {{tc.result}}</div>
+                                    </sc-for>
+                                  </div>
+                                </sc-if>
+                              </div>
+                            </sc-if>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{noAskSelection}}" hint-placeholder-val="{{false}}">
+                      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:12.5px;">Select a question to see its answer.</div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div style="border-top:1px solid var(--border-hairline);padding:12px 18px;display:flex;gap:8px;background:var(--bg-toolbar);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
+                  <input value="{{askInput}}" onChange="{{setAskInput}}" onKeyDown="{{askKeyDown}}" placeholder="Ask a new question about this repository&hellip;" style="flex:1;border:1px solid var(--border-hairline);border-radius:9px;padding:0 13px;height:34px;font-size:13px;background:var(--bg-card);color:var(--text-primary);"/>
+                  <button onClick="{{sendAsk}}" style="width:34px;height:34px;border-radius:9px;border:none;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <svg width="15" height="15"><use href="#i-send"/></svg>
+                  </button>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- MODEL CHANGES -->
+            <sc-if value="{{isChanges}}" hint-placeholder-val="{{false}}">
+              <div style="flex:1;overflow-y:auto;padding:20px 24px;">
+                <sc-for list="{{timeline}}" as="ev" hint-placeholder-count="2">
+                  <div style="background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+                    <button onClick="{{ev.toggle}}" style="width:100%;background:none;border:none;padding:0;text-align:left;display:flex;align-items:center;gap:10px;">
+                      <svg width="14" height="14" style="color:var(--accent);flex-shrink:0;"><use href="#i-clock"/></svg>
+                      <div style="flex:1;">
+                        <div style="font-size:13px;font-weight:650;">Understanding updated &mdash; {{ev.title}}</div>
+                        <div style="font-size:11px;color:var(--text-tertiary);margin-top:1px;">{{ev.when}}</div>
+                      </div>
+                      <svg width="12" height="12" style="color:var(--text-tertiary);"><use href="{{ev.chevronIcon}}"/></svg>
+                    </button>
+                    <sc-if value="{{ev.expanded}}" hint-placeholder-val="{{true}}">
+                      <div class="o-fade-in" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-hairline);display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                          <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Previously</div>
+                          <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);">{{ev.before}}</div>
+                        </div>
+                        <div>
+                          <div style="font-size:10px;font-weight:700;color:var(--fact);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Now</div>
+                          <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">{{ev.after}}</div>
+                        </div>
+                        <div>
+                          <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Reason</div>
+                          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">{{ev.reason}}</div>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- TEACHING -->
+            <sc-if value="{{isTeaching}}" hint-placeholder-val="{{false}}">
+              <div style="flex:1;overflow-y:auto;padding:22px 26px;">
+                <div style="max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+                  <div>
+                    <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Explain</div>
+                    <div style="font-size:13px;color:var(--text-secondary);line-height:1.55;">Both <b style="color:var(--text-primary);">TokenManager</b> and <b style="color:var(--text-primary);">SessionManager</b> live inside Authentication, but they act at different layers of the login lifecycle.</div>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Question</div>
+                    <div style="font-size:14px;font-weight:600;">Explain the difference between TokenManager and SessionManager.</div>
+                  </div>
+
+                  <sc-if value="{{teachingIsAnswering}}" hint-placeholder-val="{{true}}">
+                    <div>
+                      <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Your Answer</div>
+                      <textarea value="{{teachingAnswer}}" onChange="{{setTeachingAnswer}}" placeholder="Type your explanation&hellip;" style="width:100%;height:88px;border:1px solid var(--border-hairline);border-radius:9px;padding:10px 12px;font-size:13px;resize:none;background:var(--bg-card);color:var(--text-primary);"></textarea>
+                      <button onClick="{{submitTeaching}}" style="{{submitTeachingStyle}}margin-top:9px;border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;color:white;">Submit Answer</button>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{teachingIsEvaluated}}" hint-placeholder-val="{{false}}">
+                    <div class="o-fade-up">
+                      <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Your Answer</div>
+                      <div style="font-size:12.5px;color:var(--text-secondary);font-style:italic;background:var(--bg-card-soft);border-radius:8px;padding:9px 11px;">&ldquo;{{teachingAnswer}}&rdquo;</div>
+                    </div>
+                    <div class="o-fade-up">
+                      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--conf-medium);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+                        <svg width="11" height="11"><use href="#i-question"/></svg>Evaluation &mdash; Partially Correct
+                      </div>
+                      <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.55;">You correctly identified that TokenManager handles refresh and expiry. You didn't mention that SessionManager owns the higher-level session lifecycle &mdash; including the hand-off to SessionStore. They aren't interchangeable.</div>
+                    </div>
+                    <div class="o-fade-up">
+                      <div style="font-size:10px;font-weight:700;color:var(--fact);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Correction</div>
+                      <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.55;">TokenManager is a narrow, stateless helper: it refreshes and validates auth tokens. SessionManager is the broader owner of an active session's lifecycle, and now delegates persistence to SessionStore.</div>
+                    </div>
+                    <div class="o-fade-up" style="background:var(--accent-soft);border-radius:10px;padding:13px 15px;">
+                      <div style="font-size:10px;font-weight:700;color:var(--accent-strong);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Transfer Problem</div>
+                      <div style="font-size:12.5px;color:var(--text-primary);line-height:1.55;">If SessionStore were removed tomorrow, which component would need to change first &mdash; and why?</div>
+                      <div style="display:flex;gap:8px;margin-top:10px;">
+                        <button onClick="{{resetTeaching}}" style="border:1px solid var(--border-hairline);background:var(--bg-card);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;">Try Another</button>
+                        <button onClick="{{resetTeaching}}" style="border:none;background:var(--accent);color:white;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;">Done for Now</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- DIAGNOSTICS -->
+            <sc-if value="{{isDiagnostics}}" hint-placeholder-val="{{false}}">
+              <div style="flex:1;overflow-y:auto;padding:20px 24px;background:var(--bg-content);">
+                <div style="display:flex;align-items:center;gap:9px;background:var(--bg-card-soft);border:1px solid var(--border-hairline);border-radius:9px;padding:11px 14px;margin-bottom:18px;">
+                  <svg width="14" height="14" style="color:var(--text-tertiary);flex-shrink:0;"><use href="#i-gear"/></svg>
+                  <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;">Hidden everywhere else in Orion. Routing decisions, prompts, and tool traces live here for engineers auditing the agent &mdash; not for everyday exploration.</div>
+                </div>
+
+                <div style="font-size:10.5px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Routing &amp; Tool Trace &mdash; &ldquo;Why did the session flow change recently?&rdquo;</div>
+                <div style="background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:9px;padding:11px 13px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);line-height:1.9;margin-bottom:18px;">
+                  <div>depth: 3 &middot; method: claude-code-delegation &middot; confidence: high</div>
+                  <div>[1] read_file(AuthService.swift) &rarr; 80 lines</div>
+                  <div>[2] grep(SessionManager) &rarr; 3 matches</div>
+                  <div>[3] read_file(SessionManager.swift) &rarr; 40 lines</div>
+                </div>
+
+                <div style="font-size:10.5px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Pipeline Stage Log</div>
+                <div style="background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:9px;padding:11px 13px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);line-height:1.9;margin-bottom:18px;">
+                  <div>09:14:02  clone_repository</div>
+                  <div>09:14:03  parse_structure</div>
+                  <div>09:14:05  resolve_symbols</div>
+                  <div>09:14:06  resolve_relationships</div>
+                  <div>09:14:06  persist_code_graph</div>
+                  <div>09:16:41  semantic_investigation</div>
+                  <div>09:16:44  persist_investigation</div>
+                </div>
+
+                <div style="font-size:10.5px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Session Usage</div>
+                <div style="background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:9px;padding:11px 13px;font-size:11.5px;color:var(--text-secondary);">Cost so far: <b style="color:var(--text-primary);">$0.42</b> of $1.00 ceiling &middot; Models: claude-code (Sonnet) + Qwen3-8B-4bit (local)</div>
+              </div>
+            </sc-if>
+
+            <!-- INSPECTOR -->
+            <sc-if value="{{showInspector}}" hint-placeholder-val="{{false}}">
+              <div class="o-fade-up" style="width:308px;flex-shrink:0;background:var(--bg-inspector);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-left:1px solid var(--border-hairline);overflow-y:auto;padding:16px 18px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+                  <div style="font-size:16px;font-weight:650;">{{inspectorTitle}}</div>
+                  <button onClick="{{closeInspector}}" style="border:none;background:none;color:var(--text-tertiary);flex-shrink:0;margin-top:2px;"><svg width="14" height="14"><use href="#i-close"/></svg></button>
+                </div>
+
+                <sc-if value="{{inspectorIsNode}}" hint-placeholder-val="{{true}}">
+                <sc-if value="{{detail.isStructural}}" hint-placeholder-val="{{false}}">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">
+                    <svg width="12" height="12"><use href="#i-diagram"/></svg>Structural &mdash; Phase 1 only, not semantically grouped.
+                  </div>
+                </sc-if>
+                <sc-if value="{{detail.hasConf}}" hint-placeholder-val="{{true}}">
+                  <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;border:1.3px solid {{detail.conf.color}};color:{{detail.conf.color}};font-size:10.5px;font-weight:600;margin-bottom:12px;">
+                    <span style="display:inline-flex;align-items:flex-end;gap:1.5px;">
+                      <span style="width:3px;height:5px;border-radius:1px;background:{{detail.conf.bar1}};"></span>
+                      <span style="width:3px;height:7px;border-radius:1px;background:{{detail.conf.bar2}};"></span>
+                      <span style="width:3px;height:9px;border-radius:1px;background:{{detail.conf.bar3}};"></span>
+                    </span>{{detail.conf.label}} confidence
+                  </span>
+                </sc-if>
+
+                <button onClick="{{askAboutSelected}}" style="display:flex;align-items:center;gap:6px;border:1px solid var(--border-hairline);background:var(--bg-card);border-radius:8px;padding:6px 11px;font-size:11.5px;font-weight:600;color:var(--text-primary);margin-bottom:16px;">
+                  <svg width="12" height="12" style="color:var(--accent);"><use href="#i-bubble"/></svg>Ask about {{detail.name}}
+                </button>
+
+                <div style="margin-bottom:16px;">
+                  <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;">Purpose</div>
+                  <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:6px;">{{detail.purpose}}</div>
+                  <sc-if value="{{detail.hasEpi}}" hint-placeholder-val="{{true}}">
+                    <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:{{detail.epi.bg}};color:{{detail.epi.color}};font-size:10px;font-weight:700;">
+                      <svg width="10" height="10"><use href="{{detail.epi.icon}}"/></svg>{{detail.epi.label}}
+                    </span>
+                  </sc-if>
+                </div>
+
+                <sc-if value="{{detail.hasMembers}}" hint-placeholder-val="{{false}}">
+                  <div style="margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Members</div>
+                    <sc-for list="{{detail.members}}" as="m" hint-placeholder-count="3">
+                      <button onClick="{{m.pick}}" style="display:block;border:none;background:none;padding:0;margin-bottom:4px;font-family:var(--font-mono);font-size:12px;color:var(--accent);">{{m.name}}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{detail.hasDeps}}" hint-placeholder-val="{{false}}">
+                  <div style="margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Dependencies</div>
+                    <sc-for list="{{detail.deps}}" as="d" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;">
+                        <div style="font-size:10.5px;color:var(--text-tertiary);">{{d.type}}</div>
+                        <div style="font-size:12px;flex:1;">{{d.name}}</div>
+                        <span style="font-size:10px;font-weight:600;color:{{d.conf.color}};">{{d.conf.label}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{detail.hasClaims}}" hint-placeholder-val="{{false}}">
+                  <div>
+                    <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Claims &amp; Evidence</div>
+                    <sc-for list="{{detail.claims}}" as="c" hint-placeholder-count="3">
+                      <div style="border-top:1px solid var(--border-hairline);padding-top:9px;margin-top:9px;">
+                        <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap;">
+                          <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:{{c.epi.bg}};color:{{c.epi.color}};font-size:9.5px;font-weight:700;">
+                            <svg width="9" height="9"><use href="{{c.epi.icon}}"/></svg>{{c.epi.label}}
+                          </span>
+                          <span style="font-size:9.5px;font-weight:600;color:{{c.conf.color}};">{{c.conf.label}}</span>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-secondary);line-height:1.45;">{{c.statement}}</div>
+                        <sc-if value="{{c.hasNote}}" hint-placeholder-val="{{false}}">
+                          <div style="font-size:10.5px;color:var(--contra);margin-top:3px;">{{c.note}}</div>
+                        </sc-if>
+                        <div style="margin-top:5px;display:flex;gap:8px;flex-wrap:wrap;">
+                          <sc-for list="{{c.evidence}}" as="ev" hint-placeholder-count="1">
+                            <button onClick="{{ev.pick}}" style="border:none;background:none;padding:0;font-family:var(--font-mono);font-size:10.5px;color:var(--accent);">{{ev.anchor}}</button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                </sc-if>
+
+                <sc-if value="{{inspectorIsQuestions}}" hint-placeholder-val="{{false}}">
+                  <div style="display:flex;flex-direction:column;gap:14px;">
+                    <sc-for list="{{questionsList}}" as="q" hint-placeholder-count="6">
+                      <div style="border-top:1px solid var(--border-hairline);padding-top:12px;">
+                        <div style="margin-bottom:6px;">
+                          <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:var(--unk-soft);color:var(--unk);font-size:9.5px;font-weight:700;">
+                            <svg width="9" height="9"><use href="#i-question"/></svg>Unknown
+                          </span>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-secondary);line-height:1.55;">{{q.text}}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===================== OVERLAYS ===================== -->
+    <sc-if value="{{showOpenSheet}}" hint-placeholder-val="{{false}}">
+      <div onClick="{{closeOpenSheet}}" class="o-fade-in" style="position:absolute;inset:0;background:oklch(0.1 0.01 250 / 0.35);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;">
+        <div onClick="{{stopClick}}" class="o-pop" style="width:380px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:14px;box-shadow:var(--shadow-panel);padding:22px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-size:16px;font-weight:650;">Open Repository</div>
+            <button onClick="{{closeOpenSheet}}" style="border:none;background:none;color:var(--text-tertiary);"><svg width="14" height="14"><use href="#i-close"/></svg></button>
+          </div>
+          <div style="display:flex;background:var(--bg-card-soft);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px;">
+            <button onClick="{{setModeLocal}}" style="{{localTabStyle}}flex:1;border:none;border-radius:7px;padding:6px 0;font-size:12.5px;font-weight:600;">Local Folder</button>
+            <button onClick="{{setModeGithub}}" style="{{githubTabStyle}}flex:1;border:none;border-radius:7px;padding:6px 0;font-size:12.5px;font-weight:600;">GitHub URL</button>
+          </div>
+          <sc-if value="{{isModeLocal}}" hint-placeholder-val="{{true}}">
+            <button onClick="{{openLocal}}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);color:white;border:none;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;">
+              <svg width="15" height="15"><use href="#i-folder"/></svg>Choose Folder&hellip;
+            </button>
+          </sc-if>
+          <sc-if value="{{isModeGithub}}" hint-placeholder-val="{{false}}">
+            <div style="display:flex;gap:6px;">
+              <input value="{{urlText}}" onChange="{{setUrlText}}" placeholder="https://github.com/owner/repo" style="flex:1;min-width:0;border:1px solid var(--border-hairline);border-radius:8px;padding:0 10px;height:32px;font-size:12.5px;background:var(--bg-card);color:var(--text-primary);"/>
+              <button onClick="{{openGithub}}" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0 14px;font-size:12.5px;font-weight:600;">Clone</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showBuildModelSheet}}" hint-placeholder-val="{{false}}">
+      <div onClick="{{closeBuildSheet}}" class="o-fade-in" style="position:absolute;inset:0;background:oklch(0.1 0.01 250 / 0.35);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;">
+        <div onClick="{{stopClick}}" class="o-pop" style="width:420px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:14px;box-shadow:var(--shadow-panel);padding:24px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <svg width="16" height="16" style="color:var(--interp);"><use href="#i-sparkles"/></svg>
+            <div style="font-size:16px;font-weight:650;">Build Architecture Model</div>
+          </div>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.55;margin-bottom:16px;">Sends the Code Graph to Claude Code, which groups symbols into semantic components and evidence-backed claims. Real API call, real cost, a few minutes of investigation.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-card-soft);border-radius:9px;padding:10px 14px;margin-bottom:18px;">
+            <div style="font-size:12.5px;font-weight:600;">Cost ceiling</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onClick="{{decBudget}}" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border-hairline);background:var(--bg-card);">&minus;</button>
+              <div style="font-size:13px;font-weight:650;width:48px;text-align:center;">{{budgetLabel}}</div>
+              <button onClick="{{incBudget}}" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border-hairline);background:var(--bg-card);">+</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button onClick="{{closeBuildSheet}}" style="border:1px solid var(--border-hairline);background:var(--bg-card);border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;">Cancel</button>
+            <button onClick="{{startBuild}}" style="border:none;background:var(--accent);color:white;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;">Start Investigation</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showEvidence}}" hint-placeholder-val="{{false}}">
+      <div onClick="{{closeEvidence}}" class="o-fade-in" style="position:absolute;inset:0;background:oklch(0.1 0.01 250 / 0.35);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;">
+        <div onClick="{{stopClick}}" class="o-pop" style="width:520px;background:var(--bg-card);border:1px solid var(--border-hairline);border-radius:14px;box-shadow:var(--shadow-panel);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-hairline);">
+            <div style="font-family:var(--font-mono);font-size:13px;font-weight:650;">{{evidenceAnchor}}</div>
+            <button onClick="{{closeEvidence}}" style="border:none;background:none;color:var(--text-tertiary);"><svg width="14" height="14"><use href="#i-close"/></svg></button>
+          </div>
+          <div style="padding:14px 0;font-family:var(--font-mono);font-size:12px;line-height:1.85;">
+            <sc-for list="{{evidenceLines}}" as="ln" hint-placeholder-count="15">
+              <div style="display:flex;background:{{ln.bg}};padding:0 18px;">
+                <div style="width:28px;color:var(--text-tertiary);flex-shrink:0;text-align:right;margin-right:14px;">{{ln.n}}</div>
+                <div style="color:var(--text-primary);white-space:pre;">{{ln.text}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script data-dc-script>
+function epiMeta(type) {
+  const table = {
+    FACT: { label: 'Fact', color: 'var(--fact)', bg: 'var(--fact-soft)', icon: '#i-seal' },
+    INTERPRETATION: { label: 'Interpretation', color: 'var(--interp)', bg: 'var(--interp-soft)', icon: '#i-bubble' },
+    INFERENCE: { label: 'Inference', color: 'var(--infer)', bg: 'var(--infer-soft)', icon: '#i-branch' },
+    UNKNOWN: { label: 'Unknown', color: 'var(--unk)', bg: 'var(--unk-soft)', icon: '#i-question' },
+    CONTRADICTED: { label: 'Contradicted', color: 'var(--contra)', bg: 'var(--contra-soft)', icon: '#i-warning' }
+  };
+  return table[type] || table.UNKNOWN;
+}
+function confMeta(tier) {
+  const off = 'var(--border-strong)';
+  const table = {
+    high: { label: 'High', color: 'var(--conf-high)', bar1: 'var(--conf-high)', bar2: 'var(--conf-high)', bar3: 'var(--conf-high)' },
+    medium: { label: 'Medium', color: 'var(--conf-medium)', bar1: 'var(--conf-medium)', bar2: 'var(--conf-medium)', bar3: off },
+    low: { label: 'Low', color: 'var(--conf-low)', bar1: 'var(--conf-low)', bar2: off, bar3: off },
+    unresolved: { label: 'Unresolved', color: 'var(--conf-unresolved)', bar1: off, bar2: off, bar3: off }
+  };
+  return table[tier] || table.unresolved;
+}
+
+const NODES = [
+  { id: 'ui_shell', name: 'UIShell', x: 100, y: 60, r: 14, epi: 'FACT', conf: null, subtitle: 'SwiftUI presentation layer' },
+  { id: 'authentication', name: 'Authentication', x: 300, y: 175, r: 23, epi: 'INTERPRETATION', conf: 'high', subtitle: 'Coordinates login and session lifecycle' },
+  { id: 'user_repository', name: 'UserRepository', x: 120, y: 320, r: 18, epi: 'INTERPRETATION', conf: 'high', subtitle: 'Caches and fetches user profile records' },
+  { id: 'network_client', name: 'NetworkClient', x: 480, y: 85, r: 14, epi: 'FACT', conf: null, subtitle: 'URLSession wrapper for authenticated HTTP' },
+  { id: 'session_store', name: 'SessionStore', x: 480, y: 265, r: 17, epi: 'INFERENCE', conf: 'medium', subtitle: 'Newly identified session-persistence layer' },
+  { id: 'api_gateway', name: 'APIGateway', x: 650, y: 150, r: 14, epi: 'FACT', conf: null, subtitle: 'Routes outbound API calls' },
+  { id: 'persistence', name: 'Persistence', x: 610, y: 365, r: 15, epi: 'UNKNOWN', conf: 'unresolved', subtitle: 'Legacy data layer -- still in use?' },
+  { id: 'keychain', name: 'Keychain', x: 370, y: 400, r: 12, epi: 'FACT', conf: null, subtitle: 'System secure storage (external)' }
+];
+const EDGES_RAW = [
+  { from: 'ui_shell', to: 'authentication', tier: 'high' },
+  { from: 'authentication', to: 'user_repository', tier: 'high' },
+  { from: 'authentication', to: 'network_client', tier: 'high' },
+  { from: 'authentication', to: 'session_store', tier: 'medium' },
+  { from: 'session_store', to: 'keychain', tier: 'high' },
+  { from: 'api_gateway', to: 'network_client', tier: 'high' },
+  { from: 'persistence', to: 'user_repository', tier: 'low' }
+];
+const NODE_MAP = {};
+NODES.forEach(n => { NODE_MAP[n.id] = n; });
+
+const DETAILS = {
+  authentication: {
+    purpose: 'Coordinates authentication and session management across the app.',
+    epi: 'INTERPRETATION',
+    members: [
+      { name: 'AuthService', anchor: 'AuthService.swift:1–80' },
+      { name: 'TokenManager', anchor: 'TokenManager.swift:1–45' },
+      { name: 'SessionManager', anchor: 'SessionManager.swift:1–38' }
+    ],
+    deps: [
+      { type: 'depends_on', name: 'UserRepository', tier: 'high' },
+      { type: 'depends_on', name: 'NetworkClient', tier: 'high' },
+      { type: 'depends_on', name: 'SessionStore', tier: 'medium' }
+    ],
+    claims: [
+      { type: 'FACT', tier: 'high', statement: 'AuthService.login(_:) calls TokenManager.refresh() whenever the network layer returns 401.', evidence: ['AuthService.swift:42–58'] },
+      { type: 'INTERPRETATION', tier: 'high', statement: 'AuthService is the coordination point for authentication and session management.', evidence: ['AuthService.swift:1–80', 'LoginController.swift:31–52'] },
+      { type: 'INFERENCE', tier: 'medium', statement: 'Session state now passes through an intermediate SessionStore layer rather than being written directly to disk.', evidence: ['SessionManager.swift:12–30'] },
+      { type: 'CONTRADICTED', tier: 'low', statement: 'AuthService persists tokens directly to UserDefaults.', evidence: ['AuthService.swift:60–66'], note: 'Superseded — see Model Changes, Sep 5' }
+    ]
+  },
+  user_repository: {
+    purpose: 'Owns local caching and network-backed fetch of user profile records.',
+    epi: 'INTERPRETATION',
+    members: [
+      { name: 'UserRepository', anchor: 'UserRepository.swift:1–64' },
+      { name: 'UserCache', anchor: 'UserCache.swift:1–22' }
+    ],
+    deps: [{ type: 'depends_on', name: 'NetworkClient', tier: 'high' }],
+    claims: [
+      { type: 'FACT', tier: 'high', statement: 'UserRepository.fetch(id:) calls NetworkClient.get(_:) then writes through UserCache.', evidence: ['UserRepository.swift:18–40'] }
+    ]
+  },
+  session_store: {
+    purpose: 'Intermediate layer between session management and Keychain-backed persistence, identified during the Sep 5 investigation.',
+    epi: 'INFERENCE',
+    members: [{ name: 'SessionStore', anchor: 'SessionStore.swift:1–52' }],
+    deps: [{ type: 'writes_to', name: 'Keychain', tier: 'high' }],
+    claims: [
+      { type: 'INFERENCE', tier: 'medium', statement: 'SessionStore did not appear in the prior model; introduced after new evidence traced SessionManager’s storage calls through this layer.', evidence: ['SessionManager.swift:12–30'] }
+    ]
+  }
+};
+
+const RECENTS = [
+  { name: 'orion-agent', path: '~/Developer/orion-agent', when: '2d ago', icon: '#i-folder' },
+  { name: 'swift-composable-architecture', path: 'github.com/pointfreeco/...', when: '6d ago', icon: '#i-link' }
+];
+
+const EVIDENCE_LINES = [
+  'final class AuthService {',
+  '    private let tokenManager: TokenManager',
+  '    private let sessionManager: SessionManager',
+  '',
+  '    func login(_ credentials: Credentials) async throws -> Session {',
+  '        let response = try await networkClient.post("/login", credentials)',
+  '        if response.status == 401 {',
+  '            try await tokenManager.refresh()',
+  '            return try await login(credentials)',
+  '        }',
+  '        let session = Session(response)',
+  '        try await sessionManager.persist(session)',
+  '        return session',
+  '    }',
+  '}'
+];
+
+const UNCERTAINTIES = [
+  { id: 'q1', text: 'Is Persistence still read by any component now that session writes route through SessionStore? AuthService no longer calls Persistence.write(_:) directly, and a repo-wide search found no other call sites in the current snapshot, but the investigation didn’t check whether Persistence is loaded reflectively — for example through a plugin registry — elsewhere in the app target. Until that’s confirmed, Persistence should be treated as still reachable, not dead code.' },
+  { id: 'q2', text: 'APIGateway.swift and NetworkClient.swift disagree about which layer owns retry behavior on rate-limited responses. APIGateway.route(_:) defines a maxRetries constant next to a comment saying retries are handled upstream, which reads as though NetworkClient is expected to retry instead. But NetworkClient.get(_:) and NetworkClient.post(_:) never inspect the response status for a 429 specifically — they only special-case 401, for the token-refresh flow AuthService already covers. If neither layer actually retries a 429, outbound calls made during sustained rate limiting would fail immediately with no backoff, which would be a real reliability gap; if one of them does retry and the other’s comment is simply stale, that’s a much smaller documentation issue. Static analysis alone can’t distinguish the two readings — this needs either a runtime trace during an actual rate-limited call, or a direct answer from whoever wrote APIGateway.route(_:) about what handled upstream was meant to refer to.' },
+  { id: 'q3', text: 'UIShell.swift declares a credentialsHint property that is written but never read anywhere in the current snapshot. Whether this is dead state left over from an earlier flow, or read by code outside this investigation’s scope, isn’t established yet.' },
+  { id: 'q4', text: 'NetworkClient’s request timeout is set through a defaultTimeout constant, but no test references it and no call site overrides it per request. Whether the current 30-second value was a deliberate choice for this app’s traffic pattern, or simply copied from nearby URLSession defaults, isn’t something the Code Graph can settle on its own.' },
+  { id: 'q5', text: 'TokenManager and SessionManager disagree about how token rotation is configured. TokenManager.swift defines rotationInterval as a fixed 15-minute constant, but SessionManager.swift reads a session-scoped tokenPolicy.rotationInterval value as though it were configurable per session. Either SessionManager is reading a property that always resolves to TokenManager’s same constant today but was built for a future per-session policy, or there’s a second, currently-unused configuration path that could diverge from TokenManager’s value in a way neither file’s tests would catch. Nothing in the current evidence rules either explanation out.' },
+  { id: 'q6', text: 'UserCache has no visible eviction policy. Entries are added in UserRepository.fetch(id:), but nothing in the current snapshot evicts, expires, or bounds how large the cache can grow.' }
+];
+
+const ASK_SEED = [
+  {
+    id: 'seed-1', question: 'What does NetworkClient do?', thinking: false,
+    component: 'NetworkClient', when: '3d ago',
+    outcome: 'unverified',
+    answer: 'NetworkClient wraps URLSession to perform authenticated HTTP requests for the app’s API layer.',
+    depth: 1, routingMethod: 'heuristic', confidence: 'high',
+    rationale: 'Classified as a lookup question about a single, already-known symbol — answered directly by the local model, no delegation needed.',
+    claims: [], tools: [], showExplain: false
+  },
+  {
+    id: 'seed-2', question: 'Why did the session flow change recently?', thinking: false,
+    component: 'Authentication', when: '2d ago',
+    outcome: 'verified',
+    answer: 'AuthService no longer persists session tokens directly. It now delegates to SessionManager, which writes through a newly identified SessionStore layer backed by Keychain.',
+    depth: 3, routingMethod: 'claude-code-delegation', confidence: 'high',
+    rationale: 'Classified as a change-history question spanning multiple files — routed to Claude Code, then verified against the local Code Graph.',
+    claims: [
+      { type: 'INFERENCE', tier: 'medium', statement: 'SessionStore was introduced after evidence traced SessionManager’s storage calls through it.', evidence: ['SessionManager.swift:12–30'] },
+      { type: 'CONTRADICTED', tier: 'low', statement: 'AuthService previously wrote tokens directly to UserDefaults.', evidence: ['AuthService.swift:60–66'] }
+    ],
+    tools: [
+      { i: 1, name: 'read_file', args: 'AuthService.swift', result: '80 lines' },
+      { i: 2, name: 'grep', args: 'SessionManager', result: '3 matches' },
+      { i: 3, name: 'read_file', args: 'SessionManager.swift', result: '40 lines' }
+    ],
+    showExplain: false
+  }
+];
+
+const TIMELINE_SEED = [
+  { id: 'tl-1', title: 'Authentication', when: '2 days ago', expanded: true,
+    before: 'AuthService → Persistence', after: 'AuthService → SessionManager → SessionStore → Keychain',
+    reason: 'New source evidence identified an intermediate session layer.' },
+  { id: 'tl-2', title: 'Persistence', when: '2 days ago', expanded: false,
+    before: 'Primary session persistence layer', after: 'Legacy fallback — no longer written to directly by Authentication',
+    reason: 'AuthService’s session writes now route through SessionStore instead.' }
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: 'welcome', dark: false, openMode: 'local', urlText: '',
+      destination: 'overview', viewMode: 'diagram', selectedNodeId: null, showQuestionsPanel: false,
+      showOpenSheet: false, showBuildModelSheet: false, buildBudget: 1.0, buildState: 'idle',
+      showEvidence: null, askInput: '', askTranscript: [...ASK_SEED].reverse().map(a => ({ ...a })),
+      askSelectedId: 'seed-2', askSearch: '', askCollapsedGroups: [],
+      analysisStep: 0, showAdvancedProgress: false,
+      teachingStep: 'answering', teachingAnswer: '',
+      timeline: TIMELINE_SEED.map(t => ({ ...t }))
+    };
+    this._timers = [];
+  }
+  componentWillUnmount() { this._timers.forEach(t => clearTimeout(t)); }
+
+  setModeLocal = () => this.setState({ openMode: 'local' });
+  setModeGithub = () => this.setState({ openMode: 'github' });
+  setUrlText = (e) => this.setState({ urlText: e.target.value });
+  stopClick = (e) => e.stopPropagation();
+
+  beginOpen = () => {
+    this.setState({ screen: 'opening' });
+    this._timers.push(setTimeout(() => {
+      this.setState({ screen: 'analyzing', analysisStep: 0 });
+      this.runAnalysisStep(0);
+    }, 900));
+  };
+  openLocal = () => this.beginOpen();
+  openGithub = () => { if (this.state.urlText.trim()) this.beginOpen(); };
+  reopenRecent = () => this.beginOpen();
+
+  runAnalysisStep = (i) => {
+    if (i >= 4) { this._timers.push(setTimeout(() => this.setState({ screen: 'ready' }), 500)); return; }
+    this.setState({ analysisStep: i });
+    this._timers.push(setTimeout(() => this.runAnalysisStep(i + 1), 750));
+  };
+  toggleAdvancedProgress = () => this.setState({ showAdvancedProgress: !this.state.showAdvancedProgress });
+
+  selectDestination = (d) => this.setState({ destination: d, selectedNodeId: null });
+  setViewDiagram = () => this.setState({ viewMode: 'diagram' });
+  setViewList = () => this.setState({ viewMode: 'list' });
+  selectNode = (id) => this.setState({ selectedNodeId: id, showQuestionsPanel: false });
+  closeInspector = () => this.setState({ selectedNodeId: null, showQuestionsPanel: false });
+  openQuestionsPanel = () => this.setState({ showQuestionsPanel: true, selectedNodeId: null });
+  askAboutSelected = () => {
+    const node = NODE_MAP[this.state.selectedNodeId];
+    if (!node) return;
+    this.askQuestion('Tell me more about ' + node.name + '.', node.name);
+    this.setState({ destination: 'ask', selectedNodeId: null, showQuestionsPanel: false });
+  };
+
+  openOpenSheet = () => this.setState({ showOpenSheet: true });
+  closeOpenSheet = () => this.setState({ showOpenSheet: false });
+  openBuildSheet = () => this.setState({ showBuildModelSheet: true });
+  closeBuildSheet = () => this.setState({ showBuildModelSheet: false });
+  incBudget = () => this.setState({ buildBudget: Math.min(5, this.state.buildBudget + 0.25) });
+  decBudget = () => this.setState({ buildBudget: Math.max(0.25, this.state.buildBudget - 0.25) });
+  startBuild = () => {
+    this.setState({ showBuildModelSheet: false, buildState: 'investigating' });
+    this._timers.push(setTimeout(() => this.setState({ buildState: 'done' }), 2200));
+  };
+
+  openEvidence = (anchor) => this.setState({ showEvidence: anchor });
+  closeEvidence = () => this.setState({ showEvidence: null });
+
+  setAskInput = (e) => this.setState({ askInput: e.target.value });
+  askKeyDown = (e) => { if (e.key === 'Enter') this.sendAsk(); };
+  selectAskEntry = (id) => this.setState({ askSelectedId: id });
+  setAskSearch = (e) => this.setState({ askSearch: e.target.value });
+  toggleAskGroup = (name) => this.setState({
+    askCollapsedGroups: this.state.askCollapsedGroups.includes(name)
+      ? this.state.askCollapsedGroups.filter(n => n !== name)
+      : [...this.state.askCollapsedGroups, name]
+  });
+
+  askQuestion = (text, tag) => {
+    const id = 'live-' + Date.now();
+    const entry = { id, question: text, thinking: true, component: tag || 'General', when: 'Just now' };
+    this.setState({
+      askTranscript: [entry, ...this.state.askTranscript],
+      askSelectedId: id
+    });
+    this._timers.push(setTimeout(() => {
+      this.setState({
+        askTranscript: this.state.askTranscript.map(t => t.id === id ? {
+          ...t, thinking: false, outcome: 'unverified', depth: 1, routingMethod: 'heuristic', confidence: 'medium',
+          answer: 'Based on the current Codebase Model, ' + (tag || 'that') + ' has no additional claims beyond what’s already shown in its inspector panel — try a more specific question to route this to a deeper investigation.',
+          rationale: 'Classified as a direct lookup — answered locally without delegation.',
+          claims: [], tools: [], showExplain: false
+        } : t)
+      });
+    }, 1300));
+  };
+  sendAsk = () => {
+    const q = this.state.askInput.trim();
+    if (!q) return;
+    this.setState({ askInput: '' });
+    this.askQuestion(q, 'General');
+  };
+  toggleExplainFor = (id) => this.setState({
+    askTranscript: this.state.askTranscript.map(t => t.id === id ? { ...t, showExplain: !t.showExplain } : t)
+  });
+
+  setTeachingAnswer = (e) => this.setState({ teachingAnswer: e.target.value });
+  submitTeaching = () => { if (this.state.teachingAnswer.trim()) this.setState({ teachingStep: 'evaluated' }); };
+  resetTeaching = () => this.setState({ teachingStep: 'answering', teachingAnswer: '' });
+
+  toggleTimeline = (id) => this.setState({
+    timeline: this.state.timeline.map(t => t.id === id ? { ...t, expanded: !t.expanded } : t)
+  });
+  toggleDark = () => this.setState({ dark: !this.state.dark });
+
+  buildNodeView(n) {
+    const conf = n.conf ? confMeta(n.conf) : null;
+    const fill = conf ? conf.color : 'var(--unk)';
+    const selected = this.state.selectedNodeId === n.id;
+    return {
+      ...n, fill, stroke: 'var(--bg-window)',
+      hasConf: !!conf, conf,
+      subtitle: n.subtitle,
+      labelY: n.y + n.r + 15,
+      ringR: n.r + 5, ringOpacity: selected ? 1 : 0,
+      pick: () => this.selectNode(n.id)
+    };
+  }
+
+  buildDetail(id) {
+    const node = NODE_MAP[id];
+    if (!node) return { name: '', isStructural: false, hasConf: false, hasEpi: false, purpose: '', hasMembers: false, hasDeps: false, hasClaims: false };
+    const d = DETAILS[id];
+    if (!d) {
+      return {
+        name: node.name, isStructural: true, hasConf: false, conf: confMeta('unresolved'),
+        hasEpi: true, epi: epiMeta(node.epi), purpose: node.subtitle,
+        hasMembers: false, members: [], hasDeps: false, deps: [], hasClaims: false, claims: []
+      };
+    }
+    return {
+      name: node.name, isStructural: false,
+      hasConf: !!node.conf, conf: node.conf ? confMeta(node.conf) : null,
+      hasEpi: true, epi: epiMeta(d.epi), purpose: d.purpose,
+      hasMembers: d.members.length > 0,
+      members: d.members.map(m => ({ name: m.name, pick: () => this.openEvidence(m.anchor) })),
+      hasDeps: d.deps.length > 0,
+      deps: d.deps.map(dep => ({ type: dep.type, name: dep.name, conf: confMeta(dep.tier) })),
+      hasClaims: d.claims.length > 0,
+      claims: d.claims.map(c => ({
+        epi: epiMeta(c.type), conf: confMeta(c.tier), statement: c.statement,
+        hasNote: !!c.note, note: c.note || '',
+        evidence: c.evidence.map(a => ({ anchor: a, pick: () => this.openEvidence(a) }))
+      }))
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const dark = s.dark;
+    const phaseLabels = ['Mapping repository structure', 'Identifying components', 'Verifying dependencies', 'Building architecture'];
+    const analysisPhases = phaseLabels.map((label, i) => {
+      const done = i < s.analysisStep || s.screen === 'ready';
+      const active = i === s.analysisStep && s.screen === 'analyzing';
+      return {
+        label, done, active,
+        dotBg: done ? 'var(--accent)' : 'transparent',
+        dotBorder: done ? 'var(--accent)' : (active ? 'var(--accent)' : 'var(--border-strong)'),
+        weight: active ? '650' : '500',
+        textColor: done || active ? 'var(--text-primary)' : 'var(--text-tertiary)'
+      };
+    });
+
+    const navDefs = [
+      { key: 'overview', label: 'Architecture Overview', icon: '#i-diagram' },
+      { key: 'ask', label: 'Ask', icon: '#i-bubble' },
+      { key: 'changes', label: 'Model Changes', icon: '#i-clock', badge: s.timeline.length },
+      { key: 'teaching', label: 'Teaching Mode', icon: '#i-cap' }
+    ];
+    const buildNav = (d) => {
+      const active = s.destination === d.key;
+      return {
+        ...d, pick: () => this.selectDestination(d.key),
+        rowClass: active ? 'o-navrow o-navrow-active' : 'o-navrow',
+        iconColor: active ? 'var(--accent)' : 'var(--text-secondary)',
+        textColor: active ? 'var(--accent)' : 'var(--text-primary)',
+        weight: active ? '650' : '500',
+        hasBadge: !!d.badge, badge: d.badge
+      };
+    };
+    const navPrimary = navDefs.map(buildNav);
+    const navAdvanced = [buildNav({ key: 'diagnostics', label: 'Diagnostics', icon: '#i-gear' })];
+
+    const nodes = NODES.map(n => this.buildNodeView(n));
+    const edges = EDGES_RAW.map(e => {
+      const src = NODE_MAP[e.from], tgt = NODE_MAP[e.to];
+      const cm = confMeta(e.tier);
+      return { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y, stroke: cm.color, dash: e.tier === 'high' ? '0' : '5,4' };
+    });
+
+    const isDiagramView = s.viewMode === 'diagram';
+    const styleStr = (o) => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, m => '-' + m.toLowerCase()) + ':' + v).join(';') + ';';
+    const outcomeMeta = (t) => {
+      if (t.thinking) return { label: '', color: '', icon: '', dotColor: 'var(--text-tertiary)', dotIcon: '#i-clock' };
+      const outcomeMap = {
+        verified: { label: 'Verified', color: 'var(--fact)', icon: '#i-seal' },
+        unverified: { label: 'Not Independently Checked', color: 'var(--conf-medium)', icon: '#i-question' },
+        partial: { label: 'Partial', color: 'var(--conf-low)', icon: '#i-warning' }
+      };
+      const om = outcomeMap[t.outcome] || outcomeMap.unverified;
+      return { ...om, dotColor: om.color, dotIcon: om.icon };
+    };
+    const decorateAsk = (t) => {
+      const om = outcomeMeta(t);
+      return {
+        ...t, answered: !t.thinking,
+        outcomeLabel: om.label, outcomeColor: om.color, outcomeIcon: om.icon,
+        dotColor: om.dotColor, dotIcon: om.dotIcon,
+        hasClaims: !!(t.claims && t.claims.length),
+        claims: (t.claims || []).map(c => ({
+          epi: epiMeta(c.type), conf: confMeta(c.tier), statement: c.statement,
+          evidence: c.evidence.map(a => ({ anchor: a, pick: () => this.openEvidence(a) }))
+        })),
+        explainIcon: t.showExplain ? '#i-chevron-d' : '#i-chevron-r',
+        routingLine: t.thinking ? '' : ('Depth ' + t.depth + ' · ' + t.routingMethod + ' · confidence: ' + t.confidence),
+        hasTools: !!(t.tools && t.tools.length), tools: t.tools || [],
+        toggleExplain: () => this.toggleExplainFor(t.id)
+      };
+    };
+    const allAsk = s.askTranscript.map(decorateAsk);
+    const askSearchLower = (s.askSearch || '').trim().toLowerCase();
+    const isSearchingAsk = !!askSearchLower;
+    const filteredAsk = allAsk.filter(t => !askSearchLower || t.question.toLowerCase().includes(askSearchLower));
+    // Grouped by component, not filtered by a horizontal pill row: a pill row either wraps or
+    // scrolls sideways once there are more components than fit, and a single long component name
+    // can blow out a pill's width on its own. Vertical groups scale to any count or name length —
+    // a long name just truncates with an ellipsis in its own row, the layout never breaks.
+    const groupNames = Array.from(new Set(filteredAsk.map(t => t.component || 'General')))
+      .sort((a, b) => (a === 'General') - (b === 'General') || a.localeCompare(b));
+    const askGroups = groupNames.map(name => {
+      const items = filteredAsk
+        .filter(t => (t.component || 'General') === name)
+        .map(t => ({ ...t, rowBg: t.id === s.askSelectedId ? 'var(--bg-active)' : 'transparent', select: () => this.selectAskEntry(t.id) }));
+      const collapsed = !isSearchingAsk && s.askCollapsedGroups.includes(name);
+      return {
+        name, count: items.length, items, expanded: !collapsed,
+        chevronIcon: collapsed ? '#i-chevron-r' : '#i-chevron-d',
+        toggle: () => this.toggleAskGroup(name)
+      };
+    });
+    const sel = allAsk.find(t => t.id === s.askSelectedId) || null;
+
+    const timeline = s.timeline.map(t => ({
+      ...t, toggle: () => this.toggleTimeline(t.id),
+      chevronIcon: t.expanded ? '#i-chevron-d' : '#i-chevron-r'
+    }));
+
+    const evidenceLines = EVIDENCE_LINES.map((text, idx) => ({
+      n: idx + 1, text: text.length ? text : ' ',
+      bg: idx >= 4 && idx <= 10 ? 'var(--accent-soft)' : 'transparent'
+    }));
+
+    const tabActive = { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: '0 1px 2px oklch(0 0 0 / 0.12)' };
+    const tabInactive = { background: 'transparent', color: 'var(--text-secondary)' };
+
+    const detail = this.buildDetail(s.selectedNodeId);
+    const questionsList = UNCERTAINTIES.map(q => ({ ...q }));
+    const firstQuestion = UNCERTAINTIES[0].text;
+    const openQuestionsPreview = firstQuestion.length > 72 ? firstQuestion.slice(0, 72) + '…' : firstQuestion;
+    const inspectorIsNode = !!s.selectedNodeId;
+    const inspectorIsQuestions = s.showQuestionsPanel;
+
+    return {
+      rootClass: 'orion' + (dark ? ' dark' : ''),
+      isWelcome: s.screen === 'welcome', isOpening: s.screen === 'opening',
+      isAnalyzing: s.screen === 'analyzing', isReady: s.screen === 'ready',
+      openingLabel: s.openMode === 'github' ? 'Cloning…' : 'Opening…',
+      repoName: 'orion-agent', repoPath: s.openMode === 'github' ? (s.urlText || 'github.com/you/orion-agent') : '~/Developer/orion-agent',
+      repoStats: '128 files · 842 symbols · 1,204 relationships',
+
+      isModeLocal: s.openMode === 'local', isModeGithub: s.openMode === 'github',
+      setModeLocal: this.setModeLocal, setModeGithub: this.setModeGithub,
+      localTabStyle: styleStr(s.openMode === 'local' ? tabActive : tabInactive),
+      githubTabStyle: styleStr(s.openMode === 'github' ? tabActive : tabInactive),
+      urlText: s.urlText, setUrlText: this.setUrlText,
+      openLocal: this.openLocal, openGithub: this.openGithub,
+      recents: RECENTS.map(r => ({ ...r, pick: () => this.reopenRecent(r) })),
+
+      analysisPhases,
+      showAdvancedProgress: s.showAdvancedProgress, toggleAdvancedProgress: this.toggleAdvancedProgress,
+      advancedProgressIcon: s.showAdvancedProgress ? '#i-chevron-d' : '#i-chevron-r',
+
+      navPrimary, navAdvanced,
+      destinationTitle: {
+        overview: 'Architecture Overview', ask: 'Ask', changes: 'Model Changes',
+        teaching: 'Teaching Mode', diagnostics: 'Diagnostics'
+      }[s.destination],
+      isOverview: s.destination === 'overview', isAsk: s.destination === 'ask',
+      isChanges: s.destination === 'changes', isTeaching: s.destination === 'teaching',
+      isDiagnostics: s.destination === 'diagnostics',
+
+      isDiagramView, isListView: !isDiagramView,
+      setViewDiagram: this.setViewDiagram, setViewList: this.setViewList,
+      diagramTabStyle: styleStr(isDiagramView ? tabActive : tabInactive),
+      listTabStyle: styleStr(!isDiagramView ? tabActive : tabInactive),
+
+      layerBannerBg: 'var(--interp-soft)', layerBannerColor: 'var(--interp)', layerBannerIcon: '#i-sparkles',
+      layerBannerText: 'Semantic view — 6 components · investigated Sep 5',
+
+      nodes, edges,
+
+      openQuestionsCount: UNCERTAINTIES.length, openQuestionsPreview, openQuestionsPanel: this.openQuestionsPanel,
+      questionsList,
+
+      showInspector: inspectorIsNode || inspectorIsQuestions,
+      inspectorIsNode, inspectorIsQuestions,
+      inspectorTitle: inspectorIsQuestions ? ('Open Questions (' + UNCERTAINTIES.length + ')') : detail.name,
+      detail,
+      closeInspector: this.closeInspector,
+      askAboutSelected: this.askAboutSelected,
+
+      buildIsIdle: s.buildState === 'idle', buildIsRunning: s.buildState === 'investigating', buildIsDone: s.buildState === 'done',
+      openBuildSheet: this.openBuildSheet, openOpenSheet: this.openOpenSheet,
+
+      askGroups, askListEmpty: askGroups.length === 0,
+      askSearch: s.askSearch, setAskSearch: this.setAskSearch,
+      sel: sel || {}, hasAskSelection: !!sel, noAskSelection: !sel,
+      askInput: s.askInput, setAskInput: this.setAskInput, askKeyDown: this.askKeyDown, sendAsk: this.sendAsk,
+
+      timeline,
+
+      teachingIsAnswering: s.teachingStep === 'answering', teachingIsEvaluated: s.teachingStep === 'evaluated',
+      teachingAnswer: s.teachingAnswer, setTeachingAnswer: this.setTeachingAnswer,
+      submitTeaching: this.submitTeaching, resetTeaching: this.resetTeaching,
+      submitTeachingStyle: s.teachingAnswer.trim() ? 'background:var(--accent);' : 'background:var(--border-strong);',
+
+      showOpenSheet: s.showOpenSheet, closeOpenSheet: this.closeOpenSheet,
+      showBuildModelSheet: s.showBuildModelSheet, closeBuildSheet: this.closeBuildSheet,
+      budgetLabel: '$' + s.buildBudget.toFixed(2), incBudget: this.incBudget, decBudget: this.decBudget, startBuild: this.startBuild,
+
+      showEvidence: !!s.showEvidence, evidenceAnchor: s.showEvidence || '', evidenceLines, closeEvidence: this.closeEvidence,
+      openEvidence: this.openEvidence,
+
+      themeIcon: dark ? '#i-sun' : '#i-moon', toggleDark: this.toggleDark,
+      stopClick: this.stopClick
+    };
+  }
+}
+</script>
+</body>
+</html>

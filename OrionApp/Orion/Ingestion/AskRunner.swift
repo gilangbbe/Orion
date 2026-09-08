@@ -63,6 +63,29 @@ struct AskResultSummary: Equatable {
         }
         self.claims = claims
     }
+
+    /// Test-support entry point -- Docs/14_phase4_5_ui_ux_redesign.md §8 M8's own finding:
+    /// `AgentSessionResult` has no initializer reachable outside `OrionAgent`, so a synthetic
+    /// `AskResultSummary` for `DiagnosticsSessionTests` needs its own explicit memberwise init
+    /// alongside `init(_ result:claims:)` above (defining that one already suppresses Swift's
+    /// synthesized memberwise init).
+    init(
+        answerText: String, depth: Int, routingMethod: String, routingConfidence: String,
+        rationale: String, outcome: String, claimCount: Int, droppedClaimCount: Int, partial: Bool,
+        toolCalls: [AskToolCallSummary] = [], claims: [AskClaimSummary] = []
+    ) {
+        self.answerText = answerText
+        self.depth = depth
+        self.routingMethod = routingMethod
+        self.routingConfidence = routingConfidence
+        self.rationale = rationale
+        self.outcome = outcome
+        self.claimCount = claimCount
+        self.droppedClaimCount = droppedClaimCount
+        self.partial = partial
+        self.toolCalls = toolCalls
+        self.claims = claims
+    }
 }
 
 enum AskOutcome: Equatable {

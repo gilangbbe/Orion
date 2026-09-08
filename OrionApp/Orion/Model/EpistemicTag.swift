@@ -39,14 +39,16 @@ enum EpistemicTag: String, CaseIterable {
     }
 
     /// `.fact` is the only tier that should ever read as "checked and confident" -- every other
-    /// case gets a visually distinct, non-green treatment on purpose.
+    /// case gets a visually distinct, non-green treatment on purpose. Colors come from
+    /// `DesignTokens` (Docs/14_phase4_5_ui_ux_redesign.md §3 / M0) rather than flat system color
+    /// names -- same hue families as before (green/purple/indigo/gray/red), tuned per-appearance.
     var color: Color {
         switch self {
-        case .fact: return .green
-        case .interpretation: return .purple
-        case .inference: return .indigo
-        case .unknown: return .gray
-        case .contradicted: return .red
+        case .fact: return DesignTokens.fact
+        case .interpretation: return DesignTokens.interpretation
+        case .inference: return DesignTokens.inference
+        case .unknown: return DesignTokens.unknown
+        case .contradicted: return DesignTokens.contradicted
         }
     }
 }
