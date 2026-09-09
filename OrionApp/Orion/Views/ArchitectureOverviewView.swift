@@ -87,9 +87,18 @@ struct ArchitectureOverviewView: View {
                 EpistemicBadge(.fact)
                     .fixedSize()
             case .semantic(_, let componentCount, let investigatedAt):
+                let formattedDate = investigatedAt.map { value in
+                    let formatter = ISO8601DateFormatter()
+                    guard let date = formatter.date(from: value) else {
+                        return value
+                    }
+
+                    return date.formatted(.iso8601.year().month().day())
+                }
+              
                 Label(
                     "Semantic view — \(componentCount) components"
-                        + (investigatedAt.map { ", investigated \($0)" } ?? ""),
+                      + (formattedDate.map { ", investigated \($0)" } ?? ""),
                     systemImage: "sparkles"
                 )
                 .foregroundStyle(.blue)
@@ -168,11 +177,11 @@ struct ArchitectureOverviewView: View {
                 Text("Open Questions (\(uncertainties.count))")
                     .font(.caption.bold())
                     .fixedSize()
-                Text(uncertainties.first ?? "")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+//                Text(uncertainties.first ?? "")
+//                    .font(.caption)
+//                    .foregroundStyle(.secondary)
+//                    .lineLimit(1)
+//                    .truncationMode(.tail)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.caption2)
