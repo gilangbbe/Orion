@@ -260,6 +260,48 @@ final class AskHistory {
         return outcome
     }
 
+    /// Renames a session (Docs/15 §4.7, M8.5) -- `Store.renameAskSession`, opened writable the
+    /// same way `createSession` does (Docs/13 M3: `CodebaseModelStore` stays deliberately
+    /// read-only). Reports a failure (a blank title, or a stale id) via `loadError` and returns
+    /// `false` rather than throwing -- matching how every other session action in this class
+    /// already surfaces its own failures (`startSession`'s catch, `ask`'s no-session `.failed`)
+    /// instead of pushing a `throws` up to the view.
+    @discardableResult
+    func rename(_ sessionId: String, title: String, outputDirectory: URL) async -> Bool {
+        do {
+            let store = Store(try OrionDatabase(path: outputDirectory.appendingPathComponent("orion.db").path))
+            try store.renameAskSession(id: sessionId, title: title)
+            await refresh(outputDirectory: outputDirectory)
+            return true
+        } catch {
+            loadError = String(describing: error)
+            return false
+        }
+    }
+
+    /// Deletes a session (Docs/15 §4.7, M8.5) -- `Store.deleteAskSession`, which removes only the
+    /// session and its own `ask_session_turns` pointers (cascade); the `investigations` rows
+    /// those turns pointed at are deliberately untouched (§4.1/§4.7 -- a session is a thin
+    /// pointer, not a duplicate transcript store). If the deleted session was the one currently
+    /// selected, clears the selection back to the "Select a session" empty state (§5) rather than
+    /// leaving `selectedSessionID` pointing at a row that no longer resolves.
+    @discardableResult
+    func delete(_ sessionId: String, outputDirectory: URL) async -> Bool {
+        do {
+            let store = Store(try OrionDatabase(path: outputDirectory.appendingPathComponent("orion.db").path))
+            try store.deleteAskSession(id: sessionId)
+            if selectedSessionID == sessionId {
+                selectedSessionID = nil
+                turns = []
+            }
+            await refresh(outputDirectory: outputDirectory)
+            return true
+        } catch {
+            loadError = String(describing: error)
+            return false
+        }
+    }
+
     struct Group: Identifiable {
         let name: String
         let sessions: [AskSessionRow]

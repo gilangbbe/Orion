@@ -11,8 +11,11 @@ import OrionCodeIntel
 struct Session: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "session",
-        abstract: "Create, list, or inspect conversational sessions.",
-        subcommands: [SessionCreate.self, SessionList.self, SessionShow.self]
+        abstract: "Create, list, inspect, rename, or delete conversational sessions.",
+        subcommands: [
+            SessionCreate.self, SessionList.self, SessionShow.self, SessionRename.self,
+            SessionDelete.self,
+        ]
     )
 }
 
@@ -250,5 +253,83 @@ struct SessionShow: AsyncParsableCommand {
             print("    (\(depthLabel), outcome: \(detail.outcome))")
             print("")
         }
+    }
+}
+
+/// Docs/15_phase5_adaptive_exploration.md §4.7/§7, M8.5.
+struct SessionRename: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "rename",
+        abstract: "Rename a conversational session."
+    )
+
+    @Argument(help: "Path to the repository checkout.")
+    var path: String
+
+    @Argument(help: "The session id (from `session create` or `session list`).")
+    var sessionId: String
+
+    @Argument(help: "The new title.")
+    var title: String
+
+    @Option(help: "Directory containing orion.db + export/ (default: <path>/.orion).")
+    var out: String?
+
+    func run() async throws {
+        let (_, outURL) = resolvePaths(path: path, out: out)
+        let store = try openStore(outURL: outURL)
+        do {
+            try store.renameAskSession(id: sessionId, title: title)
+        } catch let error as AskSessionError {
+            FileHandle.standardError.write(Data("\(error.description)\n".utf8))
+            throw ExitCode(3)
+        }
+        FileHandle.standardError.write(Data("Renamed \(sessionId) to \"\(title)\"\n".utf8))
+    }
+}
+
+/// Docs/15_phase5_adaptive_exploration.md §4.7/§7, M8.5. Deleting a session removes it and its
+/// own `ask_session_turns` pointers (cascade, §4.2); it deliberately never deletes the
+/// `investigations` rows those turns pointed at (§4.1) -- confirms before deleting for the same
+/// reason the app does (a destructive, hard-to-reverse action), unless `--yes` is passed.
+struct SessionDelete: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "delete",
+        abstract: "Delete a conversational session (its turn-pointers only -- the underlying "
+            + "investigations, claims, and evidence are kept)."
+    )
+
+    @Argument(help: "Path to the repository checkout.")
+    var path: String
+
+    @Argument(help: "The session id (from `session create` or `session list`).")
+    var sessionId: String
+
+    @Option(help: "Directory containing orion.db + export/ (default: <path>/.orion).")
+    var out: String?
+
+    @Flag(help: "Delete without asking for confirmation.")
+    var yes: Bool = false
+
+    func run() async throws {
+        let (_, outURL) = resolvePaths(path: path, out: out)
+        let store = try openStore(outURL: outURL)
+        guard let session = try store.askSession(id: sessionId) else {
+            FileHandle.standardError.write(Data("no session with id \(sessionId)\n".utf8))
+            throw ExitCode(3)
+        }
+
+        if !yes {
+            FileHandle.standardError.write(
+                Data("Delete session \"\(session.title)\" (\(session.turnCount) turn(s))? [y/N] ".utf8))
+            let response = readLine(strippingNewline: true)?.lowercased()
+            guard response == "y" || response == "yes" else {
+                FileHandle.standardError.write(Data("Cancelled -- no changes made.\n".utf8))
+                return
+            }
+        }
+
+        try store.deleteAskSession(id: sessionId)
+        FileHandle.standardError.write(Data("Deleted session \"\(session.title)\" (\(sessionId))\n".utf8))
     }
 }

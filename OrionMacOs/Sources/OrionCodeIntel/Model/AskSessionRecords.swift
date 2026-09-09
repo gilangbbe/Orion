@@ -113,6 +113,10 @@ public enum AskSessionError: Error, CustomStringConvertible, Sendable {
     /// Swift-side construction discipline for anything beyond uniqueness/FK integrity.
     case componentRequiredForComponentScope
     case componentNotAllowedForRepositoryScope
+    /// Docs/15 §4.7, M8.5: `renameAskSession` rejects a blank title rather than silently writing
+    /// one -- a session's `title` is always meant to be a real, developer-readable label (either
+    /// derived from its first question, or now a deliberate rename), never empty.
+    case emptyTitle
 
     public var description: String {
         switch self {
@@ -122,6 +126,8 @@ public enum AskSessionError: Error, CustomStringConvertible, Sendable {
             return "a component-scoped session requires a non-nil componentId"
         case .componentNotAllowedForRepositoryScope:
             return "a repository-scoped session must not specify a componentId"
+        case .emptyTitle:
+            return "a session's title cannot be blank"
         }
     }
 }

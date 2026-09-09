@@ -26,6 +26,12 @@ struct AskView: View {
     /// stashed in `history.loadError`, and never shown anywhere, so asking a question that hit it
     /// looked exactly like nothing had happened at all (no turn, no spinner, no message).
     @State private var submitError: String?
+    /// Docs/15_phase5_adaptive_exploration.md §4.7/§5, M8.5: which session a right-click's
+    /// "Rename…" is currently acting on -- drives the `.sheet(item:)` below. `nil` when no rename
+    /// is in progress.
+    @State private var renamingSession: AskSessionRow?
+    /// Same idea for "Delete" -- a destructive, hard-to-reverse action confirms first (§4.7).
+    @State private var sessionPendingDelete: AskSessionRow?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -80,6 +86,31 @@ struct AskView: View {
             inputBar
         }
         .task { await history.refresh(outputDirectory: outputDirectory) }
+        .sheet(item: $renamingSession) { session in
+            RenameSessionSheet(session: session) { newTitle in
+                Task { await history.rename(session.id, title: newTitle, outputDirectory: outputDirectory) }
+            }
+        }
+        // Docs/15 §4.7: a destructive, hard-to-reverse action confirms first, naming the session
+        // and what specifically survives it (the underlying investigations, not the session
+        // itself) -- not a bare, unconfirmed "Delete" button.
+        .alert(
+            "Delete “\(sessionPendingDelete?.title ?? "")”?",
+            isPresented: Binding(
+                get: { sessionPendingDelete != nil },
+                set: { isPresented in if !isPresented { sessionPendingDelete = nil } }),
+            presenting: sessionPendingDelete
+        ) { session in
+            Button("Delete", role: .destructive) {
+                Task { await history.delete(session.id, outputDirectory: outputDirectory) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { session in
+            Text(
+                "This removes the session and its \(session.turnCount) turn"
+                    + "\(session.turnCount == 1 ? "" : "s"). The underlying investigation history is kept."
+            )
+        }
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -277,6 +308,12 @@ struct AskView: View {
         .background(
             session.id == history.selectedSessionID ? Color.accentColor.opacity(0.15) : Color.clear,
             in: RoundedRectangle(cornerRadius: 5))
+        // Docs/15 §4.7/§5, M8.5: the native macOS affordance for "act on this specific row,"
+        // rather than a bespoke button competing for space in an already-compact 260pt row.
+        .contextMenu {
+            Button("Rename…") { renamingSession = session }
+            Button("Delete", role: .destructive) { sessionPendingDelete = session }
+        }
     }
 
     // MARK: - Right: the selected session's turn history
@@ -544,5 +581,50 @@ struct AskEntryView: View {
             }
         }
         .padding(.top, 4)
+    }
+}
+
+/// Docs/15_phase5_adaptive_exploration.md §4.7/§5, M8.5: a focused rename prompt rather than
+/// inline-edit-in-place -- `sessionRow` is a custom `Button`, not a native `List` row with its
+/// own double-click-to-rename support, so a small, explicit form is the simplest primitive that
+/// actually works here, not a re-implementation of that native behavior.
+private struct RenameSessionSheet: View {
+    let session: AskSessionRow
+    let onSave: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+
+    init(session: AskSessionRow, onSave: @escaping (String) -> Void) {
+        self.session = session
+        self.onSave = onSave
+        _title = State(initialValue: session.title)
+    }
+
+    private var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Rename session")
+                .font(.headline)
+            TextField("Title", text: $title)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(save)
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }
+                Button("Save", action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(trimmedTitle.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
+    }
+
+    private func save() {
+        guard !trimmedTitle.isEmpty else { return }
+        onSave(trimmedTitle)
+        dismiss()
     }
 }

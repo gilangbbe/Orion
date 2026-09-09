@@ -349,4 +349,79 @@ final class AskHistoryTests: XCTestCase {
         XCTAssertEqual(history.groups(matching: "GENERAL").map(\.name), ["General"])
         XCTAssertTrue(history.groups(matching: "does not exist anywhere").isEmpty)
     }
+
+    // MARK: rename/delete (Docs/15 §4.7, M8.5)
+
+    func testRenameUpdatesTheSessionsTitleInTheList() async throws {
+        let (_, outputDirectory) = try makeAnalyzedFixtureRepo()
+        let history = AskHistory()
+        let sessionId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "General", outputDirectory: outputDirectory)
+
+        let succeeded = await history.rename(sessionId, title: "Renamed", outputDirectory: outputDirectory)
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(history.sessions.first(where: { $0.id == sessionId })?.title, "Renamed")
+    }
+
+    func testRenameWithBlankTitleFailsAndLeavesTheTitleUnchanged() async throws {
+        let (_, outputDirectory) = try makeAnalyzedFixtureRepo()
+        let history = AskHistory()
+        let sessionId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "General", outputDirectory: outputDirectory)
+
+        let succeeded = await history.rename(sessionId, title: "   ", outputDirectory: outputDirectory)
+
+        XCTAssertFalse(succeeded)
+        XCTAssertEqual(history.sessions.first(where: { $0.id == sessionId })?.title, "General")
+        XCTAssertNotNil(history.loadError)
+    }
+
+    func testDeleteRemovesTheSessionFromTheList() async throws {
+        let (_, outputDirectory) = try makeAnalyzedFixtureRepo()
+        let history = AskHistory()
+        let keepId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "Keep me", outputDirectory: outputDirectory)
+        let deleteId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "Delete me", outputDirectory: outputDirectory)
+
+        let succeeded = await history.delete(deleteId, outputDirectory: outputDirectory)
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(history.sessions.map(\.id), [keepId])
+    }
+
+    func testDeletingTheSelectedSessionClearsTheSelectionAndItsTurns() async throws {
+        let (repoRoot, outputDirectory) = try makeAnalyzedFixtureRepo()
+        let history = AskHistory()
+        let sessionId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "General", outputDirectory: outputDirectory)
+        await history.select(sessionId, outputDirectory: outputDirectory)
+        _ = await history.ask(
+            "What does foo do?", repoRoot: repoRoot, outputDirectory: outputDirectory,
+            session: stubAgentSession(
+                repoRoot: repoRoot, outputDirectory: outputDirectory,
+                script: ["foo is a no-op function that does nothing."]))
+        XCTAssertEqual(history.selectedSessionID, sessionId)
+        XCTAssertFalse(history.turns.isEmpty)
+
+        _ = await history.delete(sessionId, outputDirectory: outputDirectory)
+
+        XCTAssertNil(history.selectedSessionID)
+        XCTAssertTrue(history.turns.isEmpty)
+    }
+
+    func testDeletingAnUnselectedSessionLeavesTheCurrentSelectionAlone() async throws {
+        let (_, outputDirectory) = try makeAnalyzedFixtureRepo()
+        let history = AskHistory()
+        let selectedId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "Selected", outputDirectory: outputDirectory)
+        let otherId = try await history.createSession(
+            scopeType: .repository, componentId: nil, title: "Other", outputDirectory: outputDirectory)
+        await history.select(selectedId, outputDirectory: outputDirectory)
+
+        _ = await history.delete(otherId, outputDirectory: outputDirectory)
+
+        XCTAssertEqual(history.selectedSessionID, selectedId)
+    }
 }

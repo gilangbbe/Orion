@@ -1,6 +1,6 @@
 # 15 — Phase 5: Adaptive Exploration — Guardrails, Conversational Sessions & Routing Benchmark
 
-> Status: **M0-M8 done — this plan's full implementation order is complete.**
+> Status: **M0-M8.5 done — this plan's full implementation order, including the post-M8 addition, is complete.**
 >
 > **M0 (schema)**: `v4_phase5_schema` migration (`ask_sessions`/`ask_session_turns`, additive
 > only — Phase 1-3 tables untouched), typed `AskSessionRecord`/`AskSessionTurnRecord`
@@ -229,6 +229,26 @@
 > ([14_phase4_5_ui_ux_redesign.md](14_phase4_5_ui_ux_redesign.md)) — all complete (Phase 4.5's
 > SwiftUI implementation is committed on `main`, not only prototyped; its own status line saying
 > otherwise is stale).
+>
+> **M8.5 (session rename & delete) — done.** Real UX gap fixed, surfaced after M8: a session's
+> `title` was documented back in M0's own schema comment as "user-renamable later" (§4.2), and
+> there was never a way to remove a session at all — once created, a session (and the three
+> "General"/throwaway/misclicked ones the M7/M8 live-testing sessions themselves left behind) sat
+> in the list permanently. Built exactly as §4.7 planned: `Store.renameAskSession`/
+> `deleteAskSession` (both single-statement; delete relies on M0's already-existing
+> `ask_session_turns` cascade, confirmed again here rather than assumed), `orion-agent session
+> rename`/`session delete [--yes]` (confirms before deleting unless `--yes`), and a per-row
+> `.contextMenu` ("Rename…" / "Delete") in the app — a `.sheet`-based rename prompt (the "flagged
+> as a UX decision worth confirming during implementation" posture confirmed the right, simplest
+> primitive, exactly as anticipated) and a native confirm-before-delete alert naming the session
+> and stating plainly what survives it. 8 new `AskSessionStoreTests` (rename/delete, including a
+> direct assertion that deleting a session cascades its own turns away but leaves the
+> investigation it pointed at intact) plus 5 new `AskHistoryTests` (rename, blank-title rejection,
+> delete, and both directions of "does this affect the current selection"). Verified live end to
+> end in the real app (right-click → rename → renamed row appears; right-click → delete → confirm
+> → row gone) and via the real CLI against the real analyzed Starlette repo (rename, blank-title
+> rejection, delete-with-cancel, delete-with-`--yes`). Full suites green: `OrionMacOs` 310 tests,
+> `OrionApp` 132 tests (both 0 failures); `xcodebuild build` still succeeds.
 
 ## 1. Scope of this document, and why it's larger than Docs/08's own Phase 5
 
@@ -608,6 +628,65 @@ existing session id; it never silently creates one on first use, so "ask a one-o
 need to understand the routing mechanism" — but a *session* is a real, visible product concept the
 user does deliberately choose to start, unlike routing itself.
 
+### 4.7 Session lifecycle (rename & delete) — **M8.5, done**
+
+§4.2's own schema comment flagged this from the start (`title ... user-renamable later`), and
+real use of the shipped M0-M8 sessions list surfaced the missing other half: there is no way to
+get rid of a session once created — a misclicked "+", an abandoned experiment, or a session
+that's simply no longer useful sits in the list forever.
+
+**Rename.**
+
+- `Store.renameAskSession(id: String, title: String) throws` — a single `UPDATE ask_sessions SET
+  title = ? WHERE id = ?`, alongside the existing bare CRUD primitives (§4.2/M0). No cascade
+  concerns — `title` isn't referenced anywhere else in the schema.
+- Once a developer renames a session, that title is permanently theirs: §4.5 point 7 already
+  established that `title` is set once at creation and never re-derived per turn, so there is no
+  existing auto-derivation logic a manual rename could conflict with or later be silently
+  overwritten by. Nothing new to guard against here — stated for clarity, not because the current
+  code needs changing.
+- Empty/whitespace-only titles are rejected at the `Store` layer (falls back to the session's
+  existing title, matching how `AskSessionScope`'s own component/repository-scope invariant is
+  already enforced inside `createAskSession` rather than left to callers).
+
+**Delete.**
+
+- `Store.deleteAskSession(id: String) throws` — a single `DELETE FROM ask_sessions WHERE id = ?`.
+  `ask_session_turns.session_id REFERENCES ask_sessions(id) ON DELETE CASCADE` already exists
+  (§4.2, M0's own cascade tests already confirm this direction), so a session's turn-pointers
+  disappear with it automatically — no new schema, no new cascade to design.
+- **What does *not* get deleted, deliberately**: the underlying `investigations` rows (and their
+  `claims`/`evidence`/`routing_decisions`/`agent_tool_calls`) that session's turns pointed to.
+  §4.1's own framing — "a session is a thin, ordered pointer over existing `investigations` rows,
+  not a duplicate transcript store" — means deleting the pointer is not the same operation as
+  deleting the underlying record of what was actually asked and found; those stay queryable
+  exactly as Docs/04 §6 requires independent of any session that once referenced them. A deleted
+  session's investigations become session-less history — reachable the same way any pre-Phase-5,
+  session-less `ask` investigation always was.
+- A destructive, hard-to-reverse action — the app confirms before deleting (a native alert,
+  "Delete this session?", naming the session's title), matching this project's own standing
+  operating discipline for destructive actions rather than a bare, unconfirmed "Delete" button.
+- If the deleted session was the currently-selected one, the UI clears the selection back to the
+  "Select a session" empty state (§5) and refreshes the list, rather than pointing at a session
+  id that no longer resolves.
+
+**UI surface (§5 addendum).** Both actions hang off each session row via `.contextMenu` (right-
+click / Control-click — the native macOS affordance for "act on this specific row," not a new
+bespoke button competing for space in an already-compact 260pt-wide row): "Rename…" and "Delete."
+"Rename…" opens a small, focused prompt (a `.sheet` with one `TextField`, prefilled with the
+current title, `Save`/`Cancel`) rather than a bare inline-edit-in-place, since the session rows
+are custom `Button` views (not native `List` rows with their own double-click-to-rename support)
+— confirmed the right, simplest primitive during implementation, not presupposed final here (the
+same "flagged as a UX decision worth confirming during implementation" posture §5 already used
+for the resume-vs-fresh-start decision).
+
+**CLI parity (§7 addendum).** `session rename <path> <session-id> "<title>"` and
+`session delete <path> <session-id> [--yes]` (`--yes` skips the confirmation prompt the CLI
+otherwise shows before deleting, mirroring the app's own confirm-before-delete posture rather than
+special-casing the CLI as bare/unconfirmed) — kept alongside `session create/list/show` (M5) for
+the same reason those got a CLI form: every session-lifecycle operation this plan has added so far
+has shipped as CLI-first-or-alongside, not app-only.
+
 ---
 
 ## 5. Ask UX evolution (building on Docs/14, not replacing it)
@@ -634,6 +713,10 @@ extends naturally to a multi-turn conversation instead of flattening it back int
     recently active session for that component, with the "+ New session" affordance in the list
     always available for the deliberate fresh-start case. Flagged as a UX decision worth
     confirming during implementation (§11 M5), not presupposed here as final.
+  - **M8.5, done**: right-clicking a session row offers "Rename…" and "Delete" — §4.7 has the
+    full account (why a `.sheet`-based rename prompt over inline editing, why delete only removes
+    the session/its turn-pointers and never the underlying investigations, why delete confirms
+    first).
 - **Right column — the selected session's turn history**, each turn rendered as Docs/14's existing
   `AskEntryView` content (outcome label including the depth-1 "Not independently checked"
   treatment, answer text, claims with clickable evidence, routing detail behind "Explain") stacked
@@ -728,6 +811,8 @@ Docs/12 M5 and Docs/11 M4/M6 (real Claude usage, not something to run per-commit
 - **`session show <path> <session-id> [--json]`** — full turn-by-turn history (question, answer,
   outcome, depth) for one session, the CLI-level equivalent of §5's right column.
 - **`bench`** — §6.3.
+- **`session rename <path> <session-id> "<title>"`** and
+  **`session delete <path> <session-id> [--yes]`** — §4.7, M8.5, done.
 
 ---
 
@@ -870,7 +955,24 @@ persistence tests run in CI; model-load, `FoundationModels`, and live-`claude` t
   the real fix; (3) `--resume` verified live against a real `claude` CLI session ($1.00 real
   cost) via an unambiguous cross-turn checkpoint-recall test, closing the plan's single
   highest-named risk. 5 new tests (4 live, 1 in the regular CI suite); full suite at 303 tests,
-  0 failures. This closes Phase 5's full implementation order.
+  0 failures. This closed the plan's originally-scoped implementation order (M0-M8).
+- **M8.5 — Session rename & delete. [done]** A real UX gap, not part of the plan's original
+  scope: §4.2's own schema comment already flagged `title` as "user-renamable later," and there
+  had never been a way to delete a session at all. Built exactly as §4.7 planned:
+  `Store.renameAskSession`/`deleteAskSession` (both single-statement, no new schema — delete
+  relies on M0's already-existing `ask_session_turns` cascade, re-confirmed here rather than
+  assumed), a per-row `.contextMenu` ("Rename…" / "Delete") in the app backed by a `.sheet`-based
+  rename prompt and a native confirm-before-delete alert, and CLI parity (`session rename`/
+  `session delete [--yes]`, §7). Deleting a session removes the session and its turn-pointers
+  only — the underlying `investigations`/`claims`/`evidence` rows those turns pointed to stay
+  queryable session-less, per §4.1's "thin pointer, not a duplicate store" framing; a dedicated
+  test asserts this directly (delete, then confirm the pointed-at investigation still resolves).
+  8 new `AskSessionStoreTests`, 5 new `AskHistoryTests`. Verified live end to end in the real app
+  (right-click → rename/delete, confirmation alert naming the session) and against the real CLI
+  on the real analyzed Starlette repo (rename, blank-title rejection, delete-with-cancel,
+  delete-with-`--yes`). Full suites green: `OrionMacOs` 310 tests, `OrionApp` 132 tests, both
+  0 failures; `xcodebuild build` still succeeds. This closes Phase 5's full implementation order,
+  original scope plus this addition.
 
 ---
 

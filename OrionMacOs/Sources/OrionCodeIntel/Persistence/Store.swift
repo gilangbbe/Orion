@@ -457,6 +457,46 @@ public struct Store {
         }
     }
 
+    /// Renames a session (Docs/15 §4.7, M8.5). Once renamed, this title is the developer's own --
+    /// nothing in this codebase ever re-derives/overwrites `title` after creation (§4.5 point 7),
+    /// so there is no existing auto-derivation logic a manual rename could conflict with or later
+    /// be silently overwritten by. Rejects a blank title outright (`AskSessionError.emptyTitle`)
+    /// rather than writing one; a nonexistent `id` throws `.sessionNotFound` rather than silently
+    /// affecting zero rows -- matching `recordSessionTurn`'s own "a stale id is a caller bug, not
+    /// a silent no-op" posture, not `updateAskSessionActivity`'s blind-`UPDATE` one (that method
+    /// is only ever called immediately after `recordSessionTurn` already confirmed the session
+    /// exists in the same transaction; a rename has no such guarantee about its caller).
+    public func renameAskSession(id: String, title: String) throws {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw AskSessionError.emptyTitle }
+        try db.dbQueue.write { dbc in
+            guard try AskSessionRecord.fetchOne(dbc, key: id) != nil else {
+                throw AskSessionError.sessionNotFound(id)
+            }
+            try dbc.execute(sql: "UPDATE ask_sessions SET title = ? WHERE id = ?", arguments: [trimmed, id])
+        }
+    }
+
+    /// Deletes a session and, via the schema's own existing `ask_session_turns.session_id
+    /// REFERENCES ask_sessions(id) ON DELETE CASCADE` (§4.2, M0 -- already confirmed by M0's own
+    /// cascade tests), its turn-pointers along with it. Deliberately does **not** touch the
+    /// underlying `investigations` rows (or their `claims`/`evidence`/`routing_decisions`/
+    /// `agent_tool_calls`) those turns pointed at -- §4.1/§4.7: a session is a thin, ordered
+    /// pointer over existing `investigations` rows, not a duplicate transcript store, so deleting
+    /// the pointer is not the same operation as deleting the record of what was actually asked
+    /// and found. Those rows become session-less history, reachable the same way any
+    /// pre-Phase-5, session-less `ask()` investigation always was. A nonexistent `id` throws
+    /// `.sessionNotFound` rather than silently affecting zero rows, same reasoning as
+    /// `renameAskSession` above.
+    public func deleteAskSession(id: String) throws {
+        try db.dbQueue.write { dbc in
+            guard try AskSessionRecord.fetchOne(dbc, key: id) != nil else {
+                throw AskSessionError.sessionNotFound(id)
+            }
+            try dbc.execute(sql: "DELETE FROM ask_sessions WHERE id = ?", arguments: [id])
+        }
+    }
+
     /// Backfill each symbol's single "primary" component membership (Phase 1 reserved this
     /// column; `component_members` stays the many-to-many source of truth).
     public func backfillComponentIds(_ assignments: [(symbolId: String, componentId: String)]) throws {

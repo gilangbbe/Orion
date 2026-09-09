@@ -227,4 +227,101 @@ final class AskSessionStoreTests: XCTestCase {
             repositoryId: "repo", commitHash: "c0ffee", scopeType: .repository, title: "x", now: "t0")
         XCTAssertEqual(try store.priorTurns(sessionId: session.id), [])
     }
+
+    // MARK: renameAskSession (Docs/15 §4.7, M8.5)
+
+    func testRenameAskSessionUpdatesTheTitle() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        let session = try store.createAskSession(
+            repositoryId: "repo", commitHash: "c0ffee", scopeType: .repository, title: "General",
+            now: "t0")
+
+        try store.renameAskSession(id: session.id, title: "Renamed session")
+
+        XCTAssertEqual(try store.askSession(id: session.id)?.title, "Renamed session")
+    }
+
+    func testRenameAskSessionTrimsWhitespace() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        let session = try store.createAskSession(
+            repositoryId: "repo", commitHash: "c0ffee", scopeType: .repository, title: "General",
+            now: "t0")
+
+        try store.renameAskSession(id: session.id, title: "  Padded title  ")
+
+        XCTAssertEqual(try store.askSession(id: session.id)?.title, "Padded title")
+    }
+
+    func testRenameAskSessionWithBlankTitleThrowsAndLeavesTheOldTitleInPlace() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        let session = try store.createAskSession(
+            repositoryId: "repo", commitHash: "c0ffee", scopeType: .repository, title: "General",
+            now: "t0")
+
+        XCTAssertThrowsError(try store.renameAskSession(id: session.id, title: "   ")) { error in
+            guard case AskSessionError.emptyTitle = error else {
+                return XCTFail("expected emptyTitle, got \(error)")
+            }
+        }
+        XCTAssertEqual(try store.askSession(id: session.id)?.title, "General")
+    }
+
+    func testRenameAskSessionForMissingSessionThrows() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        XCTAssertThrowsError(
+            try store.renameAskSession(id: "no-such-session", title: "New title")
+        ) { error in
+            guard case AskSessionError.sessionNotFound("no-such-session") = error else {
+                return XCTFail("expected sessionNotFound, got \(error)")
+            }
+        }
+    }
+
+    // MARK: deleteAskSession (Docs/15 §4.7, M8.5)
+
+    func testDeleteAskSessionRemovesIt() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        let session = try store.createAskSession(
+            repositoryId: "repo", commitHash: "c0ffee", scopeType: .repository, title: "General",
+            now: "t0")
+
+        try store.deleteAskSession(id: session.id)
+
+        XCTAssertNil(try store.askSession(id: session.id))
+    }
+
+    func testDeleteAskSessionCascadesItsOwnTurnsButLeavesInvestigationsIntact() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        let session = try store.createAskSession(
+            repositoryId: "repo", commitHash: "c0ffee", scopeType: .repository, title: "General",
+            now: "t0")
+        try makeInvestigation(db: db, id: "inv1", question: "Q1", answerText: "A1")
+        try store.recordSessionTurn(
+            sessionId: session.id, investigationId: "inv1", claudeSessionId: nil, now: "t1")
+
+        try store.deleteAskSession(id: session.id)
+
+        XCTAssertTrue(
+            try store.askSessionTurns(sessionId: session.id).isEmpty,
+            "the session's own turn-pointers must cascade away with it")
+        XCTAssertNotNil(
+            try store.investigation(id: "inv1"),
+            "deleting a session must never delete the investigations its turns pointed at (§4.1/§4.7)")
+    }
+
+    func testDeleteAskSessionForMissingSessionThrows() throws {
+        let (db, _) = try seeded()
+        let store = Store(db)
+        XCTAssertThrowsError(try store.deleteAskSession(id: "no-such-session")) { error in
+            guard case AskSessionError.sessionNotFound("no-such-session") = error else {
+                return XCTFail("expected sessionNotFound, got \(error)")
+            }
+        }
+    }
 }

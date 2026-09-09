@@ -26,8 +26,8 @@ The local MLX agent owns the product loop and acts as the supervisor/router.
 
 Phases 0-4.5 complete (MLX model feasibility, deterministic code intelligence, semantic analysis
 prototype, MLX agent, architecture UI, UI/UX redesign). Phase 5 (adaptive exploration:
-guardrails, conversational sessions, routing benchmark) is planned, not started. No production/
-shipping implementation is assumed at this stage.
+guardrails, conversational sessions, routing benchmark, session rename & delete) is complete,
+M0-M8.5. No production/shipping implementation is assumed at this stage.
 
 See:
 - `01_product_specification.md`
@@ -44,4 +44,4 @@ See:
 - `12_phase3_mlx_agent.md` — Phase 3 plan (complete)
 - `13_phase4_architecture_ui.md` — Phase 4 plan (complete)
 - `14_phase4_5_ui_ux_redesign.md` — Phase 4.5 plan (complete)
-- `15_phase5_adaptive_exploration.md` — Phase 5 plan (not started)
+- `15_phase5_adaptive_exploration.md` — Phase 5 plan (complete, M0-M8.5)
