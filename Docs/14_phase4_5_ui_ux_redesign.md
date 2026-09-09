@@ -1172,5 +1172,25 @@ Three more real bugs, live-reproduced from the user's own screenshots before fix
 
 This closes Phase 4.5. Every milestone from M0 through M9 is real, working code in `OrionApp/`,
 verified live against the running app at each step -- not just against the prototype it started
-from. Nothing in this phase has been committed to git at any point; that remains for whenever it's
-asked for.
+from. (This phase's own work has since been committed to `main`, alongside unrelated work in other
+areas of the app.)
+
+### Post-completion fix: empty-state placement in Architecture Overview
+
+A real bug reported after M9: with zero modules/components (a genuinely empty or not-yet-analyzed
+repository), `ContentUnavailableView("No architecture data yet", ...)` defaulted to centering
+itself in the *entire* remaining height of the pane below the banner -- on a normal-sized window,
+that put a large, empty dark gap directly under the banner+divider before the message appeared,
+reading as if the banner's own backdrop stretched unnaturally far down the screen before anything
+else showed up ("the bar with the text 'Structural View' protrudes downward").
+
+Root-caused by live reproduction, not guessed: matched the reporting window's size almost exactly
+(computed ~1213×658pt from the reported screenshot's pixel dimensions vs. this session's own
+1200×653pt test window) and the exact repository (`pdf-merge`, 0 files), and reproduced the
+identical layout on the first try -- confirming this wasn't a stale-build or environment-specific
+issue. **Fix:** `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)` +
+`.padding(.top, 48)` on the `ContentUnavailableView`, anchoring it just below the banner instead of
+true-centering it in the whole pane -- any leftover space now sits at the bottom, not split evenly
+above and below the message. Verified against the same `pdf-merge` repository afterward: the empty
+state now sits immediately under the banner, matching the fix's intent. Full `OrionAppTests` suite
+(132 tests -- grown since M9 from other sessions' own test additions) green throughout.

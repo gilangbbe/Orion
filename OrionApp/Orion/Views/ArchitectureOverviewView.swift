@@ -56,9 +56,19 @@ struct ArchitectureOverviewView: View {
             }
             Divider()
             if model.nodes.isEmpty {
+                // A real reported bug: `ContentUnavailableView` defaults to centering in
+                // whatever space it's given, which here is the *entire* rest of the window --
+                // right below a thin banner, that reads as the banner's own empty backdrop
+                // stretching awkwardly far down before anything else appears ("the bar...
+                // protrudes downward"). Anchoring to the top keeps the empty state close to the
+                // banner/divider that explains it, leaving any leftover space at the bottom
+                // instead of splitting it evenly above and below the message.
                 ContentUnavailableView(
                     "No architecture data yet", systemImage: "square.dashed",
-                    description: Text("Analysis hasn't produced any modules to show."))
+                    description: Text("Analysis hasn't produced any modules to show.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 48)
             } else if shellState.viewMode == .diagram {
                 diagram(model)
             } else {
