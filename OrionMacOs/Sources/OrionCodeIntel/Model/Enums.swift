@@ -58,21 +58,52 @@ public enum ConfidenceTier: String, Codable, Sendable, CaseIterable {
         case .unresolved: return 0.1
         }
     }
+
+    /// The tier whose fixed `score` exactly matches `score`, or `nil` if none does (a value
+    /// that never came from `ConfidenceTier.score` in the first place).
+    public static func matching(score: Double) -> ConfidenceTier? {
+        allCases.first { $0.score == score }
+    }
+
+    /// A display label for a raw confidence score — the tier name when it exactly matches one
+    /// of the four fixed scores, else the score itself formatted to two decimal places. Moved
+    /// here from `OrionApp`'s `ConfidenceBadge.tierLabel(forScore:)` (Docs/15 §11 M2) so
+    /// `ComponentDetailQuery`/session context-priming logic can use the same mapping without
+    /// depending on a SwiftUI view type — `ClaimRecord.confidence` is stored as a bare `Double`
+    /// score, unlike `ComponentRecord`/`ComponentRelationshipRecord`, which keep the tier string
+    /// alongside it.
+    public static func label(forScore score: Double) -> String {
+        matching(score: score)?.rawValue ?? String(format: "%.2f", score)
+    }
 }
 
 /// Outcome of one Claude Code investigation, recorded on `investigations.outcome`. Never
 /// present a `rejected`/`incomplete`/`unverified` investigation's findings as fact-tier —
 /// `Docs/06_claude_code_integration.md` §7.
+///
+/// `declined` (Phase 5, Docs/15 §3.3) is a distinct, additive case: a question the guardrail
+/// judged unrelated to the analyzed repository, never routed to a local or Claude investigation
+/// at all. Unlike `rejected`/`unverified`/`incomplete`, a `declined` outcome is a *correct,
+/// complete* result, not a failure — it must not be grouped with those three by anything that
+/// treats them as "something went wrong" (e.g. `AskCommand`'s `failedDelegation` check).
 public enum InvestigationOutcome: String, Codable, Sendable, CaseIterable {
     case verified
     case partiallyVerified = "partially_verified"
     case unverified
     case incomplete
     case rejected
+    case declined
 }
 
 /// A symbol's role within a component it is a member of (`component_members.role`).
 public enum ComponentMemberRole: String, Codable, Sendable, CaseIterable {
     case core
     case supporting
+}
+
+/// What an `ask_sessions` row is scoped to (Docs/15 §4.1/§4.2) — `.component` sessions carry a
+/// non-null `component_id`, `.repository` sessions don't.
+public enum AskSessionScope: String, Codable, Sendable, CaseIterable {
+    case repository
+    case component
 }

@@ -543,7 +543,8 @@ public struct SemanticImporter {
     private func persistInvestigation(
         run: AnalysisRunRecord, meta: InvestigationMeta?, schemaVersion: String?,
         outcome: InvestigationOutcome, now: String,
-        question: String = "phase2_semantic_grouping", complexity: String = "high"
+        question: String = "phase2_semantic_grouping", complexity: String = "high",
+        answerText: String? = nil
     ) throws -> InvestigationRecord {
         let record = InvestigationRecord(
             id: DeterministicID.newUUID(), repositoryId: run.repositoryId, commitHash: run.commitHash,
@@ -551,7 +552,7 @@ public struct SemanticImporter {
             schemaVersion: schemaVersion, modelUsed: meta?.modelUsed,
             toolsUsed: meta?.toolsUsed ?? [], sessionId: meta?.sessionId, numTurns: meta?.numTurns,
             totalCostUsd: meta?.totalCostUsd, durationMs: meta?.durationMs,
-            outcome: outcome.rawValue, createdAt: now
+            outcome: outcome.rawValue, createdAt: now, answerText: answerText
         )
         try store.insertInvestigation(record)
         return record
@@ -732,7 +733,7 @@ public struct SemanticImporter {
         guard schemaErrors.isEmpty else {
             let inv = try persistInvestigation(
                 run: run, meta: meta, schemaVersion: findings.schemaVersion, outcome: .rejected,
-                now: now, question: question, complexity: complexity
+                now: now, question: question, complexity: complexity, answerText: findings.answer
             )
             try store.insertDiagnostics(diagnosticRecords(
                 for: schemaErrors, code: "SCHEMA_INVALID", severity: "error",
@@ -754,7 +755,7 @@ public struct SemanticImporter {
         let outcome = classifyAnswerOutcome(consistent)
         let investigation = try persistInvestigation(
             run: run, meta: meta, schemaVersion: findings.schemaVersion, outcome: outcome,
-            now: now, question: question, complexity: complexity
+            now: now, question: question, complexity: complexity, answerText: findings.answer
         )
 
         let (claimRecords, evidenceRecords) = buildClaimRecords(

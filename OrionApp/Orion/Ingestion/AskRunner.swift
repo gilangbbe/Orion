@@ -46,6 +46,12 @@ struct AskResultSummary: Equatable {
     /// the one flag `AskEntryView` uses to render that case with a visibly different treatment.
     var isUngroundedVerified: Bool { depth == 1 && claimCount == 0 }
 
+    /// Docs/15_phase5_adaptive_exploration.md §3.3/§7 (M6): a guardrail decline is a correct,
+    /// complete result, not a failure -- checked *before* `isUngroundedVerified`/`partial` by
+    /// every view that renders an outcome, so it never gets the orange "partial" treatment or
+    /// the green verified seal.
+    var isDeclined: Bool { outcome == InvestigationOutcome.declined.rawValue }
+
     init(_ result: AgentSessionResult, claims: [AskClaimSummary] = []) {
         answerText = result.answerText
         depth = result.depthDecision.depth
@@ -91,6 +97,16 @@ struct AskResultSummary: Equatable {
 enum AskOutcome: Equatable {
     case answered(AskResultSummary)
     case failed(String)
+
+    /// Docs/15_phase5_adaptive_exploration.md §4.5/§7: a guardrail decline is a correct, complete
+    /// result that's deliberately never persisted as a session turn (`AgentSession.ask` skips
+    /// `Store.recordSessionTurn` for it). `AskHistory.ask(_:)` uses this to know when reloading
+    /// turns from the database would silently wipe the just-shown decline back out of `turns` --
+    /// a real reported bug ("renders something in the chat, but it immediately disappears").
+    var isDeclined: Bool {
+        if case .answered(let summary) = self { return summary.isDeclined }
+        return false
+    }
 }
 
 /// Drives `OrionAgent.AgentSession.ask(_:)` for one question -- in-process, no CLI subprocess.
@@ -104,10 +120,13 @@ enum AskRunner {
     ///   delegation goes through the exact same GUI-app-`PATH` gap `SemanticInvestigator` hit
     ///   (Docs/13 Risk 13), since `AgentSession` builds its own `ClaudeCodeInvestigator`
     ///   internally with whatever `claudeBinary` this config carries.
+    /// - Parameter sessionId: `nil` (default, pre-Phase-5 behavior) asks a fully independent
+    ///   question. A real id (Docs/15_phase5_adaptive_exploration.md §4/M6) primes this question
+    ///   with that session's prior turns/component context and appends this turn to it.
     static func ask(
         question: String, repoRoot: URL, outputDirectory: URL,
         maxBudgetUsd: Double = 1.00, timeoutSeconds: Double = 400,
-        session: AgentSession? = nil
+        sessionId: String? = nil, session: AgentSession? = nil
     ) async -> AskOutcome {
         let agentSession: AgentSession
         if let session {
@@ -122,7 +141,7 @@ enum AskRunner {
         }
 
         do {
-            let result = try await agentSession.ask(question)
+            let result = try await agentSession.ask(question, sessionId: sessionId)
             // Best-effort: a failure reading claims back shouldn't turn a real, already-obtained
             // answer into an error -- the answer text and counts are already correct either way.
             let claims =
@@ -132,6 +151,50 @@ enum AskRunner {
         } catch {
             return .failed(String(describing: error))
         }
+    }
+
+    enum PersistedTurnError: Error, CustomStringConvertible {
+        case investigationNotFound(String)
+        var description: String {
+            switch self {
+            case .investigationNotFound(let id): return "no investigation found with id \(id)"
+            }
+        }
+    }
+
+    /// Reconstructs an already-completed turn's `AskResultSummary` from persisted data alone --
+    /// no live `AgentSessionResult`, since that type only ever exists transiently right after an
+    /// `AgentSession.ask` call returns (Docs/15_phase5_adaptive_exploration.md M6: a session's
+    /// past turns are loaded this way when its history is displayed, not re-run). Reuses
+    /// `AskResultSummary`'s own "test-support" memberwise init for real reconstruction, not just
+    /// tests -- the exact shape it was already built to produce.
+    ///
+    /// **Known, accepted fidelity gap**: `droppedClaimCount` and the loop-level `partial` flag
+    /// (Docs/12 M2's "ran out of tool budget without an explicit answer" signal) are never
+    /// persisted anywhere -- only `SemanticImporter.ingestAnswer`'s own resulting `outcome` is.
+    /// `droppedClaimCount` reconstructs as `0` (never a false claim of drops that didn't survive);
+    /// `partial` is approximated as "outcome is neither verified nor declined," which matches
+    /// every real code path except one narrow case (a depth-2 answer that exhausted its tool
+    /// budget yet still happened to resolve a clean, `.verified` claim) -- judged not worth a new
+    /// persisted column for a single cosmetic "[partial answer]" tag on live-only display.
+    static func loadPersistedTurn(
+        investigationId: String, outputDirectory: URL
+    ) throws -> (question: String, summary: AskResultSummary) {
+        let store = CodebaseModelStore(outputDirectory: outputDirectory)
+        guard let investigation = try store.investigation(id: investigationId) else {
+            throw PersistedTurnError.investigationNotFound(investigationId)
+        }
+        let routing = try store.routingDecisions(investigationId: investigationId).first
+        let claims = try loadClaims(investigationId: investigationId, outputDirectory: outputDirectory)
+        let summary = AskResultSummary(
+            answerText: investigation.answerText ?? "(no answer recorded)",
+            depth: routing?.depthLevel ?? 0, routingMethod: routing?.method ?? "unknown",
+            routingConfidence: routing?.confidence ?? "unknown", rationale: routing?.rationale ?? "",
+            outcome: investigation.outcome, claimCount: claims.count, droppedClaimCount: 0,
+            partial: ![InvestigationOutcome.verified.rawValue, InvestigationOutcome.declined.rawValue]
+                .contains(investigation.outcome),
+            claims: claims)
+        return (investigation.question, summary)
     }
 
     private static func loadClaims(

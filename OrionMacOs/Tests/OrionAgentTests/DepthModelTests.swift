@@ -81,4 +81,47 @@ final class DepthModelTests: XCTestCase {
         XCTAssertEqual(decision.depth, 3)
         XCTAssertLessThan(start.duration(to: .now), .seconds(2), "timeout escalation must be fast")
     }
+
+    // MARK: guardrail (Docs/15 §3)
+
+    /// The guardrail is checked before confidence-based escalation, and unconditionally --
+    /// Docs/15 §3.2: an out-of-scope question is never escalated to Claude Code, no matter what
+    /// (otherwise-irrelevant) confidence came back alongside the decline.
+    func testOutOfScopeFallbackResultIsNeverEscalated() async throws {
+        let fallback = StubFallback(
+            result: DepthDecision(
+                depth: 3, intent: "unclassified", confidence: .low,
+                rationale: "This looks like a general knowledge question, not one about the"
+                    + " analyzed repository.",
+                method: .model, isInScope: false))
+        let model = DepthModel(fallback: fallback)
+        let decision = try await model.classify("What's a good recipe for pasta?")
+        XCTAssertFalse(decision.isInScope)
+        XCTAssertEqual(decision.method, .model)
+        XCTAssertTrue(decision.rationale.contains("general knowledge"))
+    }
+
+    /// An in-scope result still goes through the existing confidence-based escalation unchanged
+    /// -- the guardrail is a gate in front of that logic, not a replacement for it.
+    func testInScopeFallbackResultStillEscalatesOnLowConfidence() async throws {
+        let fallback = StubFallback(
+            result: DepthDecision(
+                depth: 2, intent: "dependency_lookup", confidence: .low,
+                rationale: "Could not tell which lookup applies.", method: .model,
+                isInScope: true))
+        let model = DepthModel(fallback: fallback)
+        let decision = try await model.classify("Some ambiguous question about the system")
+        XCTAssertTrue(decision.isInScope)
+        XCTAssertEqual(decision.depth, 3)
+    }
+
+    /// A heuristic match is repository-related by construction (Docs/03 §2's fixed code-shaped
+    /// patterns) -- the guardrail check never even runs for it, mirroring
+    /// `testHeuristicMatchNeverCallsFallback` above.
+    func testHeuristicMatchIsAlwaysInScope() async throws {
+        let model = DepthModel(fallback: StubFallback(result: DepthDecision(
+            depth: 3, intent: "x", confidence: .high, rationale: "unused", method: .model)))
+        let decision = try await model.classify("What does `AuthService` do?")
+        XCTAssertTrue(decision.isInScope)
+    }
 }

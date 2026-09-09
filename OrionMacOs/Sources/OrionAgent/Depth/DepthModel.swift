@@ -48,10 +48,19 @@ public final class DepthModel {
 
     public func classify(_ question: String) async throws -> DepthDecision {
         if let decision = DepthHeuristics.classify(question) {
+            // A question matching one of Docs/03 §2's fixed code-shaped patterns is
+            // repository-related by construction (Docs/15 §3.2) -- the guardrail check below
+            // never runs for it, exactly like the model-backed fallback itself is skipped.
             return decision
         }
 
         let decision = try await classifyWithTimeout(question)
+        guard decision.isInScope else {
+            // Docs/15 §3.2: checked before confidence-based escalation, and unconditionally --
+            // an out-of-scope question is never escalated to Claude Code no matter how low its
+            // (otherwise irrelevant) confidence came back.
+            return decision
+        }
         switch decision.confidence {
         case .high:
             return decision

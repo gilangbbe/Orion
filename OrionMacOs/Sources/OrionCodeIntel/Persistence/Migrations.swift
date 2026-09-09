@@ -10,6 +10,12 @@ import GRDB
 /// `Docs/12_phase3_mlx_agent.md` "SQLite schema". These are agent-loop artifacts, not code-graph
 /// facts, but they live in this same migrator/Store because Phase 2 already established the
 /// precedent of one shared database rather than a second competing persistence stack.
+/// `v4_phase5_schema` adds `ask_sessions`/`ask_session_turns` — persisted, resumable multi-turn
+/// conversations layered over `investigations` (Docs/15's own naming callout: a session is a
+/// thin ordered pointer over existing investigation rows, not a second transcript store). Unlike
+/// `v3`, Phase 3/4/4.5 already shipped, so this is a genuinely new migration rather than an
+/// amendment to an unreleased one — the "amend, don't version" precedent only ever applied while
+/// a phase's own schema was still pre-release.
 public enum OrionMigrations {
 
     public static func makeMigrator() -> DatabaseMigrator {
@@ -20,6 +26,7 @@ public enum OrionMigrations {
         registerV1(&migrator)
         registerV2(&migrator)
         registerV3(&migrator)
+        registerV4(&migrator)
         return migrator
     }
 
@@ -38,6 +45,12 @@ public enum OrionMigrations {
     private static func registerV3(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v3_phase3_schema") { db in
             try db.execute(sql: Self.v3SQL)
+        }
+    }
+
+    private static func registerV4(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("v4_phase5_schema") { db in
+            try db.execute(sql: Self.v4SQL)
         }
     }
 
@@ -332,5 +345,50 @@ public enum OrionMigrations {
         created_at       TEXT NOT NULL
     );
     CREATE INDEX idx_agent_tool_calls_investigation ON agent_tool_calls(investigation_id, turn_index);
+    """
+
+    /// Phase 5 conversational-session tables, plus one additive column on the existing Phase 2
+    /// `investigations` table. See `Docs/15_phase5_adaptive_exploration.md` §4.2 "Schema". A
+    /// session's `component_id` references one specific past investigation's `components` row
+    /// (components are scoped to an investigation, not a stable cross-investigation identity —
+    /// Docs/11); NULL means a repository-wide session. `claude_session_id` denormalizes the most
+    /// recent depth-3 turn's `investigations.session_id` (Claude CLI's own, unrelated identifier
+    /// — see Docs/15 §4.2's naming callout) so `--resume` doesn't need a join to find it.
+    ///
+    /// `investigations.answer_text` — real M3 finding, not part of the original M0 schema draft:
+    /// building prior-turn context (Docs/15 §4.3) needs each past turn's actual answer text, and
+    /// nothing persisted it anywhere — `SemanticIngestOutcome.answer`/`AgentSessionResult
+    /// .answerText` were both transient, computed at ask-time and handed back to the caller, never
+    /// written to a column. `ALTER TABLE` on an already-shipped Phase 2 table is safe here
+    /// specifically because it's a new, nullable column added by a *new* migration (`v4`, not yet
+    /// released) — `v2_phase2_schema`'s own migration script is untouched, this is normal schema
+    /// evolution, not rewriting an already-applied migration's history.
+    private static let v4SQL = """
+    ALTER TABLE investigations ADD COLUMN answer_text TEXT;
+
+    CREATE TABLE ask_sessions (
+        id                TEXT PRIMARY KEY,
+        repository_id     TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        commit_hash       TEXT NOT NULL,
+        scope_type        TEXT NOT NULL,
+        component_id      TEXT REFERENCES components(id) ON DELETE CASCADE,
+        title             TEXT NOT NULL,
+        claude_session_id TEXT,
+        turn_count        INTEGER NOT NULL DEFAULT 0,
+        created_at        TEXT NOT NULL,
+        last_active_at    TEXT NOT NULL
+    );
+    CREATE INDEX idx_ask_sessions_repo ON ask_sessions(repository_id, commit_hash, last_active_at);
+    CREATE INDEX idx_ask_sessions_component ON ask_sessions(component_id);
+
+    CREATE TABLE ask_session_turns (
+        id               TEXT PRIMARY KEY,
+        session_id       TEXT NOT NULL REFERENCES ask_sessions(id) ON DELETE CASCADE,
+        turn_index       INTEGER NOT NULL,
+        investigation_id TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+        created_at       TEXT NOT NULL,
+        UNIQUE (session_id, turn_index)
+    );
+    CREATE INDEX idx_ask_session_turns_session ON ask_session_turns(session_id, turn_index);
     """
 }

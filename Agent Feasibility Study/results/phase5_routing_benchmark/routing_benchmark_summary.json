@@ -1,0 +1,47 @@
+{
+  "byCategory": {
+    "architecture": 6,
+    "behavioral_reasoning": 9,
+    "code_understanding": 9,
+    "contradiction_detection": 5,
+    "cross_file_reasoning": 8,
+    "dependency_change_impact": 6,
+    "evidence": 4,
+    "teaching": 4,
+    "transfer": 4
+  },
+  "byDepth": {
+    "1": {
+      "count": 9,
+      "outcomeCounts": {
+        "verified": 9
+      },
+      "p50LatencyMs": 71879.562125,
+      "p95LatencyMs": 146633.806584,
+      "totalCostUsd": 0
+    },
+    "2": {
+      "count": 43,
+      "outcomeCounts": {
+        "partially_verified": 18,
+        "unverified": 5,
+        "verified": 20
+      },
+      "p50LatencyMs": 98034.790667,
+      "p95LatencyMs": 162089.6155,
+      "totalCostUsd": 0
+    },
+    "3": {
+      "count": 3,
+      "outcomeCounts": {
+        "declined": 2,
+        "rejected": 1
+      },
+      "p50LatencyMs": 4167.156375,
+      "p95LatencyMs": 98929.068084,
+      "totalCostUsd": 1.012542
+    }
+  },
+  "totalCostUsd": 1.012542,
+  "totalQuestions": 55
+}

@@ -24,9 +24,10 @@ The local MLX agent owns the product loop and acts as the supervisor/router.
 
 ## Project status
 
-Phases 0-2 complete (MLX model feasibility, deterministic code intelligence, semantic analysis
-prototype). Phase 3 (MLX Agent) is planned, not started. No production/shipping implementation
-is assumed at this stage.
+Phases 0-4.5 complete (MLX model feasibility, deterministic code intelligence, semantic analysis
+prototype, MLX agent, architecture UI, UI/UX redesign). Phase 5 (adaptive exploration:
+guardrails, conversational sessions, routing benchmark) is planned, not started. No production/
+shipping implementation is assumed at this stage.
 
 See:
 - `01_product_specification.md`
@@ -40,4 +41,7 @@ See:
 - `09_research_hypotheses.md`
 - `10_phase1_deterministic_code_intelligence.md` — Phase 1 plan (complete)
 - `11_phase2_semantic_analysis.md` — Phase 2 plan (complete)
-- `12_phase3_mlx_agent.md` — Phase 3 plan (not started)
+- `12_phase3_mlx_agent.md` — Phase 3 plan (complete)
+- `13_phase4_architecture_ui.md` — Phase 4 plan (complete)
+- `14_phase4_5_ui_ux_redesign.md` — Phase 4.5 plan (complete)
+- `15_phase5_adaptive_exploration.md` — Phase 5 plan (not started)

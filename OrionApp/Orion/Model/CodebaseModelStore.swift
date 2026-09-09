@@ -75,4 +75,26 @@ struct CodebaseModelStore {
     func evidence(claimIds: [String]) throws -> [EvidenceRecord] {
         try store().evidence(claimIds: claimIds)
     }
+
+    // MARK: Phase 5 -- conversational sessions (Docs/15_phase5_adaptive_exploration.md M6)
+
+    func investigation(id: String) throws -> InvestigationRecord? {
+        try store().investigation(id: id)
+    }
+
+    func routingDecisions(investigationId: String) throws -> [RoutingDecisionRecord] {
+        try store().routingDecisions(investigationId: investigationId)
+    }
+
+    func component(id: String) throws -> ComponentRecord? {
+        try store().component(id: id)
+    }
+
+    func askSessions(repositoryId: String, commitHash: String) throws -> [AskSessionRecord] {
+        try store().askSessions(repositoryId: repositoryId, commitHash: commitHash)
+    }
+
+    func askSessionTurns(sessionId: String) throws -> [AskSessionTurnRecord] {
+        try store().askSessionTurns(sessionId: sessionId)
+    }
 }

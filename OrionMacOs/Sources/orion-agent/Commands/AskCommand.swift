@@ -26,6 +26,16 @@ struct Ask: AsyncParsableCommand {
     var commit: String?
 
     @Option(
+        help: """
+            Continue this conversational session (from `orion-agent session create`/`list`) -- \
+            primes this question with the session's prior turns/component context and resumes \
+            its Claude conversation for a depth-3 turn when it already has one. Omit for a \
+            fully independent question (Docs/15_phase5_adaptive_exploration.md §4).
+            """
+    )
+    var session: String?
+
+    @Option(
         name: .customLong("force-depth"),
         help: "Override the Depth Model: 1 (local only), 2 (local + tools), or 3 (delegate to Claude Code)."
     )
@@ -63,7 +73,7 @@ struct Ask: AsyncParsableCommand {
 
         let result: AgentSessionResult
         do {
-            result = try await AgentSession(config: config).ask(question)
+            result = try await AgentSession(config: config).ask(question, sessionId: session)
         } catch let error as AgentSessionError {
             FileHandle.standardError.write(Data("\(error)\n".utf8))
             throw ExitCode(3)
@@ -92,7 +102,17 @@ struct Ask: AsyncParsableCommand {
     private func printFormatted(_ result: AgentSessionResult) {
         print(result.answerText)
 
-        if result.claimCount > 0 || result.droppedClaimCount > 0 {
+        // Docs/15 §7: a decline is a correct, complete result, distinguished from a real
+        // answer's claim/outcome bookkeeping (which a declined question never has) by its own
+        // marker rather than being silently indistinguishable from a plain `verified` depth-1
+        // answer that happened to assert nothing.
+        let isDeclined = result.investigation.outcome == InvestigationOutcome.declined.rawValue
+        if isDeclined {
+            print("")
+            print("[declined -- outside this repository's scope]")
+        }
+
+        if !isDeclined && (result.claimCount > 0 || result.droppedClaimCount > 0) {
             var note = "[\(result.claimCount) claim(s) recorded"
             if result.droppedClaimCount > 0 {
                 note += ", \(result.droppedClaimCount) dropped for unresolved evidence"

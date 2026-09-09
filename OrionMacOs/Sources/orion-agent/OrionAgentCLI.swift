@@ -12,6 +12,6 @@ struct OrionAgentCLI: AsyncParsableCommand {
         Docs/12_phase3_mlx_agent.md.
         """,
         version: OrionAgent.version,
-        subcommands: [Ask.self, Classify.self]
+        subcommands: [Ask.self, Classify.self, Session.self, Bench.self]
     )
 }

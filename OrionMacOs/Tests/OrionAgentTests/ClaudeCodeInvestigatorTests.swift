@@ -69,6 +69,66 @@ final class ClaudeCodeInvestigatorTests: XCTestCase {
         XCTAssertTrue(schemaArg.contains("phase3.v1"))
     }
 
+    // MARK: Docs/15 §4.4 (M4) -- session continuity
+
+    func testDefaultContinuityMatchesPrePhase5Behavior() throws {
+        let investigator = try makeInvestigator()
+        let args = try investigator.buildArguments(prompt: "p")
+        XCTAssertTrue(args.contains("--no-session-persistence"))
+        XCTAssertFalse(args.contains("--resume"))
+    }
+
+    /// Not a full-array equality check: `AgentAnswerSchema.cliJSONSchema()`'s `[String: Any]` ->
+    /// `JSONSerialization` round trip has no guaranteed key order, so two separate calls can
+    /// produce byte-different (but semantically identical) `--json-schema` strings even with
+    /// nothing else changed -- confirmed by hitting exactly that flakiness while writing this
+    /// test, not assumed. Compares the properties that actually distinguish `.none` from
+    /// anything else instead.
+    func testNoneContinuityIsIdenticalToDefault() throws {
+        let investigator = try makeInvestigator()
+        let explicit = try investigator.buildArguments(prompt: "p", continuity: .none)
+        let defaulted = try investigator.buildArguments(prompt: "p")
+        XCTAssertEqual(explicit.count, defaulted.count)
+        XCTAssertTrue(explicit.contains("--no-session-persistence"))
+        XCTAssertTrue(defaulted.contains("--no-session-persistence"))
+        XCTAssertFalse(explicit.contains("--resume"))
+        XCTAssertFalse(defaulted.contains("--resume"))
+    }
+
+    func testNewSessionContinuityOmitsNoSessionPersistenceAndDoesNotResume() throws {
+        let investigator = try makeInvestigator()
+        let args = try investigator.buildArguments(prompt: "p", continuity: .newSession)
+        XCTAssertFalse(args.contains("--no-session-persistence"))
+        XCTAssertFalse(args.contains("--resume"))
+    }
+
+    func testResumeContinuityAddsResumeFlagAndOmitsNoSessionPersistence() throws {
+        let investigator = try makeInvestigator()
+        let args = try investigator.buildArguments(prompt: "p", continuity: .resume("claude-s1"))
+        XCTAssertFalse(args.contains("--no-session-persistence"))
+        guard let index = args.firstIndex(of: "--resume") else {
+            return XCTFail("expected a --resume flag")
+        }
+        XCTAssertEqual(args[args.index(after: index)], "claude-s1")
+    }
+
+    func testResumePromptOmitsTheRepositoryIntroButKeepsRulesAndQuestion() throws {
+        let investigator = try makeInvestigator()
+        let fresh = investigator.buildPrompt(question: "And what calls it?")
+        let resumed = investigator.buildPrompt(question: "And what calls it?", continuity: .resume("claude-s1"))
+
+        XCTAssertTrue(fresh.contains("You are investigating a Python repository"))
+        XCTAssertFalse(resumed.contains("You are investigating a Python repository"))
+        XCTAssertTrue(resumed.contains("follow-up question in the same Orion investigation session"))
+        // Both still carry the question and the anchor/schema rules -- only the repository-
+        // orientation intro is dropped, not the requirements on the answer itself.
+        for prompt in [fresh, resumed] {
+            XCTAssertTrue(prompt.contains("And what calls it?"))
+            XCTAssertTrue(prompt.contains(AgentAnswerSchema.currentVersion))
+            XCTAssertTrue(prompt.contains("Every claim's `evidence` entry"))
+        }
+    }
+
     func testMaxBudgetIsConfigurable() throws {
         var investigator = try makeInvestigator()
         investigator.maxBudgetUsd = 5.5

@@ -15,8 +15,22 @@ struct Classify: AsyncParsableCommand {
     @Argument(help: "The question to classify.")
     var question: String
 
+    @Option(
+        help: """
+            The repository name to ground the guardrail/classifier in (Docs/15 §11 M8) -- \
+            without one, a question that names a real repository reads as generic public-library \
+            trivia instead of a question about a specific analyzed instance. `ask`/`bench` resolve \
+            this automatically from the repo path; this debug command has no path argument, so \
+            pass it explicitly to reproduce real routing behavior for a specific repository.
+            """
+    )
+    var repoName: String?
+
     func run() async throws {
-        let model = DepthModel(fallback: AppleFoundationDepthClassifier())
+        let classifier =
+            repoName.map(AppleFoundationDepthClassifier.init(repositoryName:))
+            ?? AppleFoundationDepthClassifier()
+        let model = DepthModel(fallback: classifier)
         let decision = try await model.classify(question)
         printDecision(decision)
     }

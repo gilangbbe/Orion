@@ -39,11 +39,15 @@ struct ConfidenceBadge: View {
     /// `ClaimRecord.confidence` is stored as `ConfidenceTier.score` (0.9/0.6/0.3/0.1), not the
     /// tier label itself -- unlike `ComponentRecord`/`ComponentRelationshipRecord`, which keep
     /// both. Reverses that exact mapping so a claim's confidence can be shown with the same
-    /// vocabulary as everything else that already carries a tier string directly. Shared here
-    /// (not duplicated per call site -- `ComponentDetailLoader` and `AskRunner` both need it).
+    /// vocabulary as everything else that already carries a tier string directly.
+    ///
+    /// Docs/15_phase5_adaptive_exploration.md M2: the actual mapping moved down to
+    /// `ConfidenceTier.label(forScore:)` in `OrionCodeIntel`, so `ComponentDetailQuery` (shared
+    /// with a Phase 5 session's context-priming) doesn't have to reach back up into this
+    /// SwiftUI-adjacent type for a pure string mapping. Kept here as a thin, unchanged-signature
+    /// forwarder so `AskRunner` and every other existing call site needed no changes.
     static func tierLabel(forScore score: Double) -> String {
-        ConfidenceTier.allCases.first { $0.score == score }?.rawValue
-            ?? String(format: "%.2f", score)
+        ConfidenceTier.label(forScore: score)
     }
 
     var body: some View {

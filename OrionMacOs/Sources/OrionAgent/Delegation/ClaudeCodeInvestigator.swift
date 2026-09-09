@@ -9,6 +9,28 @@ import OrionCodeIntel
 /// Unlike Phase 2 (Python CLI bridge -> file -> separate Swift `ingest-semantic` process), this
 /// runs in the same Swift process as `SemanticImporter.ingestAnswer` — `investigate(question:)`
 /// hands back the candidate JSON directly as `Data`, no temp file, no cross-process handoff.
+///
+/// **Phase 5 addition (Docs/15 §4.4, M4): `ClaudeSessionContinuity` controls whether a Claude
+/// conversation persists across investigations, and whether this call resumes one.** The three
+/// cases are not collapsible into a single optional `resumeSessionId` — a bare, session-less
+/// call and a session's *first* depth-3 turn both have no id to resume yet, but need different
+/// flags (`--no-session-persistence` for the former, its omission for the latter, so the CLI
+/// keeps this session around for a possible later `--resume`). `.none` reproduces this type's
+/// exact pre-Phase-5 behavior byte-for-byte — every existing call site (`AgentSession`'s
+/// session-less path, every pre-M4 test) defaults to it and is unaffected.
+public enum ClaudeSessionContinuity: Sendable, Equatable {
+    /// A bare, one-off investigation — `--no-session-persistence` is passed, exactly as this
+    /// type always behaved before Phase 5.
+    case none
+    /// Part of an Orion session with no Claude session id yet (its first depth-3 turn) —
+    /// `--no-session-persistence` is omitted so the CLI persists this session for a possible
+    /// `--resume` later, but nothing is resumed on this call.
+    case newSession
+    /// A later turn in an Orion session that already has a Claude session id from a prior
+    /// depth-3 turn — `--resume <id>` is passed, `--no-session-persistence` omitted.
+    case resume(String)
+}
+
 public struct ClaudeCodeInvestigator {
     public let repoRoot: URL
     public let exportDir: URL
@@ -32,22 +54,12 @@ public struct ClaudeCodeInvestigator {
         self.claudeBinary = claudeBinary
     }
 
-    public func buildPrompt(question: String) -> String {
+    /// The shared rules/schema suffix every prompt carries regardless of `continuity` — Docs/15
+    /// §4.4: a resumed turn still needs the anchor-verbatim/claim-type/schema rules restated,
+    /// since those are requirements on *this* answer, not something Claude's session state
+    /// already "remembers" the way repository context does.
+    private var rulesAndSchema: String {
         """
-        You are investigating a Python repository to answer one specific developer question, \
-        as the delegated deep-reasoning step of Orion's agent (Docs/06_claude_code_integration.md).
-
-        You have read-only tools (Read, Grep, Glob) over the repository at the current working \
-        directory. A directory at \(exportDir.path) holds a deterministically-extracted Code \
-        Graph: `code_graph.json` is a compact skeleton (modules, classes, import matrix, \
-        entrypoints, test map); `symbols.jsonl` lists every symbol with its exact `anchor`; \
-        `relationships.jsonl` lists every resolved import/call/inheritance edge. Read \
-        `code_graph.json` first -- it is your map of the repository, already fact-checked; you \
-        do not need to re-derive it from scratch, only use it to decide where to look with \
-        Read/Grep for the reasoning a deterministic tool cannot do.
-
-        Question: \(question)
-
         Rules:
         1. Every claim's `evidence` entry MUST be an anchor copied verbatim from \
            `symbols.jsonl`'s `anchor` field ("<path>::<Dotted.Name>" form, or a bare path for a \
@@ -69,15 +81,55 @@ public struct ClaudeCodeInvestigator {
         """
     }
 
+    /// - Parameter continuity: `.none`/`.newSession` get the full repository-orientation intro
+    ///   (identical prompt either way — the difference between those two is only in
+    ///   `buildArguments`' flags); `.resume` gets a short reminder instead, since Claude already
+    ///   has the repository context and tool-read history from its own session state (Docs/15
+    ///   §4.4: "the prompt itself is just the new question... no need to re-send priorTurns text
+    ///   the way the local-model path does").
+    public func buildPrompt(question: String, continuity: ClaudeSessionContinuity = .none) -> String {
+        let intro: String
+        switch continuity {
+        case .none, .newSession:
+            intro = """
+                You are investigating a Python repository to answer one specific developer \
+                question, as the delegated deep-reasoning step of Orion's agent \
+                (Docs/06_claude_code_integration.md).
+
+                You have read-only tools (Read, Grep, Glob) over the repository at the current \
+                working directory. A directory at \(exportDir.path) holds a \
+                deterministically-extracted Code Graph: `code_graph.json` is a compact skeleton \
+                (modules, classes, import matrix, entrypoints, test map); `symbols.jsonl` lists \
+                every symbol with its exact `anchor`; `relationships.jsonl` lists every resolved \
+                import/call/inheritance edge. Read `code_graph.json` first -- it is your map of \
+                the repository, already fact-checked; you do not need to re-derive it from \
+                scratch, only use it to decide where to look with Read/Grep for the reasoning a \
+                deterministic tool cannot do.
+
+                """
+        case .resume:
+            intro = """
+                This is a follow-up question in the same Orion investigation session -- you \
+                already have this repository's context and your prior turn's tool-read history \
+                from your own session state. Do not re-read `code_graph.json` again unless you \
+                specifically need to revisit it.
+
+                """
+        }
+        return intro + "Question: \(question)\n\n" + rulesAndSchema
+    }
+
     /// Options first, prompt last: `-p`/`--print` is a boolean flag (not `-p <value>`), so
     /// ordering the positional prompt after every option avoids any ambiguity about what it
     /// binds to -- same ordering Phase 2's `build_command()` used.
-    public func buildArguments(prompt: String) throws -> [String] {
+    public func buildArguments(
+        prompt: String, continuity: ClaudeSessionContinuity = .none
+    ) throws -> [String] {
         let schemaData = try JSONSerialization.data(withJSONObject: AgentAnswerSchema.cliJSONSchema())
         guard let schemaString = String(data: schemaData, encoding: .utf8) else {
             throw ClaudeCodeInvestigatorError.schemaEncodingFailed
         }
-        return [
+        var arguments = [
             claudeBinary,
             "-p",
             "--output-format", "json",
@@ -87,14 +139,24 @@ public struct ClaudeCodeInvestigator {
             "--max-budget-usd", String(maxBudgetUsd),
             "--add-dir", exportDir.path,
             "--json-schema", schemaString,
-            "--no-session-persistence",
-            prompt,
         ]
+        switch continuity {
+        case .none:
+            arguments.append("--no-session-persistence")
+        case .newSession:
+            break  // Persist this session for a possible later --resume; nothing to resume yet.
+        case .resume(let claudeSessionId):
+            arguments.append(contentsOf: ["--resume", claudeSessionId])
+        }
+        arguments.append(prompt)
+        return arguments
     }
 
-    public func investigate(question: String) async throws -> ClaudeCodeInvestigationResult {
-        let prompt = buildPrompt(question: question)
-        let arguments = try buildArguments(prompt: prompt)
+    public func investigate(
+        question: String, continuity: ClaudeSessionContinuity = .none
+    ) async throws -> ClaudeCodeInvestigationResult {
+        let prompt = buildPrompt(question: question, continuity: continuity)
+        let arguments = try buildArguments(prompt: prompt, continuity: continuity)
 
         let start = ContinuousClock.now
         let result = try await ProcessRunner.run(

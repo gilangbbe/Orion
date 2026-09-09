@@ -26,6 +26,16 @@ public struct InvestigationRecord: OrionRecord, Sendable {
     public var durationMs: Double?
     public var outcome: String                // InvestigationOutcome
     public var createdAt: String
+    /// The free-text answer this investigation actually produced, when it has one. Added in
+    /// Phase 5 (`v4_phase5_schema`, Docs/15 §11 M3) — before this, an investigation's answer
+    /// text existed only transiently in `SemanticIngestOutcome.answer`/`AgentSessionResult
+    /// .answerText`, never persisted anywhere, which made it impossible to reconstruct a past
+    /// turn's answer for a later session's prior-turn context (the actual reason this column
+    /// exists). `nil` for `ingest()`'s whole-repo component-grouping investigations (no single
+    /// answer to report) and for a decode failure that never produced parseable findings at all;
+    /// populated for every `ingestAnswer()` outcome, including a schema-invalid one, since
+    /// Claude's own attempted answer is still real, useful context even when it was rejected.
+    public var answerText: String?
 
     /// Explicit, since the auto-synthesized memberwise initializer for a `Decodable`-conforming
     /// struct is only `internal` by default — invisible outside `OrionCodeIntel`. Needed by
@@ -36,7 +46,8 @@ public struct InvestigationRecord: OrionRecord, Sendable {
         id: String, repositoryId: String, commitHash: String, runId: String, question: String,
         complexity: String, schemaVersion: String? = nil, modelUsed: String? = nil,
         toolsUsed: [String] = [], sessionId: String? = nil, numTurns: Int? = nil,
-        totalCostUsd: Double? = nil, durationMs: Double? = nil, outcome: String, createdAt: String
+        totalCostUsd: Double? = nil, durationMs: Double? = nil, outcome: String, createdAt: String,
+        answerText: String? = nil
     ) {
         self.id = id
         self.repositoryId = repositoryId
@@ -53,6 +64,7 @@ public struct InvestigationRecord: OrionRecord, Sendable {
         self.durationMs = durationMs
         self.outcome = outcome
         self.createdAt = createdAt
+        self.answerText = answerText
     }
 }
 

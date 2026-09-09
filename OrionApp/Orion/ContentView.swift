@@ -293,7 +293,7 @@ struct ContentView: View {
     /// on the `VStack`, a long repository name or the stats line could demand more width than the
     /// sidebar column actually has, protruding past its right edge rather than wrapping or
     /// truncating within it. The repo name truncates (`.lineLimit(1)`, matching the pattern
-    /// `AskHistoryEntry` rows and other single-line labels already use elsewhere in this app); the
+    /// `AskSessionRow` rows and other single-line labels already use elsewhere in this app); the
     /// stats line wraps instead (`.fixedSize(horizontal: false, vertical: true)`, the same
     /// technique `WelcomeView`'s own subtitle already uses for exactly this "long `Text` in a
     /// constrained column" shape) since truncating counts would hide real information a developer

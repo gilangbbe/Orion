@@ -52,13 +52,25 @@ struct ComponentDetailView: View {
     }
 
     /// Docs/14 §8 M4's original hand-off asked a canned question ("Tell me more about {name}.")
-    /// immediately -- §8 M8.5 item 6 replaces that: switches to Ask and marks the *next* question
-    /// as scoped to this component (`AskHistory.pendingScope`, its own doc comment has the full
-    /// reasoning), but files nothing and calls `AskRunner` for nothing until the developer actually
-    /// types and submits their own question in `AskView`'s input bar.
-    private func askAbout(_ name: String) {
+    /// immediately -- §8 M8.5 item 6 replaced that with a scoped-question hand-off, and
+    /// Docs/15_phase5_adaptive_exploration.md §5/M6 replaces *that* with the finalized
+    /// resume-or-create session decision (`AskHistory.askAbout(_:componentId:outputDirectory:)`'s
+    /// own doc comment has the full reasoning): switches to Ask, and either resumes this
+    /// component's most recently active session or marks the next "New session" action as scoped
+    /// to it -- either way, still files nothing until the developer actually types and submits
+    /// their own question.
+    ///
+    /// Passes `detail.id` straight through as the real `components` row id -- a live bug this
+    /// fixed had `AskHistory` re-derive it later from the component's *name* via "the run's
+    /// latest investigation," which silently broke the instant any question had ever been asked
+    /// (see `AskHistory`'s own doc comment). `detail` already has the id right here; there's no
+    /// reason to lose it and look it back up. `nil` for a structural (Phase-1-only) node, which
+    /// has no real `ComponentRecord` at all -- its "Ask about" still starts a session, just
+    /// without a component to prime context from.
+    private func askAbout(_ detail: ComponentDetail) {
         shellState.destination = .ask
-        askHistory.pendingScope = name
+        let componentId = detail.isStructural ? nil : detail.id
+        Task { await askHistory.askAbout(detail.name, componentId: componentId, outputDirectory: outputDirectory) }
     }
 
     @ViewBuilder
@@ -79,7 +91,7 @@ struct ComponentDetailView: View {
                 }
 
                 Button {
-                    askAbout(detail.name)
+                    askAbout(detail)
                 } label: {
                     Label("Ask about \(detail.name)", systemImage: "bubble.left.and.bubble.right")
                 }
