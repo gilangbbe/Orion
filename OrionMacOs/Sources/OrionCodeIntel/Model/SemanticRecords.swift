@@ -11,6 +11,17 @@ import GRDB
 public struct InvestigationRecord: OrionRecord, Sendable {
     public static let databaseTableName = "investigations"
 
+    /// The literal `question` marker for a whole-repo architecture (component-grouping)
+    /// investigation, as opposed to a real free-form single-question Ask/delegated investigation
+    /// sharing this same table. Consolidated here in Phase 6
+    /// (`Docs/16_phase6_continuous_model_updates.md` §4) — previously this exact string literal
+    /// was independently hardcoded at three call sites (`persistInvestigation`'s own default
+    /// parameter here, and `OrionApp`'s `ArchitectureModelLoader.latestArchitectureInvestigation`,
+    /// which stays its own independent copy since `OrionApp` is a separate module/target).
+    /// `RevisionDiffer` (§4) is the fourth consumer and the reason this got a shared name instead
+    /// of a fourth hardcoded copy inside `OrionCodeIntel` itself.
+    public static let architectureQuestionMarker = "phase2_semantic_grouping"
+
     public var id: String
     public var repositoryId: String
     public var commitHash: String
@@ -159,8 +170,12 @@ public struct EvidenceRecord: OrionRecord {
     public var evidenceType: String
 }
 
-/// A coarse log entry of one semantic-layer update (Docs/07 `ModelRevision`). Phase 2 writes
-/// exactly one per successful ingestion; full diff/contradiction UX is Phase 6.
+/// A log entry of one semantic-layer update (Docs/07 `ModelRevision`). Phase 2/3 wrote exactly
+/// one coarse row per successful ingestion, unconditionally; Phase 6
+/// (`Docs/16_phase6_continuous_model_updates.md` §4.1) changes that to "one row only when
+/// `RevisionDiffer` actually finds a diff-worthy change" and moves the real structured diff into
+/// `model_revision_entries` (`ModelRevisionEntryRecord`) — `changeSummary` stays a short rollup
+/// string (e.g. "3 changes: 1 relationship added, 1 claim reversed"), not the diff itself.
 public struct ModelRevisionRecord: OrionRecord {
     public static let databaseTableName = "model_revisions"
 
@@ -170,4 +185,32 @@ public struct ModelRevisionRecord: OrionRecord {
     public var changeSummary: String
     public var triggeringInvestigationId: String?
     public var createdAt: String
+    /// Monotonically increasing per `repositoryId` (Docs/16 §2) — gives Docs/04 §5's "versioned
+    /// knowledge state" a literal, displayable number ("Revision 12"), not just a linked list via
+    /// `previousRevision`. No separate `commitHash` column: each `repositories` row is already
+    /// scoped to one commit via its own `UNIQUE(local_path, commit_hash)`, so `repositoryId`
+    /// alone is enough — a deliberate, small simplification against Docs/16 §2's own draft
+    /// schema, which had sketched `(repository_id, commit_hash)`; noted here since it's a real
+    /// difference from the plan, not silently done. Defaulted to `1` so every pre-Phase-6
+    /// construction site (`SemanticImporter`'s two existing writers, `SemanticSchemaTests`) keeps
+    /// compiling and behaving unchanged; `RevisionDiffer` (Docs/16 M2) computes the real
+    /// incrementing value.
+    public var revisionNumber: Int
+
+    /// Explicit, since the auto-synthesized memberwise initializer for a `Decodable`-conforming
+    /// struct is only `internal` by default — invisible outside `OrionCodeIntel`. Needed by
+    /// `OrionApp`'s own tests once they started constructing a legacy-shaped row directly
+    /// (Docs/16 §11 M5/M6's own "entry-less legacy revision" fixtures).
+    public init(
+        id: String, repositoryId: String, previousRevision: String? = nil, changeSummary: String,
+        triggeringInvestigationId: String? = nil, createdAt: String, revisionNumber: Int = 1
+    ) {
+        self.id = id
+        self.repositoryId = repositoryId
+        self.previousRevision = previousRevision
+        self.changeSummary = changeSummary
+        self.triggeringInvestigationId = triggeringInvestigationId
+        self.createdAt = createdAt
+        self.revisionNumber = revisionNumber
+    }
 }

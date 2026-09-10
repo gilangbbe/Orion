@@ -61,6 +61,14 @@ public enum ComponentDetailQuery {
         /// pure string mapping.
         public let confidence: String
         public let evidence: [Evidence]
+        /// The `model_revisions` row (if any) whose `RevisionDiffer` diff reversed this exact
+        /// claim (Docs/16_phase6_continuous_model_updates.md §8, M5) — drives the app's
+        /// `CONTRADICTED`-claim -> Model Changes cross-reference (Docs/14 §2's "Superseded — see
+        /// Model Changes"). `nil` for a claim nothing ever reversed, including every `CONTRADICTED`
+        /// claim from `SemanticImporter`'s own *within*-investigation structural check (Docs/11
+        /// M2) that no later investigation has touched — that's a different, older mechanism this
+        /// field doesn't speak to.
+        public let reversedByRevisionId: String?
     }
 
     /// Purpose / member list / Dependencies / Claims & Evidence / Confidence — Docs/05 Stage 4,
@@ -127,9 +135,13 @@ public enum ComponentDetailQuery {
             let evidence = evidenceRows.map {
                 Evidence(id: $0.id, anchor: $0.anchor, startLine: $0.startLine, endLine: $0.endLine)
             }
+            let reversedBy = (try? store.modelRevisionEntries(relatedClaimId: claim.id))?
+                .first { $0.changeType == ModelRevisionChangeType.reversed.rawValue }?
+                .modelRevisionId
             return Claim(
                 id: claim.id, statement: claim.statement, claimType: claim.claimType,
-                confidence: ConfidenceTier.label(forScore: claim.confidence), evidence: evidence)
+                confidence: ConfidenceTier.label(forScore: claim.confidence), evidence: evidence,
+                reversedByRevisionId: reversedBy)
         }
 
         return Detail(

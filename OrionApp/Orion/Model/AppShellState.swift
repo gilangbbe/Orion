@@ -87,4 +87,13 @@ final class AppShellState {
     /// Architecture Overview, but harmless to remember for next time you're there, same as this
     /// object as a whole persists per-repository, not per-visit.
     var viewMode: ArchitectureViewMode = .diagram
+
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5: which `model_revisions` row to
+    /// auto-expand when landing on `.changes` -- set by the `CONTRADICTED`-claim cross-reference
+    /// (Docs/14 §2's "Superseded — see Model Changes"). Deliberately not reset by `destination`'s
+    /// setter (unlike `inspectorContent`), the same "harmless to leave stale" reasoning
+    /// `viewMode` above already uses -- `ModelChangesView` only ever reads it once, right when it
+    /// appears, to decide what to expand; a stale value sitting around between visits changes
+    /// nothing about how any other destination behaves.
+    var focusedModelChangeRevisionId: String?
 }

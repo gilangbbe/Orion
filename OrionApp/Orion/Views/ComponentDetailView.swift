@@ -179,6 +179,9 @@ struct ComponentDetailView: View {
                         ConfidenceBadge(tier: claim.confidence)
                     }
                     MarkdownText(raw: claim.statement)
+                    if let revisionId = claim.reversedByRevisionId {
+                        supersededLink(revisionId: revisionId)
+                    }
                     // Docs/14 §8 M8.6: one evidence link per line, not a side-by-side `HStack` --
                     // a real `anchor` is a full repo-relative path plus `::symbol`, easily longer
                     // than a third of the inspector's width; squeezed into an `HStack` alongside
@@ -197,6 +200,23 @@ struct ComponentDetailView: View {
                 }
             }
         }
+    }
+
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5 / Docs/14 §2's own named PAIR pattern:
+    /// "`CONTRADICTED` claims are shown inline with a 'Superseded — see Model Changes'
+    /// cross-reference, not hidden or silently dropped" -- previously unbuilt because there was no
+    /// persisted revision history to link to (Docs/14 §7 Decision 3). Jumps to the Model Changes
+    /// destination with the specific revision that reversed this claim ready to expand.
+    private func supersededLink(revisionId: String) -> some View {
+        Button {
+            shellState.focusedModelChangeRevisionId = revisionId
+            shellState.destination = .changes
+        } label: {
+            Label("Superseded — see Model Changes", systemImage: "clock.arrow.circlepath")
+                .font(.caption)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(DesignTokens.accent)
     }
 
     private func evidenceLink(_ label: String, evidence: EvidenceDetail) -> some View {

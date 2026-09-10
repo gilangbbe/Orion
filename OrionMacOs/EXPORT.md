@@ -83,3 +83,31 @@ per-component or per-relationship confidence field.
 
 No file here is written if the run has no investigation yet — `orion-index export` silently
 skips this section rather than erroring, and Phase 1's files are unaffected either way.
+
+## Model revision export (Phase 6, M4)
+
+Written alongside the semantic-export files above (same `export()` call, same "no-op when there's
+no investigation yet" rule) — additive to this doc rather than a separate document, the same
+decision Phase 2 M3 made for the five files above. See
+[../Docs/16_phase6_continuous_model_updates.md](../Docs/16_phase6_continuous_model_updates.md)
+for how these rows are produced (`RevisionDiffer`, run after every successful ingestion).
+
+| file | one row / object per | key fields |
+|---|---|---|
+| `model_revisions.jsonl` | one revision — **full history for the repository**, not just the latest, like `investigations.jsonl` | `id`, `revision_number`, `previous_revision`, `change_summary`, `triggering_investigation_id`, `created_at` |
+| `model_revision_entries.jsonl` | one structured diff fact within a revision | `id`, `model_revision_id`, `entity_type` (`component`\|`component_relationship`\|`claim`\|`uncertainty`), `change_type` (`added`\|`removed`\|`modified`\|`reversed`\|`carried_over`\|`addressed`\|`no_longer_raised`), `subject_label`, `previous_state`, `new_state`, `reason`, `confidence_tier`, `related_claim_id` |
+
+`previous_state`/`new_state` carry the underlying DB columns' JSON text **verbatim, not further
+decoded** — each `entity_type` snapshots a different shape (a component's name/description/role/
+member-count vs. a relationship's label/type/tier vs. a claim's statement/type/anchors), so there
+is no single fixed shape to decode them into at the export layer; a consumer that needs the
+snapshot's fields parses that string itself.
+
+Not every investigation produces a revision — `RevisionDiffer` only writes one when it actually
+finds at least one diff-worthy change (Docs/16 §4.1), so `model_revisions.jsonl` can legitimately
+be empty even when `investigations.jsonl` has several rows (e.g. a repository's very first
+investigation, or a follow-up question that only re-confirms what was already known). One
+deliberate exception: a brand-new open question (`entity_type = "uncertainty"`) is recorded the
+first time it's ever raised, even on a repository's very first investigation (Docs/16 §9's amended
+Risk #5) — unlike a component/relationship/claim, there is nothing to meaningfully compare a
+newly-raised question's *absence* against in the first place.

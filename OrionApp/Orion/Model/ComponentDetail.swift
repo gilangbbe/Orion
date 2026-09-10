@@ -40,6 +40,10 @@ struct ComponentClaimDetail: Identifiable, Equatable {
     let claimType: String
     let confidence: String
     let evidence: [EvidenceDetail]
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5: the `model_revisions` row that
+    /// reversed this exact claim, when one exists -- drives the "Superseded — see Model Changes"
+    /// cross-reference (Docs/14 §2's own named, previously-unbuilt PAIR pattern).
+    let reversedByRevisionId: String?
 }
 
 /// The full Component Exploration payload (Docs/05 Stage 4 / Docs/08 "component cards"): Purpose,
@@ -127,7 +131,8 @@ extension ComponentClaimDetail {
     init(_ claim: ComponentDetailQuery.Claim) {
         self.init(
             id: claim.id, statement: claim.statement, claimType: claim.claimType,
-            confidence: claim.confidence, evidence: claim.evidence.map(EvidenceDetail.init))
+            confidence: claim.confidence, evidence: claim.evidence.map(EvidenceDetail.init),
+            reversedByRevisionId: claim.reversedByRevisionId)
     }
 }
 

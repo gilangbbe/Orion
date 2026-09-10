@@ -22,7 +22,14 @@ final class ComponentDetailLoaderTests: XCTestCase {
         return outputDirectory
     }
 
-    private func ingestSemanticFindings(_ json: String, into outputDirectory: URL) throws {
+    /// `now` defaults to the real current time, but a caller ingesting more than once in quick
+    /// succession (this file's own Docs/16 M5 test) should pass explicit, strictly-increasing
+    /// values instead -- `Timestamp.now()` is only second-resolution, so two calls close enough
+    /// together can tie, and `ArchitectureModelLoader.latestArchitectureInvestigation`'s own
+    /// `.max(by:)` tie-break isn't guaranteed to pick whichever was ingested second.
+    private func ingestSemanticFindings(
+        _ json: String, into outputDirectory: URL, now: String = Timestamp.now()
+    ) throws {
         let database = try OrionDatabase(
             path: outputDirectory.appendingPathComponent("orion.db").path)
         let store = Store(database)
@@ -30,7 +37,7 @@ final class ComponentDetailLoaderTests: XCTestCase {
         let candidateURL = outputDirectory.appendingPathComponent("semantic_findings.json")
         try json.write(to: candidateURL, atomically: true, encoding: .utf8)
         _ = try SemanticImporter(store: store).ingest(
-            candidateURL: candidateURL, metaURL: nil, run: run, now: Timestamp.now())
+            candidateURL: candidateURL, metaURL: nil, run: run, now: now)
     }
 
     // MARK: semantic
@@ -120,6 +127,56 @@ final class ComponentDetailLoaderTests: XCTestCase {
 
         XCTAssertEqual(detail.name, "Ghost")
         XCTAssertTrue(detail.members.isEmpty)
+    }
+
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5: a claim reversed by a later
+    /// investigation carries the real `model_revisions` id through `ComponentDetailLoader`, all
+    /// the way from `RevisionDiffer`'s own real diff -- not a hand-built fixture at this layer.
+    /// `CONTRADICTED` is a Swift-side verdict Claude can never self-assert (Docs/11), so this
+    /// produces it the real way: a claim citing two evidence anchors with no confirming Phase 1
+    /// relationship between them (Docs/11 M2's own within-investigation check) -- `a.py::foo` and
+    /// `b.py::bar` share no relationship since nothing imports between the two files.
+    func testReversedClaimCarriesTheRealModelRevisionId() throws {
+        let repoRoot = try makeRepoRoot()
+        try "def foo():\n    pass\n".write(
+            to: repoRoot.appendingPathComponent("a.py"), atomically: true, encoding: .utf8)
+        try "def bar():\n    pass\n".write(
+            to: repoRoot.appendingPathComponent("b.py"), atomically: true, encoding: .utf8)
+        let outputDirectory = try analyze(repoRoot)
+        try ingestSemanticFindings(
+            """
+            {"schema_version": "phase2.v1",
+             "components": [{"name": "Core", "members": ["a.py::foo"]}],
+             "component_relationships": [],
+             "claims": [{"claim_type": "INTERPRETATION", "statement": "foo is safe.",
+                         "evidence": ["a.py::foo"], "confidence": "high"}],
+             "uncertainties": []}
+            """, into: outputDirectory, now: "t0")
+        try ingestSemanticFindings(
+            """
+            {"schema_version": "phase2.v1",
+             "components": [{"name": "Core", "members": ["a.py::foo"]}],
+             "component_relationships": [],
+             "claims": [{"claim_type": "INTERPRETATION", "statement": "foo is not safe after all.",
+                         "evidence": ["a.py::foo", "b.py::bar"], "confidence": "high"}],
+             "uncertainties": []}
+            """, into: outputDirectory, now: "t1")
+
+        let model = try ArchitectureModelLoader.load(outputDirectory: outputDirectory)
+        let coreNode = try XCTUnwrap(model.nodes.first { $0.name == "Core" })
+        let detail = try ComponentDetailLoader.load(
+            outputDirectory: outputDirectory, node: coreNode, layer: model.layer)
+
+        let claim = try XCTUnwrap(detail.claims.first)
+        XCTAssertEqual(claim.claimType, "CONTRADICTED")
+        let revisionId = try XCTUnwrap(claim.reversedByRevisionId)
+
+        // The id resolves to a real, persisted model_revisions row -- not just a non-nil value.
+        let store = Store(try OrionDatabase(
+            path: outputDirectory.appendingPathComponent("orion.db").path))
+        let repository = try XCTUnwrap(store.latestRun(commitHash: nil)?.repositoryId)
+        let revisions = try store.modelRevisions(repositoryId: repository)
+        XCTAssertTrue(revisions.contains { $0.id == revisionId })
     }
 
     // MARK: structural

@@ -14,6 +14,14 @@ public struct SemanticModel {
     /// .jsonl` is a full history (like Phase 1's `diagnostics.jsonl`), while every other export
     /// file here scopes to `investigation` alone (Docs/11: "the" current semantic model).
     let allInvestigations: [InvestigationRecord]
+    /// Every `model_revisions` row for this repository, not scoped to `investigation`/`run` at
+    /// all (Docs/16 §2: `model_revisions` is scoped by `repository_id` only — each `repositories`
+    /// row already implies one commit) — `model_revisions.jsonl`/`model_revision_entries.jsonl`
+    /// are full history, the same "not just the latest" precedent `allInvestigations` set.
+    /// Defaulted to `[]` so the one existing call site (`SemanticExporter`) and any test
+    /// constructing a `SemanticModel` before Phase 6 keep compiling unchanged.
+    let allModelRevisions: [ModelRevisionRecord]
+    let allModelRevisionEntries: [ModelRevisionEntryRecord]
 
     private let componentNameById: [String: String]
     private let anchorBySymbolId: [String: String]
@@ -23,7 +31,9 @@ public struct SemanticModel {
         componentMembers: [ComponentMemberRecord],
         componentRelationships: [ComponentRelationshipRecord], claims: [ClaimRecord],
         evidence: [EvidenceRecord], allInvestigations: [InvestigationRecord],
-        anchorBySymbolId: [String: String]
+        anchorBySymbolId: [String: String],
+        allModelRevisions: [ModelRevisionRecord] = [],
+        allModelRevisionEntries: [ModelRevisionEntryRecord] = []
     ) {
         self.investigation = investigation
         self.components = components
@@ -33,6 +43,8 @@ public struct SemanticModel {
         self.evidence = evidence
         self.allInvestigations = allInvestigations
         self.anchorBySymbolId = anchorBySymbolId
+        self.allModelRevisions = allModelRevisions
+        self.allModelRevisionEntries = allModelRevisionEntries
         self.componentNameById = Dictionary(uniqueKeysWithValues: components.map { ($0.id, $0.name) })
     }
 
@@ -170,5 +182,48 @@ public struct SemanticModel {
             uncertaintyCount: claims.filter { $0.claimType == EpistemicType.unknown.rawValue }.count,
             contradictionCount: claims.filter { $0.claimType == EpistemicType.contradicted.rawValue }.count
         )
+    }
+
+    // MARK: model_revisions.jsonl / model_revision_entries.jsonl (Docs/16 §6, M4)
+
+    public struct ModelRevisionExport: Encodable {
+        public var id: String
+        public var revisionNumber: Int
+        public var previousRevision: String?
+        public var changeSummary: String
+        public var triggeringInvestigationId: String?
+        public var createdAt: String
+    }
+
+    public func modelRevisionExports() -> [ModelRevisionExport] {
+        allModelRevisions.map {
+            ModelRevisionExport(
+                id: $0.id, revisionNumber: $0.revisionNumber, previousRevision: $0.previousRevision,
+                changeSummary: $0.changeSummary, triggeringInvestigationId: $0.triggeringInvestigationId,
+                createdAt: $0.createdAt
+            )
+        }.sorted { $0.revisionNumber < $1.revisionNumber }
+    }
+
+    /// `previousState`/`newState` carry the underlying `previous_state_json`/`new_state_json`
+    /// columns verbatim — embedded JSON text, not further decoded (Docs/16 §2: each `entityType`
+    /// snapshots a different shape, so there is no single fixed type to decode them into here).
+    public struct ModelRevisionEntryExport: Encodable {
+        public var id, modelRevisionId, entityType, changeType, subjectLabel: String
+        public var previousState, newState: String?
+        public var reason: String
+        public var confidenceTier: String?
+        public var relatedClaimId: String?
+    }
+
+    public func modelRevisionEntryExports() -> [ModelRevisionEntryExport] {
+        allModelRevisionEntries.map {
+            ModelRevisionEntryExport(
+                id: $0.id, modelRevisionId: $0.modelRevisionId, entityType: $0.entityType,
+                changeType: $0.changeType, subjectLabel: $0.subjectLabel,
+                previousState: $0.previousStateJson, newState: $0.newStateJson, reason: $0.reason,
+                confidenceTier: $0.confidenceTier, relatedClaimId: $0.relatedClaimId
+            )
+        }.sorted { $0.id < $1.id }
     }
 }

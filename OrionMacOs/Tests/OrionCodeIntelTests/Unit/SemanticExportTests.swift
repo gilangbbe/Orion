@@ -77,7 +77,10 @@ final class SemanticExportTests: XCTestCase {
         try ingestCleanCandidate(store: store)
 
         let exportDir = try XCTUnwrap(try SemanticExporter(store: store).export(to: outDir))
-        for name in ["components.jsonl", "claims.jsonl", "evidence.jsonl", "investigations.jsonl", "semantic_model.json"] {
+        for name in [
+            "components.jsonl", "claims.jsonl", "evidence.jsonl", "investigations.jsonl",
+            "semantic_model.json", "model_revisions.jsonl", "model_revision_entries.jsonl"
+        ] {
             XCTAssertTrue(
                 FileManager.default.fileExists(atPath: exportDir.appendingPathComponent(name).path),
                 "missing \(name)"
@@ -119,6 +122,30 @@ final class SemanticExportTests: XCTestCase {
         XCTAssertEqual(relationships[0]["confidence_tier"] as? String, "high")  // confirmed by a real imports edge
         XCTAssertEqual(model["uncertainty_count"] as? Int, 1)
         XCTAssertEqual(model["contradiction_count"] as? Int, 0)
+    }
+
+    /// Docs/16 §6, M4: `model_revisions.jsonl`/`model_revision_entries.jsonl`. This fixture's
+    /// single `ingest()` call is the repository's very first investigation, which per Docs/16 §9's
+    /// amended Risk #5 still produces exactly one revision -- its lone uncertainty
+    /// ("Something unverified.") has nothing to be `.carriedOver` from, so it becomes `.added`.
+    func testModelRevisionExportsReflectTheFirstInvestigationsOwnUncertainty() throws {
+        let (store, outDir) = try analyzed()
+        try ingestCleanCandidate(store: store)
+
+        let exportDir = try XCTUnwrap(try SemanticExporter(store: store).export(to: outDir))
+
+        let revisions = try jsonl(at: exportDir.appendingPathComponent("model_revisions.jsonl"))
+        XCTAssertEqual(revisions.count, 1)
+        XCTAssertEqual(revisions[0]["revision_number"] as? Int, 1)
+        XCTAssertNil(revisions[0]["previous_revision"] as? String)
+        XCTAssertTrue((revisions[0]["change_summary"] as? String)?.contains("uncertainty added") == true)
+
+        let entries = try jsonl(at: exportDir.appendingPathComponent("model_revision_entries.jsonl"))
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0]["entity_type"] as? String, "uncertainty")
+        XCTAssertEqual(entries[0]["change_type"] as? String, "added")
+        XCTAssertEqual(entries[0]["model_revision_id"] as? String, revisions[0]["id"] as? String)
+        XCTAssertNotNil(entries[0]["reason"] as? String)
     }
 
     func testReexportWithoutReingestingIsByteIdentical() throws {

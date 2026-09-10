@@ -16,6 +16,9 @@ struct AskView: View {
     let outputDirectory: URL
     let history: AskHistory
     let diagnosticsSession: DiagnosticsSession
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5: threaded through to `AskEntryView` so a
+    /// `CONTRADICTED` claim's "Superseded — see Model Changes" link can switch destinations.
+    let shellState: AppShellState
 
     @State private var questionText = ""
     @State private var search = ""
@@ -333,7 +336,8 @@ struct AskView: View {
                         }
                         ForEach(history.turns) { turn in
                             AskEntryView(
-                                repoRoot: repoRoot, question: turn.question, outcome: turn.outcome
+                                repoRoot: repoRoot, question: turn.question, outcome: turn.outcome,
+                                shellState: shellState
                             )
                             .id(turn.id)
                             if turn.id != history.turns.last?.id {
@@ -436,6 +440,9 @@ struct AskEntryView: View {
     let repoRoot: URL
     let question: String
     let outcome: AskOutcome?
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5: only used by the "Superseded — see
+    /// Model Changes" cross-reference on a `CONTRADICTED` claim.
+    let shellState: AppShellState
     @State private var showExplain = false
     @State private var selectedEvidence: EvidenceDetail?
 
@@ -505,6 +512,9 @@ struct AskEntryView: View {
                         ConfidenceBadge(tier: claim.confidence)
                     }
                     MarkdownText(raw: claim.statement).font(.callout)
+                    if let revisionId = claim.reversedByRevisionId {
+                        supersededLink(revisionId: revisionId)
+                    }
                     if !claim.evidence.isEmpty {
                         // Docs/14 §8 M8.6: one evidence link per line -- see
                         // `ComponentDetailView.claimsList`'s identical fix for the full reasoning;
@@ -527,6 +537,21 @@ struct AskEntryView: View {
             }
         }
         .padding(.top, 2)
+    }
+
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5 -- see `ComponentDetailView
+    /// .supersededLink(revisionId:)`'s identical doc comment for the full reasoning (Docs/14 §2's
+    /// "Superseded — see Model Changes" cross-reference).
+    private func supersededLink(revisionId: String) -> some View {
+        Button {
+            shellState.focusedModelChangeRevisionId = revisionId
+            shellState.destination = .changes
+        } label: {
+            Label("Superseded — see Model Changes", systemImage: "clock.arrow.circlepath")
+                .font(.caption)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(DesignTokens.accent)
     }
 
     /// Docs/12 Risk #5's fix, actually applied at the UX layer here: a depth-1 answer that

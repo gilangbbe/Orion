@@ -97,4 +97,18 @@ struct CodebaseModelStore {
     func askSessionTurns(sessionId: String) throws -> [AskSessionTurnRecord] {
         try store().askSessionTurns(sessionId: sessionId)
     }
+
+    // MARK: Phase 6 -- model revisions (Docs/16_phase6_continuous_model_updates.md §8, M5)
+
+    func modelRevisions(repositoryId: String) throws -> [ModelRevisionRecord] {
+        try store().modelRevisions(repositoryId: repositoryId)
+    }
+
+    func modelRevisionEntries(modelRevisionId: String) throws -> [ModelRevisionEntryRecord] {
+        try store().modelRevisionEntries(modelRevisionId: modelRevisionId)
+    }
+
+    func modelRevisionEntries(relatedClaimId: String) throws -> [ModelRevisionEntryRecord] {
+        try store().modelRevisionEntries(relatedClaimId: relatedClaimId)
+    }
 }

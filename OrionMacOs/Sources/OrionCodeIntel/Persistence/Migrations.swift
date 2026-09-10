@@ -16,6 +16,11 @@ import GRDB
 /// `v3`, Phase 3/4/4.5 already shipped, so this is a genuinely new migration rather than an
 /// amendment to an unreleased one — the "amend, don't version" precedent only ever applied while
 /// a phase's own schema was still pre-release.
+/// `v5_phase6_schema` adds `model_revision_entries` plus one additive column
+/// (`model_revisions.revision_number`) — the real structured diff Docs/16's `RevisionDiffer`
+/// computes between investigations, replacing Phase 2/3's coarse one-row-per-ingestion log. Same
+/// "genuinely new migration, not an amendment" reasoning as `v4`: Phase 2's `model_revisions`
+/// table already shipped.
 public enum OrionMigrations {
 
     public static func makeMigrator() -> DatabaseMigrator {
@@ -27,6 +32,7 @@ public enum OrionMigrations {
         registerV2(&migrator)
         registerV3(&migrator)
         registerV4(&migrator)
+        registerV5(&migrator)
         return migrator
     }
 
@@ -51,6 +57,12 @@ public enum OrionMigrations {
     private static func registerV4(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v4_phase5_schema") { db in
             try db.execute(sql: Self.v4SQL)
+        }
+    }
+
+    private static func registerV5(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("v5_phase6_schema") { db in
+            try db.execute(sql: Self.v5SQL)
         }
     }
 
@@ -390,5 +402,35 @@ public enum OrionMigrations {
         UNIQUE (session_id, turn_index)
     );
     CREATE INDEX idx_ask_session_turns_session ON ask_session_turns(session_id, turn_index);
+    """
+
+    /// Phase 6 continuous-model-update tables, plus one additive column on the existing Phase 2
+    /// `model_revisions` table. See `Docs/16_phase6_continuous_model_updates.md` §2 "Schema".
+    /// `revision_number` is monotonic per `repository_id` — each `repositories` row is already
+    /// scoped to one commit via its own `UNIQUE(local_path, commit_hash)` (Phase 1), so no
+    /// separate `commit_hash` column is needed on either table here, unlike this phase's own doc
+    /// draft, which had sketched `(repository_id, commit_hash)` before this was implemented.
+    /// `model_revision_entries.related_claim_id` is `ON DELETE SET NULL` (not `CASCADE`) — an
+    /// "addressed" uncertainty entry (§5) stays meaningful even once the claim it hedged a link to
+    /// is later deleted.
+    private static let v5SQL = """
+    ALTER TABLE model_revisions ADD COLUMN revision_number INTEGER NOT NULL DEFAULT 1;
+
+    CREATE TABLE model_revision_entries (
+        id                  TEXT PRIMARY KEY,
+        model_revision_id   TEXT NOT NULL REFERENCES model_revisions(id) ON DELETE CASCADE,
+        entity_type         TEXT NOT NULL,
+        change_type         TEXT NOT NULL,
+        subject_label       TEXT NOT NULL,
+        previous_state_json TEXT,
+        new_state_json      TEXT,
+        reason              TEXT NOT NULL,
+        confidence_tier     TEXT,
+        related_claim_id    TEXT REFERENCES claims(id) ON DELETE SET NULL,
+        created_at          TEXT NOT NULL
+    );
+    CREATE INDEX idx_model_revision_entries_revision ON model_revision_entries(model_revision_id);
+    CREATE INDEX idx_model_revision_entries_type ON model_revision_entries(entity_type, change_type);
+    CREATE INDEX idx_model_revision_entries_related_claim ON model_revision_entries(related_claim_id);
     """
 }

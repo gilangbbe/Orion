@@ -22,6 +22,10 @@ struct AskClaimSummary: Identifiable, Equatable {
     let claimType: String
     let confidence: String
     let evidence: [EvidenceDetail]
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5 -- see `ComponentClaimDetail`'s own
+    /// identical field for the full reasoning (the "Superseded — see Model Changes"
+    /// cross-reference, Docs/14 §2).
+    let reversedByRevisionId: String?
 }
 
 /// A UI-friendly projection of `OrionAgent.AgentSessionResult` -- Docs/13_phase4_architecture_ui.md
@@ -204,13 +208,16 @@ enum AskRunner {
         let claims = try store.claims(investigationId: investigationId)
         let evidence = try store.evidence(claimIds: claims.map(\.id))
         let evidenceByClaimId = Dictionary(grouping: evidence, by: \.claimId)
-        return claims.map { claim in
-            AskClaimSummary(
+        return try claims.map { claim in
+            let reversedBy = try store.modelRevisionEntries(relatedClaimId: claim.id)
+                .first { $0.changeType == ModelRevisionChangeType.reversed.rawValue }?
+                .modelRevisionId
+            return AskClaimSummary(
                 id: claim.id, statement: claim.statement, claimType: claim.claimType,
                 confidence: ConfidenceBadge.tierLabel(forScore: claim.confidence),
                 evidence: (evidenceByClaimId[claim.id] ?? []).map {
                     EvidenceDetail(id: $0.id, anchor: $0.anchor, startLine: $0.startLine, endLine: $0.endLine)
-                })
+                }, reversedByRevisionId: reversedBy)
         }
     }
 }

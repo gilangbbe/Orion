@@ -19,6 +19,20 @@ struct ContentView: View {
     @State private var shellState = AppShellState()
     @State private var askHistory = AskHistory()
     @State private var diagnosticsSession = DiagnosticsSession()
+    /// Docs/16_phase6_continuous_model_updates.md §8, M5: the sidebar's Model Changes badge --
+    /// see the `.task(id: shellState.destination)` in `readyState(_:)` for how these three are
+    /// kept current. `modelChangeBaselineSet` is the fix for a real bug found live: resetting
+    /// `viewedModelChangeCount` to `0` on every fresh repository open made the badge show that
+    /// repository's *entire historical* revision count as "unread" every single time the app was
+    /// reopened, not just genuinely new activity -- on a repository with real pre-Phase-6 history
+    /// (50 revisions before `--backfill` ever ran, 101 after) this read as "the sidebar always
+    /// shows ~50 unread changes, even though nothing is actually new." The fix: the *first* time
+    /// this session sees the repository's revision count, that count becomes the baseline (badge
+    /// starts at 0); only revisions created *after* that baseline, within this same session, ever
+    /// show as unread.
+    @State private var modelChangeCount = 0
+    @State private var viewedModelChangeCount = 0
+    @State private var modelChangeBaselineSet = false
 
     var body: some View {
         content
@@ -42,6 +56,9 @@ struct ContentView: View {
                     shellState = AppShellState()
                     askHistory = AskHistory()
                     diagnosticsSession = DiagnosticsSession()
+                    modelChangeCount = 0
+                    viewedModelChangeCount = 0
+                    modelChangeBaselineSet = false
                 case .analyzing:
                     guard let repoRoot = session.resolvedRepoRoot else { return }
                     progressTracker = AnalysisProgressTracker()
@@ -130,6 +147,32 @@ struct ContentView: View {
                     }
                 }
             }
+            // Docs/16_phase6_continuous_model_updates.md §8, M5: refreshes the sidebar's Model
+            // Changes badge count on every destination switch (cheap -- one COUNT-shaped read),
+            // and marks the badge "read" the moment Model Changes is actually opened. A
+            // session-local view of "unread," not persisted across relaunches -- a deliberate,
+            // honestly-scoped v1 rather than a new per-repo local-JSON file
+            // (`RecentRepositories`'s own pattern) just for one integer; revisit if that gap
+            // proves to matter in practice.
+            //
+            // Real bug fix: the *first* time this fires for a freshly-opened repository, the
+            // current count becomes the baseline for "unread" (`viewedModelChangeCount` starts
+            // equal to it, not `0`) -- otherwise every repository's entire historical revision
+            // count reads as "unread" on every single app open, confirmed live against a real
+            // repository with pre-existing history (the badge showed that repository's full count
+            // every time, never zero, regardless of whether anything was actually new).
+            .task(id: shellState.destination) {
+                let count = (try? ModelChangeLoader.revisionCount(
+                    outputDirectory: summary.outputDirectory)) ?? modelChangeCount
+                modelChangeCount = count
+                if !modelChangeBaselineSet {
+                    viewedModelChangeCount = count
+                    modelChangeBaselineSet = true
+                }
+                if shellState.destination == .changes {
+                    viewedModelChangeCount = modelChangeCount
+                }
+            }
         }
     }
 
@@ -150,11 +193,15 @@ struct ContentView: View {
             // isn't just `AskView`'s local `@State`).
             AskView(
                 repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory,
-                history: askHistory, diagnosticsSession: diagnosticsSession)
+                history: askHistory, diagnosticsSession: diagnosticsSession, shellState: shellState)
         case .changes:
-            // Docs/14 §4.7/§8 M6: real screen, sample-backed data (Docs/14 §7 Decision 3) -- see
-            // `ModelChangeSample`'s own doc comment for why.
-            ModelChangesView()
+            // Docs/16_phase6_continuous_model_updates.md §8, M5: real data now, via
+            // `ModelChangeLoader` -- the backend Docs/14 §7 Decision 3 deferred (`RevisionDiffer`,
+            // Docs/16 §4) now exists. `focusedRevisionId` drives the `CONTRADICTED`-claim ->
+            // Model Changes cross-reference (Docs/14 §2).
+            ModelChangesView(
+                outputDirectory: summary.outputDirectory,
+                focusedRevisionId: shellState.focusedModelChangeRevisionId)
         case .teaching:
             // Docs/14 §4.8/§8 M7: real screen, sample-backed data (Docs/14 §7 Decision 3) -- see
             // `TeachingSample`'s own doc comment for why.
@@ -260,7 +307,8 @@ struct ContentView: View {
     private func sidebarBadgeCount(for destination: Destination) -> Int? {
         switch destination {
         case .changes:
-            return ModelChangeSample.entries.isEmpty ? nil : ModelChangeSample.entries.count
+            let unread = modelChangeCount - viewedModelChangeCount
+            return unread > 0 ? unread : nil
         default:
             return nil
         }

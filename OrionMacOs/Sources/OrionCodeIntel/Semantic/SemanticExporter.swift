@@ -2,10 +2,12 @@ import Foundation
 
 /// Serializes the run's latest investigation to `<outDir>/export/`: `components.jsonl`,
 /// `claims.jsonl`, `evidence.jsonl`, `investigations.jsonl` (full history for the run), and the
-/// compact `semantic_model.json` skeleton (Docs/11 M3). Reads straight from the DB, mirroring
-/// `CodeGraphExporter`, so both `orion-index export` and `ingest-semantic --export` can
-/// regenerate it without re-ingesting. Phase 1's own export files are untouched either way —
-/// additive, same as the `v2_phase2_schema` migration.
+/// compact `semantic_model.json` skeleton (Docs/11 M3). Also `model_revisions.jsonl`/
+/// `model_revision_entries.jsonl` (Docs/16 §6, M4) — full revision history for the repository,
+/// the same "not just the latest" precedent `investigations.jsonl` already set. Reads straight
+/// from the DB, mirroring `CodeGraphExporter`, so both `orion-index export` and
+/// `ingest-semantic --export` can regenerate it without re-ingesting. Phase 1's own export files
+/// are untouched either way — additive, same as the `v2_phase2_schema` migration.
 public struct SemanticExporter {
     public let store: Store
     public init(store: Store) { self.store = store }
@@ -26,12 +28,17 @@ public struct SemanticExporter {
         let anchorBySymbolId = Dictionary(
             uniqueKeysWithValues: try store.symbols(runId: run.id).map { ($0.id, $0.anchor) }
         )
+        let allModelRevisions = try store.modelRevisions(repositoryId: run.repositoryId)
+        let allModelRevisionEntries = try allModelRevisions.flatMap {
+            try store.modelRevisionEntries(modelRevisionId: $0.id)
+        }
 
         let model = SemanticModel(
             investigation: investigation, components: components,
             componentMembers: componentMembers, componentRelationships: componentRelationships,
             claims: claims, evidence: evidence, allInvestigations: allInvestigations,
-            anchorBySymbolId: anchorBySymbolId
+            anchorBySymbolId: anchorBySymbolId, allModelRevisions: allModelRevisions,
+            allModelRevisionEntries: allModelRevisionEntries
         )
 
         let exportDir = outDir.appendingPathComponent("export")
@@ -44,6 +51,13 @@ public struct SemanticExporter {
             model.investigationExports(), to: exportDir.appendingPathComponent("investigations.jsonl")
         )
         try write(model.semanticModelExport(), to: exportDir.appendingPathComponent("semantic_model.json"))
+        try writeJSONL(
+            model.modelRevisionExports(), to: exportDir.appendingPathComponent("model_revisions.jsonl")
+        )
+        try writeJSONL(
+            model.modelRevisionEntryExports(),
+            to: exportDir.appendingPathComponent("model_revision_entries.jsonl")
+        )
 
         return exportDir
     }

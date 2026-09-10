@@ -107,3 +107,27 @@ public enum AskSessionScope: String, Codable, Sendable, CaseIterable {
     case repository
     case component
 }
+
+/// What kind of entity one `model_revision_entries` row describes (Docs/16 §2).
+public enum ModelRevisionEntityType: String, Codable, Sendable, CaseIterable {
+    case component
+    case componentRelationship = "component_relationship"
+    case claim
+    case uncertainty
+}
+
+/// What changed, from one investigation to the next, for one `model_revision_entries` row
+/// (Docs/16 §2/§4/§5). `.reversed` is a revision-level concept — two claims across investigations
+/// whose evidence overlaps but whose structural verdicts disagree — not a sixth `EpistemicType`
+/// (Docs/16 Decision #5: the Docs/04 vocabulary stays closed). `.carriedOver`/`.addressed`/
+/// `.noLongerRaised` only ever apply to `.uncertainty` entries (Docs/16 §5); `.added`/`.removed`/
+/// `.modified` apply to any entity type.
+public enum ModelRevisionChangeType: String, Codable, Sendable, CaseIterable {
+    case added
+    case removed
+    case modified
+    case reversed
+    case carriedOver = "carried_over"
+    case addressed
+    case noLongerRaised = "no_longer_raised"
+}

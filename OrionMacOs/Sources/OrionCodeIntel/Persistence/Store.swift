@@ -292,6 +292,46 @@ public struct Store {
         }
     }
 
+    // MARK: Phase 6 — model revision reads/writes (Docs/16 §2)
+
+    /// Newest-first, for the CLI's `revisions` command and the app's Model Changes destination
+    /// (Docs/16 §7/§8) — `revision_number` orders identically to `created_at` by construction
+    /// (`RevisionDiffer` only ever mints the next number when it writes a new row), but sorting on
+    /// the number is the more direct expression of "newest revision first."
+    public func modelRevisions(repositoryId: String) throws -> [ModelRevisionRecord] {
+        try db.dbQueue.read { dbc in
+            try ModelRevisionRecord.filter(Column("repository_id") == repositoryId)
+                .order(Column("revision_number").desc).fetchAll(dbc)
+        }
+    }
+
+    public func insertModelRevisionEntries(_ records: [ModelRevisionEntryRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func modelRevisionEntries(modelRevisionId: String) throws -> [ModelRevisionEntryRecord] {
+        try db.dbQueue.read { dbc in
+            try ModelRevisionEntryRecord.filter(Column("model_revision_id") == modelRevisionId)
+                .fetchAll(dbc)
+        }
+    }
+
+    /// Reverse lookup off `related_claim_id` — added in M5 (Docs/16 §8) for the app's
+    /// `CONTRADICTED`-claim cross-reference ("Superseded — see Model Changes," Docs/14 §2): given
+    /// a claim the UI is currently displaying, find the revision entry (if any) that explains it.
+    /// `relatedClaimId` always names a currently-relevant claim, never a superseded historical one
+    /// (§4.3's own M5 correction), so this is the one direction that needs indexing —
+    /// `idx_model_revision_entries_related_claim`, added directly to the still-unreleased `v5`
+    /// migration rather than a new `v6` (the same "amend, don't version, while pre-release"
+    /// precedent Phase 3 used for `routing_decisions`/`agent_tool_calls`).
+    public func modelRevisionEntries(relatedClaimId: String) throws -> [ModelRevisionEntryRecord] {
+        try db.dbQueue.read { dbc in
+            try ModelRevisionEntryRecord.filter(Column("related_claim_id") == relatedClaimId)
+                .fetchAll(dbc)
+        }
+    }
+
     // MARK: Phase 3 — agent writes
 
     public func insertRoutingDecision(_ record: RoutingDecisionRecord) throws {
@@ -550,6 +590,20 @@ public struct Store {
     public func investigations(runId: String) throws -> [InvestigationRecord] {
         try db.dbQueue.read { dbc in
             try InvestigationRecord.filter(Column("run_id") == runId)
+                .order(Column("created_at")).fetchAll(dbc)
+        }
+    }
+
+    /// Every investigation for a repository across **all** of its analysis runs, oldest first —
+    /// added in Phase 6 (Docs/16 §4, M2) for `RevisionDiffer`'s claim diffing, which compares a
+    /// new claim against every prior investigation's claims for this repository, not just the
+    /// ones sharing the same `run_id` as `investigations(runId:)` scopes to. `run_id`-scoped reads
+    /// stay the right tool for anything actually tied to one analysis (`components`,
+    /// `component_relationships`, `claims` themselves) — this is specifically for walking
+    /// investigation *history*, which is a repository-wide concept.
+    public func investigations(repositoryId: String) throws -> [InvestigationRecord] {
+        try db.dbQueue.read { dbc in
+            try InvestigationRecord.filter(Column("repository_id") == repositoryId)
                 .order(Column("created_at")).fetchAll(dbc)
         }
     }

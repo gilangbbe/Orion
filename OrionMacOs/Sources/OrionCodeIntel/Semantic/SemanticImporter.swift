@@ -539,11 +539,158 @@ public struct SemanticImporter {
         }
     }
 
+    /// Docs/16 §4/§4.1, M4 — runs `RevisionDiffer` after this investigation's own rows are
+    /// already persisted, and writes exactly one `model_revisions` row (+ its entries) only when
+    /// the differ actually found something diff-worthy. Shared by both `ingest()` and
+    /// `ingestAnswer()`, the same "extend the shared pipeline, don't touch its two callers'
+    /// individual logic" precedent this file's own `resolveClaimEvidence`/`checkClaimConsistency`/
+    /// `buildClaimRecords` already established (Docs/12 M3).
+    ///
+    /// **Real, deliberate simplification against Phase 2/3's own code**: both callers used to
+    /// guard this block on "did this ingestion actually insert any components/claims" before ever
+    /// touching `model_revisions` at all. That guard is gone — `RevisionDiffer` now decides
+    /// revision-worthiness for real (an ingestion that inserted literally nothing new can still be
+    /// diff-worthy, e.g. a new architecture investigation that dropped every previous component is
+    /// a real, meaningful "all removed" revision, not nothing) — so it would have been redundant
+    /// *and* have silently hidden that exact case.
+    private func writeModelRevision(
+        run: AnalysisRunRecord, investigation: InvestigationRecord, now: String
+    ) throws {
+        let diff = try RevisionDiffer.diff(
+            store: store, repositoryId: run.repositoryId, newInvestigationId: investigation.id
+        )
+
+        if !diff.diagnostics.isEmpty {
+            try store.insertDiagnostics(revisionDiagnosticRecords(
+                for: diff.diagnostics, run: run, investigationId: investigation.id
+            ))
+        }
+
+        guard !diff.entries.isEmpty else { return }
+
+        let previous = try previousRevision(before: investigation, repositoryId: run.repositoryId)
+        let revisionId = DeterministicID.newUUID()
+        let revision = ModelRevisionRecord(
+            id: revisionId, repositoryId: run.repositoryId, previousRevision: previous?.id,
+            changeSummary: RevisionDiffer.changeSummary(for: diff.entries),
+            triggeringInvestigationId: investigation.id, createdAt: now,
+            revisionNumber: (previous?.revisionNumber ?? 0) + 1
+        )
+        try store.insertModelRevision(revision)
+
+        let entryRecords = diff.entries.map { draft in
+            ModelRevisionEntryRecord(
+                id: DeterministicID.newUUID(), modelRevisionId: revisionId,
+                entityType: draft.entityType.rawValue, changeType: draft.changeType.rawValue,
+                subjectLabel: draft.subjectLabel, previousStateJson: draft.previousStateJson,
+                newStateJson: draft.newStateJson, reason: draft.reason,
+                confidenceTier: draft.confidenceTier, relatedClaimId: draft.relatedClaimId,
+                createdAt: now
+            )
+        }
+        try store.insertModelRevisionEntries(entryRecords)
+    }
+
+    /// The revision belonging to the most recent investigation *strictly earlier* than
+    /// `investigation` in the repository's real investigation history — **not**
+    /// `store.latestModelRevision(repositoryId:)` (whichever row simply has the greatest
+    /// `created_at` across the whole table), which this replaced after a real bug found against
+    /// real data (Docs/16 M6): during a backfill, investigations are processed in their own
+    /// chronological order, but the table can already hold revisions/legacy-coarse rows with
+    /// *later* timestamps than the investigation currently being processed (e.g. a repository
+    /// with 4 old Phase 2/3 coarse rows, backfilling investigation 1 first, would otherwise chain
+    /// onto investigation 4's row purely because it happened to be inserted last) — every
+    /// backfilled revision came back chained onto the same wrong predecessor and stuck at the
+    /// same `revision_number`, confirmed live against the real vendored-Starlette research
+    /// database before this fix. For the live, non-backfill path this is a pure generalization,
+    /// not a behavior change: the investigation just persisted is always the newest one, so
+    /// walking backward from it finds exactly what `latestModelRevision` already found.
+    private func previousRevision(
+        before investigation: InvestigationRecord, repositoryId: String
+    ) throws -> ModelRevisionRecord? {
+        let allInvestigations = try store.investigations(repositoryId: repositoryId)
+        guard let index = allInvestigations.firstIndex(where: { $0.id == investigation.id })
+        else { return try store.latestModelRevision(repositoryId: repositoryId) }
+
+        // Keep, per investigation id, whichever revision currently covers it — in the ordinary
+        // case exactly one; defensive against a re-run leaving more than one behind.
+        var latestByInvestigation: [String: ModelRevisionRecord] = [:]
+        for revision in try store.modelRevisions(repositoryId: repositoryId) {
+            guard let triggering = revision.triggeringInvestigationId else { continue }
+            if let existing = latestByInvestigation[triggering], existing.revisionNumber >= revision.revisionNumber {
+                continue
+            }
+            latestByInvestigation[triggering] = revision
+        }
+
+        for earlier in allInvestigations[..<index].reversed() {
+            if let revision = latestByInvestigation[earlier.id] { return revision }
+        }
+        return nil
+    }
+
+    /// Docs/16_phase6_continuous_model_updates.md §11, M6 — retroactively computes and persists a
+    /// `model_revisions` row (via the same `writeModelRevision` every real `ingest()`/
+    /// `ingestAnswer()` call already goes through) for each investigation in `investigations`, in
+    /// the order given, using **that investigation's own `createdAt`** as the revision's
+    /// timestamp rather than the moment the backfill happens to run — so a repository analyzed
+    /// and investigated before Phase 6 shipped ends up with a revision history that reads as if
+    /// `RevisionDiffer` had been there from the start, not "everything happened today." This is
+    /// what real Phase 2 investigation history (predating this phase's own existence) needs to
+    /// get a Model Changes timeline at all; also the mechanism `orion-index revisions --backfill`
+    /// (§7) exposes. Callers are responsible for passing only investigations that don't already
+    /// have a revision (`model_revisions.triggering_investigation_id`) — this method doesn't
+    /// re-check that itself, so calling it twice on the same investigation would double-count it
+    /// against whatever the *second* call's own "previous" happens to be at that point.
+    @discardableResult
+    public func backfillModelRevisions(
+        investigations: [InvestigationRecord], run: AnalysisRunRecord
+    ) throws -> Int {
+        var created = 0
+        for investigation in investigations {
+            // Counts total rows, not "did `latestModelRevision` change" -- a second real bug
+            // found in the same backfill run as `previousRevision`'s own (Docs/16 M6): a newly
+            // backfilled revision is dated to its investigation's own (historical) `createdAt`,
+            // so it can easily *not* become the table's own most-recent-by-timestamp row when
+            // later legacy rows already exist -- `latestModelRevision`'s id would then read as
+            // unchanged even though a real new row was just inserted, undercounting exactly the
+            // out-of-order case this method exists to handle.
+            let before = try store.modelRevisions(repositoryId: run.repositoryId).count
+            try writeModelRevision(run: run, investigation: investigation, now: investigation.createdAt)
+            let after = try store.modelRevisions(repositoryId: run.repositoryId).count
+            if after > before { created += 1 }
+        }
+        return created
+    }
+
+    /// `RevisionDiffer.Diagnostic` (e.g. `CLAIM_DIFF_AMBIGUOUS`) -> a real `diagnostics` row,
+    /// `stage = "model_revision"` — distinct from `semantic_ingest`, since these describe the
+    /// differ's own judgment calls, not import validation (Docs/16 §2). Persisted regardless of
+    /// whether `diff.entries` itself ended up empty — an ambiguous match can occur on a claim that
+    /// itself turned out unchanged (`matchedClaimEntry` returning `nil`), so the diagnostic and the
+    /// entry list are not guaranteed to travel together.
+    private func revisionDiagnosticRecords(
+        for diagnostics: [RevisionDiffer.Diagnostic], run: AnalysisRunRecord, investigationId: String
+    ) -> [DiagnosticRecord] {
+        diagnostics.enumerated().map { i, d in
+            DiagnosticRecord(
+                id: DeterministicID.diagnostic(
+                    repositoryId: run.repositoryId, commitHash: run.commitHash,
+                    stage: "model_revision", code: d.code, scope: investigationId, ordinal: i
+                ),
+                repositoryId: run.repositoryId, commitHash: run.commitHash, runId: run.id,
+                fileId: nil, stage: "model_revision", severity: "info", code: d.code,
+                message: String(d.message.prefix(500)), startLine: nil, startCol: nil,
+                endLine: nil, endCol: nil
+            )
+        }
+    }
+
     @discardableResult
     private func persistInvestigation(
         run: AnalysisRunRecord, meta: InvestigationMeta?, schemaVersion: String?,
         outcome: InvestigationOutcome, now: String,
-        question: String = "phase2_semantic_grouping", complexity: String = "high",
+        question: String = InvestigationRecord.architectureQuestionMarker, complexity: String = "high",
         answerText: String? = nil
     ) throws -> InvestigationRecord {
         let record = InvestigationRecord(
@@ -644,17 +791,7 @@ public struct SemanticImporter {
         let assignments = bestForSymbol.map { (symbolId: $0.key, componentId: $0.value.componentId) }
         try store.backfillComponentIds(assignments)
 
-        guard !componentRecords.isEmpty || !claimRecords.isEmpty else { return }
-        let previous = try store.latestModelRevision(repositoryId: run.repositoryId)
-        let revision = ModelRevisionRecord(
-            id: DeterministicID.newUUID(), repositoryId: run.repositoryId,
-            previousRevision: previous?.id,
-            changeSummary: "Ingested \(componentRecords.count) components, "
-                + "\(relationshipRecords.count) component_relationships, "
-                + "\(claimRecords.count) claims from investigation \(investigation.id).",
-            triggeringInvestigationId: investigation.id, createdAt: now
-        )
-        try store.insertModelRevision(revision)
+        try writeModelRevision(run: run, investigation: investigation, now: now)
     }
 
     // MARK: full pipeline entry point
@@ -767,17 +904,7 @@ public struct SemanticImporter {
             for: consistent.diagnostics, run: run, investigationId: investigation.id
         ))
 
-        if !claimRecords.isEmpty {
-            let previous = try store.latestModelRevision(repositoryId: run.repositoryId)
-            let revision = ModelRevisionRecord(
-                id: DeterministicID.newUUID(), repositoryId: run.repositoryId,
-                previousRevision: previous?.id,
-                changeSummary: "Ingested \(claimRecords.count) claims answering "
-                    + "investigation \(investigation.id).",
-                triggeringInvestigationId: investigation.id, createdAt: now
-            )
-            try store.insertModelRevision(revision)
-        }
+        try writeModelRevision(run: run, investigation: investigation, now: now)
 
         return SemanticIngestOutcome(investigation: investigation, consistent: consistent, answer: findings.answer)
     }
