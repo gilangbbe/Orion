@@ -1,0 +1,1491 @@
+{
+  "metadata": {
+    "repository": "starlette",
+    "commit_sha": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+    "authored": "2026-09-10",
+    "author": "hand-authored, Docs/17_phase7_teaching_mode.md M7 / \u00a712.2",
+    "purpose": "Grader-calibration gold set: (question, developer answer, expert per-criterion label) triples. `orion-agent teach bench` runs each question+answer through the real RubricGrader and measures the grader's per-criterion `met` verdicts against `expert_labels` (Cohen's kappa), plus derived-score MAE and verdict-tier confusion.",
+    "label_values": "met | not_met | ambiguous  (ambiguous is excluded from kappa and treated as not-confident when deriving the expert score, exactly as a split grader k-vote is)",
+    "disclosure": "SINGLE-AUTHOR, NOT BLIND, and n is below the \u00a712.2 target of 10-15 answers PER band (this set has 6/6/3 across bands 1/2/3, 15 items total) -- the same kind of scope reduction Phase 5 M7 made when it hand-graded 10 of 55. The developer answers are written by the same person who wrote the rubrics and the expert labels; a genuine calibration needs answers from a real developer and labels from a second, independent expert. Every expert label here was assigned by reading the Starlette source at the pinned commit BEFORE running the grader. Treat the kappa this produces as a smoke test of the grader machinery and a first data point, not a validated calibration.",
+    "item_count": 15,
+    "bands": {
+      "1": 6,
+      "2": 6,
+      "3": 3
+    }
+  },
+  "items": [
+    {
+      "id": "gc-routing-b1-strong",
+      "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+      "band": 1,
+      "note": "strong answer, all points",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+        "difficulty_band": 1,
+        "explain": "Starlette's Router holds an ordered list of routes and is asked, for each incoming request, to pick exactly one to handle it. The Match enum (NONE/PARTIAL/FULL) is how each route reports whether and how well it fits.",
+        "question": "How does a Starlette Router decide which route handles an incoming request when several routes are registered?",
+        "reference_answer": "Router.app iterates self.routes in registration order, calling route.matches(scope) on each. The first route that returns Match.FULL updates the scope, has its handle() called, and iteration stops. A Match.PARTIAL (path matches but method does not) is only recorded \u2014 the first one seen \u2014 and used as a fallback if the whole list produces no FULL match, which is how 405 Method Not Allowed is produced. If nothing matches, redirect_slashes may retry, otherwise the default handler returns 404.",
+        "reference_anchors": [
+          "starlette/routing.py::Router",
+          "starlette/routing.py::Route.matches",
+          "starlette/routing.py::Match"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "Routes are checked in the order they were registered.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "The first route that returns a full match handles the request and the search stops.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A partial match (path matches, method does not) is only used when no full match is found.",
+            "evidence": [
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "A request that matches no route falls through to a 404 via the default handler.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "Routes are ranked by path specificity or longest matching prefix.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "text": "The router collects every matching route and then picks the best one.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          }
+        ],
+        "transfer_problem": "If two Route objects have overlapping paths, which one wins, and why?"
+      },
+      "answer": "The router walks its list of routes in the order you registered them and calls .matches() on each. The first one that comes back as a full match gets to handle the request and it stops looking. If a route's path matches but the HTTP method doesn't, that's a partial match \u2014 it hangs onto that and only uses it if no route fully matches, which is how you get a 405. If nothing matches at all it falls through to the default 404 handler.",
+      "expert_labels": [
+        {
+          "text": "Routes are checked in the order they were registered.",
+          "label": "met"
+        },
+        {
+          "text": "The first route that returns a full match handles the request and the search stops.",
+          "label": "met"
+        },
+        {
+          "text": "A partial match (path matches, method does not) is only used when no full match is found.",
+          "label": "met"
+        },
+        {
+          "text": "A request that matches no route falls through to a 404 via the default handler.",
+          "label": "met"
+        },
+        {
+          "text": "Routes are ranked by path specificity or longest matching prefix.",
+          "label": "not_met"
+        },
+        {
+          "text": "The router collects every matching route and then picks the best one.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-routing-b1-specificity",
+      "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+      "band": 1,
+      "note": "specificity misconception + partials wrong",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+        "difficulty_band": 1,
+        "explain": "Starlette's Router holds an ordered list of routes and is asked, for each incoming request, to pick exactly one to handle it. The Match enum (NONE/PARTIAL/FULL) is how each route reports whether and how well it fits.",
+        "question": "How does a Starlette Router decide which route handles an incoming request when several routes are registered?",
+        "reference_answer": "Router.app iterates self.routes in registration order, calling route.matches(scope) on each. The first route that returns Match.FULL updates the scope, has its handle() called, and iteration stops. A Match.PARTIAL (path matches but method does not) is only recorded \u2014 the first one seen \u2014 and used as a fallback if the whole list produces no FULL match, which is how 405 Method Not Allowed is produced. If nothing matches, redirect_slashes may retry, otherwise the default handler returns 404.",
+        "reference_anchors": [
+          "starlette/routing.py::Router",
+          "starlette/routing.py::Route.matches",
+          "starlette/routing.py::Match"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "Routes are checked in the order they were registered.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "The first route that returns a full match handles the request and the search stops.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A partial match (path matches, method does not) is only used when no full match is found.",
+            "evidence": [
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "A request that matches no route falls through to a 404 via the default handler.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "Routes are ranked by path specificity or longest matching prefix.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "text": "The router collects every matching route and then picks the best one.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          }
+        ],
+        "transfer_problem": "If two Route objects have overlapping paths, which one wins, and why?"
+      },
+      "answer": "Starlette's router looks at all the routes and finds the one whose path pattern is the best match for the request URL \u2014 it compares them and picks the most specific one. Then it checks the method. If the method isn't allowed you get a 405.",
+      "expert_labels": [
+        {
+          "text": "Routes are checked in the order they were registered.",
+          "label": "not_met"
+        },
+        {
+          "text": "The first route that returns a full match handles the request and the search stops.",
+          "label": "not_met"
+        },
+        {
+          "text": "A partial match (path matches, method does not) is only used when no full match is found.",
+          "label": "not_met"
+        },
+        {
+          "text": "A request that matches no route falls through to a 404 via the default handler.",
+          "label": "not_met"
+        },
+        {
+          "text": "Routes are ranked by path specificity or longest matching prefix.",
+          "label": "met"
+        },
+        {
+          "text": "The router collects every matching route and then picks the best one.",
+          "label": "met"
+        }
+      ]
+    },
+    {
+      "id": "gc-responses-b1-strong",
+      "concept_id": "da4fb0ac047f66c95938d5d24f602c79",
+      "band": 1,
+      "note": "strong answer",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "da4fb0ac047f66c95938d5d24f602c79",
+        "difficulty_band": 1,
+        "explain": "A Starlette Response can carry a background task. Both the timing of that task relative to the response bytes and the ordering of multiple tasks are fixed by the framework, not by the caller.",
+        "question": "When does a Starlette response run its attached background task, and in what order do multiple tasks run?",
+        "reference_answer": "Response.__call__ sends the response start and body first, and only then, if self.background is not None, awaits it \u2014 so the client receives the full response before the task runs. BackgroundTasks.__call__ iterates its task list and awaits each task in sequence, so tasks run one after another in the order they were added, not concurrently. A sync task function is run in a threadpool via run_in_threadpool; an async one is awaited directly.",
+        "reference_anchors": [
+          "starlette/responses.py::Response",
+          "starlette/background.py::BackgroundTask",
+          "starlette/background.py::BackgroundTasks"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "The background task runs after the response body has been sent to the client.",
+            "evidence": [
+              "starlette/responses.py::Response"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "BackgroundTasks awaits its tasks one at a time, in the order they were added.",
+            "evidence": [
+              "starlette/background.py::BackgroundTasks"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A synchronous task function is executed in a threadpool.",
+            "evidence": [
+              "starlette/background.py::BackgroundTask"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "The task is only awaited when response.background is not None.",
+            "evidence": [
+              "starlette/responses.py::Response"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The background task runs before, or concurrently with, sending the response.",
+            "evidence": [
+              "starlette/responses.py::Response"
+            ]
+          },
+          {
+            "text": "Multiple background tasks are run concurrently or in parallel.",
+            "evidence": [
+              "starlette/background.py::BackgroundTasks"
+            ]
+          }
+        ],
+        "transfer_problem": "If one background task raises, do the remaining tasks still run?"
+      },
+      "answer": "The response is sent first \u2014 headers and body go out to the client \u2014 and then Response.__call__ awaits self.background if one was set. So the client isn't kept waiting for the task. If you use BackgroundTasks with several tasks, they run in a loop, awaited one at a time in the order you added them, so it's sequential not parallel. Sync functions get pushed to a threadpool so they don't block the event loop.",
+      "expert_labels": [
+        {
+          "text": "The background task runs after the response body has been sent to the client.",
+          "label": "met"
+        },
+        {
+          "text": "BackgroundTasks awaits its tasks one at a time, in the order they were added.",
+          "label": "met"
+        },
+        {
+          "text": "A synchronous task function is executed in a threadpool.",
+          "label": "met"
+        },
+        {
+          "text": "The task is only awaited when response.background is not None.",
+          "label": "met"
+        },
+        {
+          "text": "The background task runs before, or concurrently with, sending the response.",
+          "label": "not_met"
+        },
+        {
+          "text": "Multiple background tasks are run concurrently or in parallel.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-responses-b1-concurrent",
+      "concept_id": "da4fb0ac047f66c95938d5d24f602c79",
+      "band": 1,
+      "note": "fire-and-forget / parallel misconception",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "da4fb0ac047f66c95938d5d24f602c79",
+        "difficulty_band": 1,
+        "explain": "A Starlette Response can carry a background task. Both the timing of that task relative to the response bytes and the ordering of multiple tasks are fixed by the framework, not by the caller.",
+        "question": "When does a Starlette response run its attached background task, and in what order do multiple tasks run?",
+        "reference_answer": "Response.__call__ sends the response start and body first, and only then, if self.background is not None, awaits it \u2014 so the client receives the full response before the task runs. BackgroundTasks.__call__ iterates its task list and awaits each task in sequence, so tasks run one after another in the order they were added, not concurrently. A sync task function is run in a threadpool via run_in_threadpool; an async one is awaited directly.",
+        "reference_anchors": [
+          "starlette/responses.py::Response",
+          "starlette/background.py::BackgroundTask",
+          "starlette/background.py::BackgroundTasks"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "The background task runs after the response body has been sent to the client.",
+            "evidence": [
+              "starlette/responses.py::Response"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "BackgroundTasks awaits its tasks one at a time, in the order they were added.",
+            "evidence": [
+              "starlette/background.py::BackgroundTasks"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A synchronous task function is executed in a threadpool.",
+            "evidence": [
+              "starlette/background.py::BackgroundTask"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "The task is only awaited when response.background is not None.",
+            "evidence": [
+              "starlette/responses.py::Response"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The background task runs before, or concurrently with, sending the response.",
+            "evidence": [
+              "starlette/responses.py::Response"
+            ]
+          },
+          {
+            "text": "Multiple background tasks are run concurrently or in parallel.",
+            "evidence": [
+              "starlette/background.py::BackgroundTasks"
+            ]
+          }
+        ],
+        "transfer_problem": "If one background task raises, do the remaining tasks still run?"
+      },
+      "answer": "Background tasks are how Starlette does fire-and-forget work. When you return a response with tasks attached, Starlette kicks them all off concurrently so they run in parallel while the response is being streamed back to the client. That way the request finishes fast.",
+      "expert_labels": [
+        {
+          "text": "The background task runs after the response body has been sent to the client.",
+          "label": "not_met"
+        },
+        {
+          "text": "BackgroundTasks awaits its tasks one at a time, in the order they were added.",
+          "label": "not_met"
+        },
+        {
+          "text": "A synchronous task function is executed in a threadpool.",
+          "label": "not_met"
+        },
+        {
+          "text": "The task is only awaited when response.background is not None.",
+          "label": "not_met"
+        },
+        {
+          "text": "The background task runs before, or concurrently with, sending the response.",
+          "label": "met"
+        },
+        {
+          "text": "Multiple background tasks are run concurrently or in parallel.",
+          "label": "met"
+        }
+      ]
+    },
+    {
+      "id": "gc-exceptions-b1-strong",
+      "concept_id": "b9837425c5974c5ec3229aea2c8548ae",
+      "band": 1,
+      "note": "strong answer",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "b9837425c5974c5ec3229aea2c8548ae",
+        "difficulty_band": 1,
+        "explain": "Starlette splits exception handling across two middlewares at opposite ends of the stack. Knowing which one does what explains why some errors become clean 4xx responses and others become 500s.",
+        "question": "What is the difference in responsibility between ExceptionMiddleware and ServerErrorMiddleware in Starlette's middleware stack?",
+        "reference_answer": "ServerErrorMiddleware is the outermost middleware: it catches any otherwise-unhandled exception, returns a 500 (or a debug traceback), and then always re-raises so the server can log it. ExceptionMiddleware is installed innermost, just outside the router: it maps expected exceptions \u2014 HTTPException and WebSocketException, plus handlers you register by class or status code \u2014 to responses, and does not re-raise. Because ExceptionMiddleware sits inside user middleware, it does not catch exceptions raised by user middleware; those reach ServerErrorMiddleware as 500s.",
+        "reference_anchors": [
+          "starlette/middleware/exceptions.py::ExceptionMiddleware",
+          "starlette/middleware/errors.py::ServerErrorMiddleware",
+          "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware is the outermost middleware and turns otherwise-unhandled errors into 500s.",
+            "evidence": [
+              "starlette/middleware/errors.py::ServerErrorMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware re-raises the exception after sending its response.",
+            "evidence": [
+              "starlette/middleware/errors.py::ServerErrorMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ExceptionMiddleware maps HTTPException and registered handlers to responses without re-raising.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ExceptionMiddleware is installed innermost, closest to the router.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "Because ExceptionMiddleware is inside user middleware, it does not catch errors raised by user middleware.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "ExceptionMiddleware is the outermost middleware and the first to see a request.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "text": "ServerErrorMiddleware swallows the exception and does not propagate it.",
+            "evidence": [
+              "starlette/middleware/errors.py::ServerErrorMiddleware"
+            ]
+          }
+        ],
+        "transfer_problem": "An HTTPException(404) is raised by a plain-ASGI middleware you added. What status does the client see, and which middleware produced it?"
+      },
+      "answer": "ServerErrorMiddleware wraps everything \u2014 it's the outermost layer. Anything that isn't handled deeper down bubbles up to it, it returns a 500 (or the debug traceback page), and crucially it re-raises the exception afterwards so your server logs still see it. ExceptionMiddleware is right next to the router, the innermost middleware. Its job is to turn HTTPException and any handlers you registered into normal responses, and it doesn't re-raise. One consequence: since it's inside your own middleware, an exception thrown by your middleware won't be caught by it and ends up as a 500 from ServerErrorMiddleware.",
+      "expert_labels": [
+        {
+          "text": "ServerErrorMiddleware is the outermost middleware and turns otherwise-unhandled errors into 500s.",
+          "label": "met"
+        },
+        {
+          "text": "ServerErrorMiddleware re-raises the exception after sending its response.",
+          "label": "met"
+        },
+        {
+          "text": "ExceptionMiddleware maps HTTPException and registered handlers to responses without re-raising.",
+          "label": "met"
+        },
+        {
+          "text": "ExceptionMiddleware is installed innermost, closest to the router.",
+          "label": "met"
+        },
+        {
+          "text": "Because ExceptionMiddleware is inside user middleware, it does not catch errors raised by user middleware.",
+          "label": "met"
+        },
+        {
+          "text": "ExceptionMiddleware is the outermost middleware and the first to see a request.",
+          "label": "not_met"
+        },
+        {
+          "text": "ServerErrorMiddleware swallows the exception and does not propagate it.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-exceptions-b1-swapped",
+      "concept_id": "b9837425c5974c5ec3229aea2c8548ae",
+      "band": 1,
+      "note": "roles swapped; one ambiguous criterion",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "b9837425c5974c5ec3229aea2c8548ae",
+        "difficulty_band": 1,
+        "explain": "Starlette splits exception handling across two middlewares at opposite ends of the stack. Knowing which one does what explains why some errors become clean 4xx responses and others become 500s.",
+        "question": "What is the difference in responsibility between ExceptionMiddleware and ServerErrorMiddleware in Starlette's middleware stack?",
+        "reference_answer": "ServerErrorMiddleware is the outermost middleware: it catches any otherwise-unhandled exception, returns a 500 (or a debug traceback), and then always re-raises so the server can log it. ExceptionMiddleware is installed innermost, just outside the router: it maps expected exceptions \u2014 HTTPException and WebSocketException, plus handlers you register by class or status code \u2014 to responses, and does not re-raise. Because ExceptionMiddleware sits inside user middleware, it does not catch exceptions raised by user middleware; those reach ServerErrorMiddleware as 500s.",
+        "reference_anchors": [
+          "starlette/middleware/exceptions.py::ExceptionMiddleware",
+          "starlette/middleware/errors.py::ServerErrorMiddleware",
+          "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware is the outermost middleware and turns otherwise-unhandled errors into 500s.",
+            "evidence": [
+              "starlette/middleware/errors.py::ServerErrorMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware re-raises the exception after sending its response.",
+            "evidence": [
+              "starlette/middleware/errors.py::ServerErrorMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ExceptionMiddleware maps HTTPException and registered handlers to responses without re-raising.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ExceptionMiddleware is installed innermost, closest to the router.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "Because ExceptionMiddleware is inside user middleware, it does not catch errors raised by user middleware.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "ExceptionMiddleware is the outermost middleware and the first to see a request.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "text": "ServerErrorMiddleware swallows the exception and does not propagate it.",
+            "evidence": [
+              "starlette/middleware/errors.py::ServerErrorMiddleware"
+            ]
+          }
+        ],
+        "transfer_problem": "An HTTPException(404) is raised by a plain-ASGI middleware you added. What status does the client see, and which middleware produced it?"
+      },
+      "answer": "ExceptionMiddleware is the outer guard that catches everything first and decides what to do. ServerErrorMiddleware is a deeper fallback for 500-level errors. Both of them turn the exception into a response and then stop it there so the client gets a clean error page.",
+      "expert_labels": [
+        {
+          "text": "ServerErrorMiddleware is the outermost middleware and turns otherwise-unhandled errors into 500s.",
+          "label": "not_met"
+        },
+        {
+          "text": "ServerErrorMiddleware re-raises the exception after sending its response.",
+          "label": "not_met"
+        },
+        {
+          "text": "ExceptionMiddleware maps HTTPException and registered handlers to responses without re-raising.",
+          "label": "ambiguous"
+        },
+        {
+          "text": "ExceptionMiddleware is installed innermost, closest to the router.",
+          "label": "not_met"
+        },
+        {
+          "text": "Because ExceptionMiddleware is inside user middleware, it does not catch errors raised by user middleware.",
+          "label": "not_met"
+        },
+        {
+          "text": "ExceptionMiddleware is the outermost middleware and the first to see a request.",
+          "label": "met"
+        },
+        {
+          "text": "ServerErrorMiddleware swallows the exception and does not propagate it.",
+          "label": "met"
+        }
+      ]
+    },
+    {
+      "id": "gc-match-b2-strong",
+      "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+      "band": 2,
+      "note": "strong answer",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+        "difficulty_band": 2,
+        "explain": "The Match enum has NONE=0, PARTIAL=1, FULL=2. It is tempting to read those integers as a global priority the router sorts on. This question is about how Router.app actually uses PARTIAL vs FULL.",
+        "question": "The Match enum has values NONE=0, PARTIAL=1, FULL=2. How does Router.app use the distinction between PARTIAL and FULL when several routes could respond?",
+        "reference_answer": "Router.app loops routes in order. The moment a route returns Match.FULL it updates the scope, calls that route's handle(), and returns \u2014 no later route is consulted. A Match.PARTIAL result is only stashed (the first one seen) in the partial variable; the router keeps looking for a FULL match. Only after the loop finds no FULL match does it fall back to the stashed partial and call its handle(), which is what lets a path-but-not-method match produce a 405 rather than a 404. NONE contributes nothing.",
+        "reference_anchors": [
+          "starlette/routing.py::Router",
+          "starlette/routing.py::Match",
+          "starlette/routing.py::Route.matches"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "A FULL match is acted on immediately and ends the route search.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A PARTIAL match is only used as a fallback after the whole list yields no FULL match.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "Only the first PARTIAL match encountered is kept.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "The PARTIAL fallback is what produces 405 Method Not Allowed instead of 404.",
+            "evidence": [
+              "starlette/routing.py::Route.matches"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The router compares the numeric Match values of all routes and dispatches to the highest.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Match"
+            ]
+          },
+          {
+            "text": "A PARTIAL match short-circuits the route search the same way a FULL match does.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          }
+        ],
+        "transfer_problem": "Two routes both return PARTIAL for a request. Which one handles it?"
+      },
+      "answer": "The loop goes route by route. If a route says FULL, the router immediately updates the scope and calls that route's handle and returns \u2014 it never looks at routes further down the list. If a route says PARTIAL, the router just records it (only the first PARTIAL it sees) and carries on looking for a FULL match. If it gets to the end with no FULL match, then it uses that recorded partial route, and that's the mechanism that gives you a 405 for a known path with the wrong method.",
+      "expert_labels": [
+        {
+          "text": "A FULL match is acted on immediately and ends the route search.",
+          "label": "met"
+        },
+        {
+          "text": "A PARTIAL match is only used as a fallback after the whole list yields no FULL match.",
+          "label": "met"
+        },
+        {
+          "text": "Only the first PARTIAL match encountered is kept.",
+          "label": "met"
+        },
+        {
+          "text": "The PARTIAL fallback is what produces 405 Method Not Allowed instead of 404.",
+          "label": "met"
+        },
+        {
+          "text": "The router compares the numeric Match values of all routes and dispatches to the highest.",
+          "label": "not_met"
+        },
+        {
+          "text": "A PARTIAL match short-circuits the route search the same way a FULL match does.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-match-b2-argmax",
+      "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+      "band": 2,
+      "note": "reads the enum ints as a global argmax",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+        "difficulty_band": 2,
+        "explain": "The Match enum has NONE=0, PARTIAL=1, FULL=2. It is tempting to read those integers as a global priority the router sorts on. This question is about how Router.app actually uses PARTIAL vs FULL.",
+        "question": "The Match enum has values NONE=0, PARTIAL=1, FULL=2. How does Router.app use the distinction between PARTIAL and FULL when several routes could respond?",
+        "reference_answer": "Router.app loops routes in order. The moment a route returns Match.FULL it updates the scope, calls that route's handle(), and returns \u2014 no later route is consulted. A Match.PARTIAL result is only stashed (the first one seen) in the partial variable; the router keeps looking for a FULL match. Only after the loop finds no FULL match does it fall back to the stashed partial and call its handle(), which is what lets a path-but-not-method match produce a 405 rather than a 404. NONE contributes nothing.",
+        "reference_anchors": [
+          "starlette/routing.py::Router",
+          "starlette/routing.py::Match",
+          "starlette/routing.py::Route.matches"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "A FULL match is acted on immediately and ends the route search.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A PARTIAL match is only used as a fallback after the whole list yields no FULL match.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "Only the first PARTIAL match encountered is kept.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "The PARTIAL fallback is what produces 405 Method Not Allowed instead of 404.",
+            "evidence": [
+              "starlette/routing.py::Route.matches"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The router compares the numeric Match values of all routes and dispatches to the highest.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Match"
+            ]
+          },
+          {
+            "text": "A PARTIAL match short-circuits the route search the same way a FULL match does.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          }
+        ],
+        "transfer_problem": "Two routes both return PARTIAL for a request. Which one handles it?"
+      },
+      "answer": "The enum values are ordered on purpose \u2014 NONE is 0, PARTIAL is 1, FULL is 2. The router runs matches() on every route, collects the Match value each one returns, and then dispatches to whichever route produced the highest value. So a FULL (2) beats a PARTIAL (1) beats a NONE (0). The ordering of the enum is literally the priority order.",
+      "expert_labels": [
+        {
+          "text": "A FULL match is acted on immediately and ends the route search.",
+          "label": "not_met"
+        },
+        {
+          "text": "A PARTIAL match is only used as a fallback after the whole list yields no FULL match.",
+          "label": "not_met"
+        },
+        {
+          "text": "Only the first PARTIAL match encountered is kept.",
+          "label": "not_met"
+        },
+        {
+          "text": "The PARTIAL fallback is what produces 405 Method Not Allowed instead of 404.",
+          "label": "not_met"
+        },
+        {
+          "text": "The router compares the numeric Match values of all routes and dispatches to the highest.",
+          "label": "met"
+        },
+        {
+          "text": "A PARTIAL match short-circuits the route search the same way a FULL match does.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-match-b2-hedged",
+      "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+      "band": 2,
+      "note": "correct on FULL, hedged/unsure on PARTIAL",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+        "difficulty_band": 2,
+        "explain": "The Match enum has NONE=0, PARTIAL=1, FULL=2. It is tempting to read those integers as a global priority the router sorts on. This question is about how Router.app actually uses PARTIAL vs FULL.",
+        "question": "The Match enum has values NONE=0, PARTIAL=1, FULL=2. How does Router.app use the distinction between PARTIAL and FULL when several routes could respond?",
+        "reference_answer": "Router.app loops routes in order. The moment a route returns Match.FULL it updates the scope, calls that route's handle(), and returns \u2014 no later route is consulted. A Match.PARTIAL result is only stashed (the first one seen) in the partial variable; the router keeps looking for a FULL match. Only after the loop finds no FULL match does it fall back to the stashed partial and call its handle(), which is what lets a path-but-not-method match produce a 405 rather than a 404. NONE contributes nothing.",
+        "reference_anchors": [
+          "starlette/routing.py::Router",
+          "starlette/routing.py::Match",
+          "starlette/routing.py::Route.matches"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "A FULL match is acted on immediately and ends the route search.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Route.matches"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "A PARTIAL match is only used as a fallback after the whole list yields no FULL match.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "Only the first PARTIAL match encountered is kept.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "The PARTIAL fallback is what produces 405 Method Not Allowed instead of 404.",
+            "evidence": [
+              "starlette/routing.py::Route.matches"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The router compares the numeric Match values of all routes and dispatches to the highest.",
+            "evidence": [
+              "starlette/routing.py::Router",
+              "starlette/routing.py::Match"
+            ]
+          },
+          {
+            "text": "A PARTIAL match short-circuits the route search the same way a FULL match does.",
+            "evidence": [
+              "starlette/routing.py::Router"
+            ]
+          }
+        ],
+        "transfer_problem": "Two routes both return PARTIAL for a request. Which one handles it?"
+      },
+      "answer": "When a route returns FULL the router uses it right away and stops. I'm not totally sure what happens with PARTIAL \u2014 I think it might keep it around in case nothing else matches, but I don't know the details about 405s or whether it keeps the first or last one.",
+      "expert_labels": [
+        {
+          "text": "A FULL match is acted on immediately and ends the route search.",
+          "label": "met"
+        },
+        {
+          "text": "A PARTIAL match is only used as a fallback after the whole list yields no FULL match.",
+          "label": "ambiguous"
+        },
+        {
+          "text": "Only the first PARTIAL match encountered is kept.",
+          "label": "not_met"
+        },
+        {
+          "text": "The PARTIAL fallback is what produces 405 Method Not Allowed instead of 404.",
+          "label": "not_met"
+        },
+        {
+          "text": "The router compares the numeric Match values of all routes and dispatches to the highest.",
+          "label": "not_met"
+        },
+        {
+          "text": "A PARTIAL match short-circuits the route search the same way a FULL match does.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-rel-b2-strong",
+      "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+      "band": 2,
+      "note": "strong answer",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+        "difficulty_band": 2,
+        "explain": "An endpoint function is invoked from Route.handle, yet an HTTPException it raises still comes back as a proper HTTP response. This question is about the wrapper that makes that happen and where it lives.",
+        "question": "How does an HTTPException raised inside an endpoint function get turned into an HTTP response, given that the endpoint is invoked from Route.handle?",
+        "reference_answer": "request_response wraps the endpoint call in wrap_app_handling_exceptions before invoking it (Route.handle just calls self.app). When the endpoint raises, that wrapper catches it; for an HTTPException it first looks for a handler registered against the exact status code, then walks the exception's MRO for a class-based handler. ExceptionMiddleware seeded the default HTTPException handler, so the lookup finds http_exception, which returns a PlainTextResponse with the exception's detail and status code. If the wrapper finds no handler it re-raises; if the response had already started it raises a RuntimeError instead.",
+        "reference_anchors": [
+          "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+          "starlette/routing.py::request_response",
+          "starlette/_exception_handler.py::_lookup_exception_handler"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "The endpoint invocation is wrapped by wrap_app_handling_exceptions.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+              "starlette/routing.py::request_response"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "For an HTTPException the wrapper checks a status-code handler before a class-based handler.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "The class-based handler lookup walks the exception type's MRO.",
+            "evidence": [
+              "starlette/_exception_handler.py::_lookup_exception_handler"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "If no handler is found the exception is re-raised.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "If the response has already started, a RuntimeError is raised instead of handling.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "Route.handle itself contains the try/except that converts the exception.",
+            "evidence": [
+              "starlette/routing.py::Route.handle"
+            ]
+          },
+          {
+            "text": "The exception propagates to ServerErrorMiddleware, which renders the HTTPException as its response.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          }
+        ],
+        "transfer_problem": "You register a handler for the base class Exception but not for HTTPException. Does an HTTPException hit your handler?"
+      },
+      "answer": "Route.handle just calls self.app, and for a function endpoint self.app is what request_response built \u2014 which wraps the actual call to your endpoint in wrap_app_handling_exceptions. So when your endpoint raises HTTPException, that wrapper is the thing that catches it. For an HTTPException it looks up a handler by the exact status code first, and if there isn't one it walks the exception class's MRO looking for a class handler. The default HTTPException handler that ExceptionMiddleware registered turns it into a PlainTextResponse. If no handler matches at all, the wrapper just re-raises.",
+      "expert_labels": [
+        {
+          "text": "The endpoint invocation is wrapped by wrap_app_handling_exceptions.",
+          "label": "met"
+        },
+        {
+          "text": "For an HTTPException the wrapper checks a status-code handler before a class-based handler.",
+          "label": "met"
+        },
+        {
+          "text": "The class-based handler lookup walks the exception type's MRO.",
+          "label": "met"
+        },
+        {
+          "text": "If no handler is found the exception is re-raised.",
+          "label": "met"
+        },
+        {
+          "text": "If the response has already started, a RuntimeError is raised instead of handling.",
+          "label": "not_met"
+        },
+        {
+          "text": "Route.handle itself contains the try/except that converts the exception.",
+          "label": "not_met"
+        },
+        {
+          "text": "The exception propagates to ServerErrorMiddleware, which renders the HTTPException as its response.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-rel-b2-inhandle",
+      "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+      "band": 2,
+      "note": "thinks Route.handle catches it / ServerError renders it",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+        "difficulty_band": 2,
+        "explain": "An endpoint function is invoked from Route.handle, yet an HTTPException it raises still comes back as a proper HTTP response. This question is about the wrapper that makes that happen and where it lives.",
+        "question": "How does an HTTPException raised inside an endpoint function get turned into an HTTP response, given that the endpoint is invoked from Route.handle?",
+        "reference_answer": "request_response wraps the endpoint call in wrap_app_handling_exceptions before invoking it (Route.handle just calls self.app). When the endpoint raises, that wrapper catches it; for an HTTPException it first looks for a handler registered against the exact status code, then walks the exception's MRO for a class-based handler. ExceptionMiddleware seeded the default HTTPException handler, so the lookup finds http_exception, which returns a PlainTextResponse with the exception's detail and status code. If the wrapper finds no handler it re-raises; if the response had already started it raises a RuntimeError instead.",
+        "reference_anchors": [
+          "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+          "starlette/routing.py::request_response",
+          "starlette/_exception_handler.py::_lookup_exception_handler"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "The endpoint invocation is wrapped by wrap_app_handling_exceptions.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+              "starlette/routing.py::request_response"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "For an HTTPException the wrapper checks a status-code handler before a class-based handler.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "The class-based handler lookup walks the exception type's MRO.",
+            "evidence": [
+              "starlette/_exception_handler.py::_lookup_exception_handler"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "If no handler is found the exception is re-raised.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "If the response has already started, a RuntimeError is raised instead of handling.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "Route.handle itself contains the try/except that converts the exception.",
+            "evidence": [
+              "starlette/routing.py::Route.handle"
+            ]
+          },
+          {
+            "text": "The exception propagates to ServerErrorMiddleware, which renders the HTTPException as its response.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          }
+        ],
+        "transfer_problem": "You register a handler for the base class Exception but not for HTTPException. Does an HTTPException hit your handler?"
+      },
+      "answer": "Route.handle has a try/except around the endpoint call. When the endpoint raises HTTPException, handle catches it right there and looks in the app's handler dict for something to render it. If it can't find one, the exception goes up the stack to ServerErrorMiddleware, and ServerErrorMiddleware is what actually renders the HTTPException into the response the client sees.",
+      "expert_labels": [
+        {
+          "text": "The endpoint invocation is wrapped by wrap_app_handling_exceptions.",
+          "label": "not_met"
+        },
+        {
+          "text": "For an HTTPException the wrapper checks a status-code handler before a class-based handler.",
+          "label": "not_met"
+        },
+        {
+          "text": "The class-based handler lookup walks the exception type's MRO.",
+          "label": "not_met"
+        },
+        {
+          "text": "If no handler is found the exception is re-raised.",
+          "label": "ambiguous"
+        },
+        {
+          "text": "If the response has already started, a RuntimeError is raised instead of handling.",
+          "label": "not_met"
+        },
+        {
+          "text": "Route.handle itself contains the try/except that converts the exception.",
+          "label": "met"
+        },
+        {
+          "text": "The exception propagates to ServerErrorMiddleware, which renders the HTTPException as its response.",
+          "label": "met"
+        }
+      ]
+    },
+    {
+      "id": "gc-rel-b2-partial",
+      "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+      "band": 2,
+      "note": "gets the wrapper + re-raise, misses lookup order",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+        "difficulty_band": 2,
+        "explain": "An endpoint function is invoked from Route.handle, yet an HTTPException it raises still comes back as a proper HTTP response. This question is about the wrapper that makes that happen and where it lives.",
+        "question": "How does an HTTPException raised inside an endpoint function get turned into an HTTP response, given that the endpoint is invoked from Route.handle?",
+        "reference_answer": "request_response wraps the endpoint call in wrap_app_handling_exceptions before invoking it (Route.handle just calls self.app). When the endpoint raises, that wrapper catches it; for an HTTPException it first looks for a handler registered against the exact status code, then walks the exception's MRO for a class-based handler. ExceptionMiddleware seeded the default HTTPException handler, so the lookup finds http_exception, which returns a PlainTextResponse with the exception's detail and status code. If the wrapper finds no handler it re-raises; if the response had already started it raises a RuntimeError instead.",
+        "reference_anchors": [
+          "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+          "starlette/routing.py::request_response",
+          "starlette/_exception_handler.py::_lookup_exception_handler"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "The endpoint invocation is wrapped by wrap_app_handling_exceptions.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+              "starlette/routing.py::request_response"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "For an HTTPException the wrapper checks a status-code handler before a class-based handler.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "The class-based handler lookup walks the exception type's MRO.",
+            "evidence": [
+              "starlette/_exception_handler.py::_lookup_exception_handler"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "If no handler is found the exception is re-raised.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "If the response has already started, a RuntimeError is raised instead of handling.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "Route.handle itself contains the try/except that converts the exception.",
+            "evidence": [
+              "starlette/routing.py::Route.handle"
+            ]
+          },
+          {
+            "text": "The exception propagates to ServerErrorMiddleware, which renders the HTTPException as its response.",
+            "evidence": [
+              "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+            ]
+          }
+        ],
+        "transfer_problem": "You register a handler for the base class Exception but not for HTTPException. Does an HTTPException hit your handler?"
+      },
+      "answer": "The endpoint call is wrapped by wrap_app_handling_exceptions \u2014 that's set up in request_response, not in Route.handle. When your endpoint raises, the wrapper catches it and tries to find a handler for it. If it finds one it builds the response from that; if it doesn't, it re-raises the exception so something further out can deal with it. I don't remember the exact order it checks handlers in.",
+      "expert_labels": [
+        {
+          "text": "The endpoint invocation is wrapped by wrap_app_handling_exceptions.",
+          "label": "met"
+        },
+        {
+          "text": "For an HTTPException the wrapper checks a status-code handler before a class-based handler.",
+          "label": "not_met"
+        },
+        {
+          "text": "The class-based handler lookup walks the exception type's MRO.",
+          "label": "not_met"
+        },
+        {
+          "text": "If no handler is found the exception is re-raised.",
+          "label": "met"
+        },
+        {
+          "text": "If the response has already started, a RuntimeError is raised instead of handling.",
+          "label": "not_met"
+        },
+        {
+          "text": "Route.handle itself contains the try/except that converts the exception.",
+          "label": "not_met"
+        },
+        {
+          "text": "The exception propagates to ServerErrorMiddleware, which renders the HTTPException as its response.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-mw-b3-strong",
+      "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+      "band": 3,
+      "note": "strong change-impact reasoning",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+        "difficulty_band": 3,
+        "explain": "Today build_middleware_stack appends ExceptionMiddleware last, so after the reverse-wrap it ends up innermost, just outside the router. This question asks you to reason about moving it outside the user middleware instead.",
+        "question": "Today build_middleware_stack places ExceptionMiddleware inside the user middleware (innermost, just outside the router). Suppose it were moved to sit outside all user middleware instead. What changes for an application author, and what stays the same?",
+        "reference_answer": "Currently ExceptionMiddleware is appended last and the stack is built by wrapping in reverse, so it ends up closest to the router and only sees exceptions from the router and endpoints \u2014 an exception raised in user middleware flies past it to ServerErrorMiddleware and becomes a 500. If ExceptionMiddleware moved outside user middleware it would also catch exceptions raised by user middleware, so an HTTPException raised in a user middleware would now render as its mapped 4xx response instead of a 500. ServerErrorMiddleware stays outermost and still handles truly unhandled errors and still re-raises. Handlers registered by class or status code still work the same; only which layers' exceptions ExceptionMiddleware can see changes.",
+        "reference_anchors": [
+          "starlette/applications.py::Starlette.build_middleware_stack",
+          "starlette/middleware/exceptions.py::ExceptionMiddleware",
+          "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "Today ExceptionMiddleware sits closest to the router and does not see exceptions raised by user middleware.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack",
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "After the move, exceptions raised in user middleware would be caught by ExceptionMiddleware.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "An HTTPException raised in user middleware would then render as its mapped response instead of a 500.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware remains the outermost layer and still handles otherwise-unhandled errors.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "Registered class or status-code exception handlers behave the same either way.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The change would let ExceptionMiddleware catch errors raised by ServerErrorMiddleware too.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "text": "Moving ExceptionMiddleware changes how the router matches routes or dispatches endpoints.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          }
+        ],
+        "transfer_problem": "Where would you instead add a try/except so a user middleware's HTTPException is handled without moving ExceptionMiddleware?"
+      },
+      "answer": "Right now ExceptionMiddleware is the innermost middleware, wrapped right around the router, so it only catches exceptions coming out of the router and your endpoints. If one of your own middlewares raises, ExceptionMiddleware never sees it \u2014 it goes up to ServerErrorMiddleware and you get a 500. If you moved ExceptionMiddleware to the outside of the user middleware, it would now also wrap your middlewares, so an HTTPException raised in your middleware would come back as the normal 4xx response its handler produces instead of a 500. ServerErrorMiddleware doesn't move \u2014 it's still the outermost thing and still catches whatever is left and re-raises it. Your registered handlers by status code or class work the same; the only thing that changed is which parts of the stack ExceptionMiddleware is able to observe.",
+      "expert_labels": [
+        {
+          "text": "Today ExceptionMiddleware sits closest to the router and does not see exceptions raised by user middleware.",
+          "label": "met"
+        },
+        {
+          "text": "After the move, exceptions raised in user middleware would be caught by ExceptionMiddleware.",
+          "label": "met"
+        },
+        {
+          "text": "An HTTPException raised in user middleware would then render as its mapped response instead of a 500.",
+          "label": "met"
+        },
+        {
+          "text": "ServerErrorMiddleware remains the outermost layer and still handles otherwise-unhandled errors.",
+          "label": "met"
+        },
+        {
+          "text": "Registered class or status-code exception handlers behave the same either way.",
+          "label": "met"
+        },
+        {
+          "text": "The change would let ExceptionMiddleware catch errors raised by ServerErrorMiddleware too.",
+          "label": "not_met"
+        },
+        {
+          "text": "Moving ExceptionMiddleware changes how the router matches routes or dispatches endpoints.",
+          "label": "not_met"
+        }
+      ]
+    },
+    {
+      "id": "gc-mw-b3-overbroad",
+      "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+      "band": 3,
+      "note": "over-broad: dead ServerError, routing affected",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+        "difficulty_band": 3,
+        "explain": "Today build_middleware_stack appends ExceptionMiddleware last, so after the reverse-wrap it ends up innermost, just outside the router. This question asks you to reason about moving it outside the user middleware instead.",
+        "question": "Today build_middleware_stack places ExceptionMiddleware inside the user middleware (innermost, just outside the router). Suppose it were moved to sit outside all user middleware instead. What changes for an application author, and what stays the same?",
+        "reference_answer": "Currently ExceptionMiddleware is appended last and the stack is built by wrapping in reverse, so it ends up closest to the router and only sees exceptions from the router and endpoints \u2014 an exception raised in user middleware flies past it to ServerErrorMiddleware and becomes a 500. If ExceptionMiddleware moved outside user middleware it would also catch exceptions raised by user middleware, so an HTTPException raised in a user middleware would now render as its mapped 4xx response instead of a 500. ServerErrorMiddleware stays outermost and still handles truly unhandled errors and still re-raises. Handlers registered by class or status code still work the same; only which layers' exceptions ExceptionMiddleware can see changes.",
+        "reference_anchors": [
+          "starlette/applications.py::Starlette.build_middleware_stack",
+          "starlette/middleware/exceptions.py::ExceptionMiddleware",
+          "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "Today ExceptionMiddleware sits closest to the router and does not see exceptions raised by user middleware.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack",
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "After the move, exceptions raised in user middleware would be caught by ExceptionMiddleware.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "An HTTPException raised in user middleware would then render as its mapped response instead of a 500.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware remains the outermost layer and still handles otherwise-unhandled errors.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "Registered class or status-code exception handlers behave the same either way.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The change would let ExceptionMiddleware catch errors raised by ServerErrorMiddleware too.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "text": "Moving ExceptionMiddleware changes how the router matches routes or dispatches endpoints.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          }
+        ],
+        "transfer_problem": "Where would you instead add a try/except so a user middleware's HTTPException is handled without moving ExceptionMiddleware?"
+      },
+      "answer": "Moving ExceptionMiddleware to the outside makes it the first thing every request hits. That means it now catches literally everything, including anything ServerErrorMiddleware would have raised, so ServerErrorMiddleware basically becomes dead code. It also means routing happens later in the pipeline, so route matching would be affected \u2014 middleware that rewrites the path would now run before the router in a different way. Endpoints that raise HTTPException keep working like before.",
+      "expert_labels": [
+        {
+          "text": "Today ExceptionMiddleware sits closest to the router and does not see exceptions raised by user middleware.",
+          "label": "not_met"
+        },
+        {
+          "text": "After the move, exceptions raised in user middleware would be caught by ExceptionMiddleware.",
+          "label": "ambiguous"
+        },
+        {
+          "text": "An HTTPException raised in user middleware would then render as its mapped response instead of a 500.",
+          "label": "not_met"
+        },
+        {
+          "text": "ServerErrorMiddleware remains the outermost layer and still handles otherwise-unhandled errors.",
+          "label": "not_met"
+        },
+        {
+          "text": "Registered class or status-code exception handlers behave the same either way.",
+          "label": "not_met"
+        },
+        {
+          "text": "The change would let ExceptionMiddleware catch errors raised by ServerErrorMiddleware too.",
+          "label": "met"
+        },
+        {
+          "text": "Moving ExceptionMiddleware changes how the router matches routes or dispatches endpoints.",
+          "label": "met"
+        }
+      ]
+    },
+    {
+      "id": "gc-mw-b3-partial",
+      "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+      "band": 3,
+      "note": "core insight only",
+      "question": {
+        "schema_version": "phase7.v1",
+        "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+        "difficulty_band": 3,
+        "explain": "Today build_middleware_stack appends ExceptionMiddleware last, so after the reverse-wrap it ends up innermost, just outside the router. This question asks you to reason about moving it outside the user middleware instead.",
+        "question": "Today build_middleware_stack places ExceptionMiddleware inside the user middleware (innermost, just outside the router). Suppose it were moved to sit outside all user middleware instead. What changes for an application author, and what stays the same?",
+        "reference_answer": "Currently ExceptionMiddleware is appended last and the stack is built by wrapping in reverse, so it ends up closest to the router and only sees exceptions from the router and endpoints \u2014 an exception raised in user middleware flies past it to ServerErrorMiddleware and becomes a 500. If ExceptionMiddleware moved outside user middleware it would also catch exceptions raised by user middleware, so an HTTPException raised in a user middleware would now render as its mapped 4xx response instead of a 500. ServerErrorMiddleware stays outermost and still handles truly unhandled errors and still re-raises. Handlers registered by class or status code still work the same; only which layers' exceptions ExceptionMiddleware can see changes.",
+        "reference_anchors": [
+          "starlette/applications.py::Starlette.build_middleware_stack",
+          "starlette/middleware/exceptions.py::ExceptionMiddleware",
+          "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__"
+        ],
+        "rubric": [
+          {
+            "kind": "required",
+            "text": "Today ExceptionMiddleware sits closest to the router and does not see exceptions raised by user middleware.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack",
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "After the move, exceptions raised in user middleware would be caught by ExceptionMiddleware.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__",
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "An HTTPException raised in user middleware would then render as its mapped response instead of a 500.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          },
+          {
+            "kind": "required",
+            "text": "ServerErrorMiddleware remains the outermost layer and still handles otherwise-unhandled errors.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "kind": "bonus",
+            "text": "Registered class or status-code exception handlers behave the same either way.",
+            "evidence": [
+              "starlette/middleware/exceptions.py::ExceptionMiddleware"
+            ]
+          }
+        ],
+        "anti_criteria": [
+          {
+            "text": "The change would let ExceptionMiddleware catch errors raised by ServerErrorMiddleware too.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          },
+          {
+            "text": "Moving ExceptionMiddleware changes how the router matches routes or dispatches endpoints.",
+            "evidence": [
+              "starlette/applications.py::Starlette.build_middleware_stack"
+            ]
+          }
+        ],
+        "transfer_problem": "Where would you instead add a try/except so a user middleware's HTTPException is handled without moving ExceptionMiddleware?"
+      },
+      "answer": "The main effect is that ExceptionMiddleware would start catching exceptions thrown by user middleware, which it doesn't today because it's tucked in next to the router. So an HTTPException from a user middleware would turn into its proper response rather than a 500. I'm not sure what happens to ServerErrorMiddleware or the registered handlers.",
+      "expert_labels": [
+        {
+          "text": "Today ExceptionMiddleware sits closest to the router and does not see exceptions raised by user middleware.",
+          "label": "met"
+        },
+        {
+          "text": "After the move, exceptions raised in user middleware would be caught by ExceptionMiddleware.",
+          "label": "met"
+        },
+        {
+          "text": "An HTTPException raised in user middleware would then render as its mapped response instead of a 500.",
+          "label": "met"
+        },
+        {
+          "text": "ServerErrorMiddleware remains the outermost layer and still handles otherwise-unhandled errors.",
+          "label": "not_met"
+        },
+        {
+          "text": "Registered class or status-code exception handlers behave the same either way.",
+          "label": "not_met"
+        },
+        {
+          "text": "The change would let ExceptionMiddleware catch errors raised by ServerErrorMiddleware too.",
+          "label": "not_met"
+        },
+        {
+          "text": "Moving ExceptionMiddleware changes how the router matches routes or dispatches endpoints.",
+          "label": "not_met"
+        }
+      ]
+    }
+  ]
+}

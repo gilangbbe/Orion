@@ -131,3 +131,63 @@ public enum ModelRevisionChangeType: String, Codable, Sendable, CaseIterable {
     case addressed
     case noLongerRaised = "no_longer_raised"
 }
+
+// MARK: - Phase 7 — Teaching Mode (Docs/17 §9)
+
+/// What Codebase-Model row a `teaching_concepts` row was derived from (Docs/17 §5). The
+/// `difficulty_band` seed rises with the structure's hop-count: a single `component`/`claim` is
+/// recall (band 1), a `relationship`/`role` is comprehension (band 2), a multi-hop `dataflow` is
+/// transfer (band 3).
+public enum TeachingConceptKind: String, Codable, Sendable, CaseIterable {
+    case component
+    case claim
+    case relationship
+    case role
+    case dataflow
+}
+
+/// A `teaching_rubric_criteria` row's role in scoring (Docs/17 §6.1/§7.3). `required` criteria
+/// form the score denominator; `bonus` criteria add a capped margin; `anti` criteria are the
+/// misconception detectors — an `anti` judged *met* means the wrong mental model is present.
+public enum RubricCriterionKind: String, Codable, Sendable, CaseIterable {
+    case required
+    case bonus
+    case anti
+}
+
+/// Which model produced a `teaching_questions` row (Docs/17 §6.2). Band 1–2 generation runs on
+/// the local Qwen3-8B; band 3 (multi-hop / change-impact) delegates to Claude Code.
+public enum TeachingQuestionSource: String, Codable, Sendable, CaseIterable {
+    case local
+    case claudeCode = "claude_code"
+}
+
+/// A `teaching_attempts.verdict_tier` — a fixed threshold band over the **derived** score
+/// (Docs/17 §7.3), never asked of a model. `off-track` is also forced when an `anti` criterion is
+/// tripped alongside two or more missed `required` criteria.
+public enum TeachingVerdictTier: String, Codable, Sendable, CaseIterable {
+    case solid
+    case partial
+    case shaky
+    case offTrack = "off-track"
+}
+
+/// The per-criterion grader's own confidence in one `teaching_criterion_results` row (Docs/17
+/// §7.1). A split k=3 self-consistency vote forces `low`, which excludes the criterion from the
+/// score denominator and surfaces it as "needs review" rather than counting it either way.
+public enum GraderConfidence: String, Codable, Sendable, CaseIterable {
+    case high
+    case medium
+    case low
+}
+
+/// A `knowledge_states.confidence_band` — a coarse display band over the probabilistic
+/// `p_mastered` estimate (Docs/17 §2.5/§8.2). Deliberately not a percentage: a mastery estimate
+/// from a handful of questions is low-precision, and the band stays `new` until at least two
+/// attempts regardless of `p_mastered`.
+public enum KnowledgeConfidenceBand: String, Codable, Sendable, CaseIterable {
+    case new
+    case shaky
+    case developing
+    case solid
+}

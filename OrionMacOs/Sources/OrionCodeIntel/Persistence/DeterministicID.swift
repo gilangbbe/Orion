@@ -44,5 +44,17 @@ public enum DeterministicID {
         digest([repositoryId, commitHash, "diag", stage, code, scope, String(ordinal)])
     }
 
+    /// Phase 7 (`Docs/17` §5). Content-addressed by the same natural key
+    /// `teaching_concepts.UNIQUE(repository_id, kind, subject_label)` enforces, so a
+    /// `ConceptExtractor` re-run resolves the same concept to the same row rather than a
+    /// second one — the "match existing by natural key" reconciliation §5 needs for `stale`
+    /// marking. Not commit-scoped: teaching concepts persist across a re-analysis of the same
+    /// repository (Docs/17 §9 scoping note).
+    public static func teachingConcept(
+        repositoryId: String, kind: String, subjectLabel: String
+    ) -> String {
+        digest([repositoryId, "teaching_concept", kind, subjectLabel])
+    }
+
     public static func newUUID() -> String { UUID().uuidString }
 }

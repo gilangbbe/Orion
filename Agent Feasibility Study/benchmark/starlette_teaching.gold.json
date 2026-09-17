@@ -1,0 +1,567 @@
+{
+  "metadata": {
+    "repository": "starlette",
+    "commit_sha": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+    "authored": "2026-09-10",
+    "author": "hand-authored, Docs/17_phase7_teaching_mode.md M7 / \u00a712.1",
+    "purpose": "Answer key for hand-scoring a real teaching-question GENERATION run. Per (concept, band): the acceptable question shape, the reference-answer key points (fact-checked against source at the pinned commit), the required criteria a sound rubric should contain, the anchors that count as valid grounding, and what a generated question MUST NOT say. There is no automated scorer -- a human compares generator output to this, scoring four axes: question relevance, reference-answer factual correctness, criterion validity (each required criterion single-fact and checkable), anchor-resolution rate.",
+    "disclosure": "Authored with prior knowledge of Starlette's structure (six phases of building against it) -- NOT blind, same limitation as Phase 2 M5's component gold. Two source concepts here are known to be factually wrong for this commit (redirect_claim: says 302, source is 307; reqbody_claim: says later body() calls return empty, source returns the cached bytes) -- kept deliberately as factual-correctness test cases for the generator.",
+    "entry_count": 22,
+    "bands": {
+      "1": 7,
+      "2": 11,
+      "3": 4
+    },
+    "kinds": {
+      "component": 13,
+      "claim": 5,
+      "relationship": 4
+    }
+  },
+  "entries": [
+    {
+      "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+      "concept_label": "Routing & Endpoint Dispatch",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question asking the developer to state how Router selects a route for a request.",
+      "reference_answer_key_points": [
+        "Router.app iterates self.routes in registration order",
+        "first Match.FULL wins and iteration stops",
+        "Match.PARTIAL is a fallback used only if no FULL match (drives 405)",
+        "no match -> redirect_slashes retry, else default 404"
+      ],
+      "required_criteria_expected": [
+        "routes are tried in registration order",
+        "the first full match handles the request and the search stops",
+        "a partial match is only used when there is no full match"
+      ],
+      "acceptable_anchors": [
+        "starlette/routing.py::Router",
+        "starlette/routing.py::Route.matches",
+        "starlette/routing.py::Match",
+        "starlette/routing.py::Route"
+      ],
+      "must_not": [
+        "must not claim routes are ranked by specificity or longest-prefix",
+        "must not claim the router gathers all matches then picks the best"
+      ]
+    },
+    {
+      "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+      "concept_label": "Routing & Endpoint Dispatch",
+      "kind": "component",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question relating Route.matches' three Match outcomes to what Router.app does with each, or contrasting Route vs Mount matching.",
+      "reference_answer_key_points": [
+        "FULL -> update scope, call handle(), return",
+        "PARTIAL -> stash first one, keep scanning",
+        "NONE -> ignored",
+        "Mount matches a path prefix and rewrites the child scope's path/root_path"
+      ],
+      "required_criteria_expected": [
+        "a full match stops the scan and dispatches immediately",
+        "only the first partial match is retained",
+        "the partial fallback is what yields 405 rather than 404"
+      ],
+      "acceptable_anchors": [
+        "starlette/routing.py::Router",
+        "starlette/routing.py::Route.matches",
+        "starlette/routing.py::Mount",
+        "starlette/routing.py::Match"
+      ],
+      "must_not": [
+        "must not describe a global argmax over numeric Match values"
+      ]
+    },
+    {
+      "concept_id": "5390ef5d107b3ffd1821550c16ca5c70",
+      "concept_label": "Routing & Endpoint Dispatch",
+      "kind": "component",
+      "band": 3,
+      "acceptable_question_shape": "A change-impact / transfer question, e.g. 'if Router.app were changed to keep scanning after a FULL match and collect all full matches, what breaks?'",
+      "reference_answer_key_points": [
+        "today first FULL match short-circuits; order-dependent by design",
+        "collecting all would need a tie-break rule Starlette does not define",
+        "overlapping paths currently resolved purely by registration order",
+        "Mount/Host sub-routers would be affected because they re-enter matches()"
+      ],
+      "required_criteria_expected": [
+        "current behaviour is first-full-match-wins, decided by registration order",
+        "the change introduces ambiguity when two routes both return FULL"
+      ],
+      "acceptable_anchors": [
+        "starlette/routing.py::Router",
+        "starlette/routing.py::Route.matches",
+        "starlette/routing.py::Mount",
+        "starlette/routing.py::Host"
+      ],
+      "must_not": [
+        "must not claim route matching is already specificity-ranked so the change is a no-op"
+      ]
+    },
+    {
+      "concept_id": "da4fb0ac047f66c95938d5d24f602c79",
+      "concept_label": "Responses & Background Tasks",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question on when a response's background task runs and the order of multiple tasks.",
+      "reference_answer_key_points": [
+        "Response.__call__ sends start+body, THEN awaits self.background",
+        "BackgroundTasks awaits tasks sequentially in add order",
+        "sync task func runs via run_in_threadpool; async awaited directly"
+      ],
+      "required_criteria_expected": [
+        "the background task runs after the response body is sent",
+        "BackgroundTasks runs its tasks one at a time in order",
+        "a synchronous task function runs in a threadpool"
+      ],
+      "acceptable_anchors": [
+        "starlette/responses.py::Response",
+        "starlette/background.py::BackgroundTask",
+        "starlette/background.py::BackgroundTasks"
+      ],
+      "must_not": [
+        "must not claim tasks run concurrently / in parallel",
+        "must not claim the task runs before or during response send"
+      ]
+    },
+    {
+      "concept_id": "da4fb0ac047f66c95938d5d24f602c79",
+      "concept_label": "Responses & Background Tasks",
+      "kind": "component",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question contrasting Response subclasses (JSONResponse / StreamingResponse / FileResponse) in how they emit the body, or how each still runs background after.",
+      "reference_answer_key_points": [
+        "plain Response renders body eagerly in __init__; StreamingResponse iterates a body iterator",
+        "all of them await self.background after the body, if set",
+        "FileResponse can use zero-copy / range handling"
+      ],
+      "required_criteria_expected": [
+        "every response subclass awaits the background task after the body",
+        "StreamingResponse sends the body incrementally rather than all at once"
+      ],
+      "acceptable_anchors": [
+        "starlette/responses.py::Response",
+        "starlette/responses.py::StreamingResponse",
+        "starlette/responses.py::FileResponse",
+        "starlette/responses.py::JSONResponse"
+      ],
+      "must_not": [
+        "must not claim StreamingResponse skips the background task"
+      ]
+    },
+    {
+      "concept_id": "b9837425c5974c5ec3229aea2c8548ae",
+      "concept_label": "Exception Handling",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question on the split of responsibility between ExceptionMiddleware and ServerErrorMiddleware.",
+      "reference_answer_key_points": [
+        "ServerErrorMiddleware outermost: unhandled -> 500, then re-raises",
+        "ExceptionMiddleware innermost: maps HTTPException/registered handlers to responses, no re-raise",
+        "ExceptionMiddleware inside user middleware -> can't catch user-middleware errors"
+      ],
+      "required_criteria_expected": [
+        "ServerErrorMiddleware is outermost and turns unhandled errors into 500s",
+        "ServerErrorMiddleware re-raises after responding",
+        "ExceptionMiddleware maps HTTPException to a response without re-raising",
+        "ExceptionMiddleware sits innermost, closest to the router"
+      ],
+      "acceptable_anchors": [
+        "starlette/middleware/exceptions.py::ExceptionMiddleware",
+        "starlette/middleware/errors.py::ServerErrorMiddleware",
+        "starlette/_exception_handler.py::wrap_app_handling_exceptions"
+      ],
+      "must_not": [
+        "must not put ExceptionMiddleware outermost",
+        "must not claim ServerErrorMiddleware swallows the exception"
+      ]
+    },
+    {
+      "concept_id": "b9837425c5974c5ec3229aea2c8548ae",
+      "concept_label": "Exception Handling",
+      "kind": "component",
+      "band": 3,
+      "acceptable_question_shape": "A change-impact question on _lookup_exception_handler's MRO walk, e.g. 'if it stopped walking __mro__ and only matched the exact class, what changes?'",
+      "reference_answer_key_points": [
+        "today a handler registered for a base class catches subclasses via __mro__ walk",
+        "exact-match-only would break base-class handlers (e.g. a handler for Exception)",
+        "status-code lookup for HTTPException is unaffected (separate dict, checked first)"
+      ],
+      "required_criteria_expected": [
+        "the lookup currently walks the exception type's MRO so base-class handlers match",
+        "restricting to exact class would stop base-class handlers from firing"
+      ],
+      "acceptable_anchors": [
+        "starlette/_exception_handler.py::_lookup_exception_handler",
+        "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware"
+      ],
+      "must_not": [
+        "must not claim status-code handlers would also break (they're checked separately, first)"
+      ]
+    },
+    {
+      "concept_id": "f729d31f6e14dfc8f2b859fa8c83be41",
+      "concept_label": "Foundational Utilities & ASGI Contracts",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question on what the ASGI three-callable contract (scope, receive, send) is, or what starlette.types defines.",
+      "reference_answer_key_points": [
+        "an ASGI app is a callable (scope, receive, send) -> awaitable",
+        "scope is a dict describing the connection; receive/send are async channels",
+        "Starlette's types module names ASGIApp/Scope/Receive/Send/Message"
+      ],
+      "required_criteria_expected": [
+        "an ASGI application is called with scope, receive, and send",
+        "receive and send are async callables for the message stream"
+      ],
+      "acceptable_anchors": [
+        "starlette/types.py",
+        "starlette/types.py::ASGIApp",
+        "starlette/types.py::Scope",
+        "starlette/_utils.py"
+      ],
+      "must_not": [
+        "must not describe a WSGI-style (environ, start_response) signature"
+      ]
+    },
+    {
+      "concept_id": "c52c5d36567ad0d7a2cc83da62e72fbe",
+      "concept_label": "Application & Middleware Assembly",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question on what build_middleware_stack assembles and when.",
+      "reference_answer_key_points": [
+        "Starlette.__call__ lazily builds the stack on first call (cached)",
+        "order: ServerErrorMiddleware -> [RequestBodyLimit] -> user middleware -> ExceptionMiddleware -> Router",
+        "built by wrapping the list in reverse"
+      ],
+      "required_criteria_expected": [
+        "the middleware stack is built lazily on the first request and cached",
+        "ServerErrorMiddleware ends up outermost and ExceptionMiddleware innermost"
+      ],
+      "acceptable_anchors": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/applications.py::Starlette",
+        "starlette/middleware/__init__.py::Middleware"
+      ],
+      "must_not": [
+        "must not claim the stack is rebuilt on every request"
+      ]
+    },
+    {
+      "concept_id": "c52c5d36567ad0d7a2cc83da62e72fbe",
+      "concept_label": "Application & Middleware Assembly",
+      "kind": "component",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question on why ServerErrorMiddleware is forced outermost and ExceptionMiddleware innermost rather than being ordinary user middleware.",
+      "reference_answer_key_points": [
+        "ServerErrorMiddleware must see every error including from user middleware -> outermost",
+        "ExceptionMiddleware maps expected exceptions closest to the app -> innermost",
+        "user middleware sits between the two"
+      ],
+      "required_criteria_expected": [
+        "ServerErrorMiddleware is placed outside user middleware so it catches their errors too",
+        "ExceptionMiddleware is placed inside user middleware, next to the router"
+      ],
+      "acceptable_anchors": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/middleware/errors.py::ServerErrorMiddleware",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware"
+      ],
+      "must_not": [
+        "must not claim the two are interchangeable with user middleware ordering"
+      ]
+    },
+    {
+      "concept_id": "3a54e6207f4447ff135e5cc811093be7",
+      "concept_label": "HTTP Data Structures & Form Parsing",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question on the case-insensitive / immutable header and multi-dict types.",
+      "reference_answer_key_points": [
+        "Headers is case-insensitive and immutable; MutableHeaders allows writes",
+        "QueryParams / FormData are immutable multi-dicts (repeated keys)",
+        "these wrap the raw ASGI byte lists"
+      ],
+      "required_criteria_expected": [
+        "Headers lookups are case-insensitive",
+        "QueryParams and FormData allow repeated keys (multi-dict)"
+      ],
+      "acceptable_anchors": [
+        "starlette/datastructures.py"
+      ],
+      "must_not": [
+        "must not claim Headers is a plain mutable dict"
+      ]
+    },
+    {
+      "concept_id": "9ad158f2f0a41979f6f9c60188a126f3",
+      "concept_label": "Test Client",
+      "kind": "component",
+      "band": 1,
+      "acceptable_question_shape": "A recall question on how TestClient runs the app without a network server.",
+      "reference_answer_key_points": [
+        "httpx requests routed through an in-memory _TestClientTransport",
+        "an AnyIO portal bridges sync test code to the async app",
+        "no real socket / server process"
+      ],
+      "required_criteria_expected": [
+        "TestClient calls the ASGI app in-process rather than over a real socket",
+        "it uses an AnyIO portal to drive the async app from sync test code"
+      ],
+      "acceptable_anchors": [
+        "starlette/testclient.py::TestClient",
+        "starlette/testclient.py::_TestClientTransport"
+      ],
+      "must_not": [
+        "must not claim it starts a real HTTP server on a port"
+      ]
+    },
+    {
+      "concept_id": "4d43f1cfe871d00ed106971618489ac8",
+      "concept_label": "Request & WebSocket Connections",
+      "kind": "component",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question contrasting HTTPConnection (shared base) with Request / WebSocket, or how Request.stream()/body() consume the receive channel once.",
+      "reference_answer_key_points": [
+        "HTTPConnection is the read-only base (url, headers, cookies, state)",
+        "Request adds body/stream/json/form over the receive channel",
+        "stream() consumes the channel once; body() caches _body for re-reads"
+      ],
+      "required_criteria_expected": [
+        "HTTPConnection is the common base for Request and WebSocket",
+        "Request.stream() consumes the receive channel and can only be iterated once"
+      ],
+      "acceptable_anchors": [
+        "starlette/requests.py::HTTPConnection",
+        "starlette/requests.py::Request",
+        "starlette/websockets.py::WebSocket"
+      ],
+      "must_not": [
+        "must not claim body() returns an empty string on the second call (it returns the cached body)"
+      ]
+    },
+    {
+      "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+      "concept_label": "Match enum ordering (FULL > PARTIAL > NONE) drives routing priority",
+      "kind": "claim",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question on how Router.app actually uses PARTIAL vs FULL (not on the integer values themselves).",
+      "reference_answer_key_points": [
+        "FULL short-circuits the loop and dispatches",
+        "PARTIAL is only recorded (first one) and used as a fallback",
+        "that fallback is the 405 mechanism"
+      ],
+      "required_criteria_expected": [
+        "a FULL match immediately dispatches and ends the scan",
+        "a PARTIAL match is only a fallback used when no FULL match is found",
+        "only the first PARTIAL encountered is kept"
+      ],
+      "acceptable_anchors": [
+        "starlette/routing.py::Router",
+        "starlette/routing.py::Match",
+        "starlette/routing.py::Route.matches"
+      ],
+      "must_not": [
+        "must not present the enum integers as a global priority the router sorts on",
+        "NOTE: the concept statement's phrasing invites the argmax misconception -- a good question steers away from it"
+      ]
+    },
+    {
+      "concept_id": "48d6eb80edfc985f9fe04806d208698e",
+      "concept_label": "Match enum ordering (FULL > PARTIAL > NONE) drives routing priority",
+      "kind": "claim",
+      "band": 3,
+      "acceptable_question_shape": "A transfer question, e.g. 'two routes both return PARTIAL -- which handles the request, and how would you make a more specific route win?'",
+      "reference_answer_key_points": [
+        "first PARTIAL recorded wins -> registration order again",
+        "no specificity logic exists; you would reorder routes",
+        "a FULL match anywhere later still beats any PARTIAL"
+      ],
+      "required_criteria_expected": [
+        "when multiple routes return PARTIAL, the first one registered is used",
+        "there is no specificity ranking; ordering is the only lever"
+      ],
+      "acceptable_anchors": [
+        "starlette/routing.py::Router",
+        "starlette/routing.py::Route.matches"
+      ],
+      "must_not": [
+        "must not invent a 'PARTIAL score' comparison"
+      ]
+    },
+    {
+      "concept_id": "a264db178b4eaf602a5400a472e66846",
+      "concept_label": "RedirectResponse uses a 302 status code by default",
+      "kind": "claim",
+      "band": 2,
+      "acceptable_question_shape": "A question about RedirectResponse's default status code and when to override it.",
+      "reference_answer_key_points": [
+        "FOR THIS COMMIT the default is 307 (Temporary Redirect), not 302 -- see responses.py::RedirectResponse.__init__ (status_code: int = 307)",
+        "307 preserves the request method; 302 historically allowed method change to GET",
+        "callers pass status_code=301/308 for permanent redirects"
+      ],
+      "required_criteria_expected": [
+        "the default status code is 307",
+        "the caller can override status_code for a permanent (301/308) redirect"
+      ],
+      "acceptable_anchors": [
+        "starlette/responses.py::RedirectResponse"
+      ],
+      "must_not": [
+        "FACTUAL-CORRECTNESS TEST: the source concept statement says 302; a generated reference answer that repeats '302 by default' is FACTUALLY WRONG and must be scored as such. The correct default in responses.py at 4f250d6b is 307."
+      ]
+    },
+    {
+      "concept_id": "3ac885bb8705f588953f78de7660f7f1",
+      "concept_label": "Request.body() reads the body once; later calls return empty",
+      "kind": "claim",
+      "band": 2,
+      "acceptable_question_shape": "A question on what happens when Request.body() (or .stream()) is called more than once.",
+      "reference_answer_key_points": [
+        "body() caches self._body on first read and returns the SAME bytes on later calls",
+        "stream() yields the cached _body again if body() already ran",
+        "stream() raises RuntimeError('Stream consumed') only if the channel was drained WITHOUT _body being cached"
+      ],
+      "required_criteria_expected": [
+        "Request.body() caches the body and returns it again on subsequent calls",
+        "calling stream() after the channel is consumed (with no cached body) raises RuntimeError"
+      ],
+      "acceptable_anchors": [
+        "starlette/requests.py::Request",
+        "starlette/requests.py::HTTPConnection"
+      ],
+      "must_not": [
+        "FACTUAL-CORRECTNESS TEST: the source concept statement ('subsequent calls return an empty string') is wrong -- body() returns the cached bytes, not '' -- a reference answer repeating it must be scored as factually wrong."
+      ]
+    },
+    {
+      "concept_id": "1065615075072d1b2a7b11bd21ed9f6a",
+      "concept_label": "Moving ExceptionMiddleware outside user middleware -- impact",
+      "kind": "claim",
+      "band": 3,
+      "acceptable_question_shape": "A change-impact question exactly on the concept: what changes for an app author if ExceptionMiddleware were placed outside user middleware.",
+      "reference_answer_key_points": [
+        "today ExceptionMiddleware is innermost -> only sees router/endpoint errors",
+        "moved outside user middleware -> also catches user-middleware exceptions",
+        "an HTTPException from user middleware would then render as its 4xx not a 500",
+        "ServerErrorMiddleware stays outermost and still re-raises",
+        "registered class/status handlers unchanged"
+      ],
+      "required_criteria_expected": [
+        "today ExceptionMiddleware does not catch exceptions raised in user middleware",
+        "after the move it would, so a user-middleware HTTPException renders as its mapped response",
+        "ServerErrorMiddleware stays the outermost layer"
+      ],
+      "acceptable_anchors": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware",
+        "starlette/middleware/exceptions.py::ExceptionMiddleware.__call__"
+      ],
+      "must_not": [
+        "must not claim it would let ExceptionMiddleware catch ServerErrorMiddleware's errors",
+        "must not claim routing/endpoint dispatch changes"
+      ]
+    },
+    {
+      "concept_id": "5cac1bd01a2aebe1076a4f3cc9798ed0",
+      "concept_label": "Routing & Endpoint Dispatch -> Exception Handling",
+      "kind": "relationship",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question on how an endpoint's HTTPException becomes a response given the endpoint is called from Route.handle.",
+      "reference_answer_key_points": [
+        "request_response wraps the endpoint call in wrap_app_handling_exceptions",
+        "Route.handle just calls self.app -- no try/except of its own",
+        "wrapper: status-code handler first, then MRO class-handler lookup, else re-raise"
+      ],
+      "required_criteria_expected": [
+        "the endpoint call is wrapped by wrap_app_handling_exceptions (set up in request_response)",
+        "for an HTTPException a status-code handler is checked before a class handler",
+        "if no handler matches, the wrapper re-raises"
+      ],
+      "acceptable_anchors": [
+        "starlette/_exception_handler.py::wrap_app_handling_exceptions",
+        "starlette/routing.py::request_response",
+        "starlette/_exception_handler.py::_lookup_exception_handler"
+      ],
+      "must_not": [
+        "must not claim Route.handle contains the try/except",
+        "must not claim ServerErrorMiddleware renders the HTTPException"
+      ]
+    },
+    {
+      "concept_id": "7cf335b9ba24be0f2377d91ea1941a59",
+      "concept_label": "Routing & Endpoint Dispatch -> Responses & Background Tasks",
+      "kind": "relationship",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question on how request_response turns a function's return value into an ASGI send, and how a returned Response's background task fits in.",
+      "reference_answer_key_points": [
+        "request_response calls f(request) -> Response, then awaits response(scope, receive, send)",
+        "a sync endpoint is run via run_in_threadpool",
+        "the returned Response then emits start+body and finally awaits its background task"
+      ],
+      "required_criteria_expected": [
+        "request_response awaits the returned Response as an ASGI app",
+        "a synchronous endpoint function is run in a threadpool"
+      ],
+      "acceptable_anchors": [
+        "starlette/routing.py::request_response",
+        "starlette/responses.py::Response",
+        "starlette/background.py::BackgroundTask"
+      ],
+      "must_not": [
+        "must not claim the router serializes the response itself"
+      ]
+    },
+    {
+      "concept_id": "0b3e7dac81849f9bf914e25a60fbacc3",
+      "concept_label": "Responses & Background Tasks -> Request & WebSocket Connections",
+      "kind": "relationship",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question on why a Response takes (scope, receive, send) at all, and what it uses receive for (client-disconnect detection during streaming).",
+      "reference_answer_key_points": [
+        "a Response IS an ASGI app: __call__(scope, receive, send)",
+        "StreamingResponse listens on receive for http.disconnect to stop early",
+        "plain Response ignores receive"
+      ],
+      "required_criteria_expected": [
+        "a Response is itself an ASGI application called with scope, receive, send",
+        "StreamingResponse watches the receive channel for client disconnect"
+      ],
+      "acceptable_anchors": [
+        "starlette/responses.py::Response",
+        "starlette/responses.py::StreamingResponse",
+        "starlette/requests.py::ClientDisconnect"
+      ],
+      "must_not": [
+        "must not claim plain Response reads the request body via receive"
+      ]
+    },
+    {
+      "concept_id": "04ddaf14698be69b91fb9feb579ae5bf",
+      "concept_label": "Exception Handling -> Responses & Background Tasks",
+      "kind": "relationship",
+      "band": 2,
+      "acceptable_question_shape": "A comprehension question on what kind of Response ExceptionMiddleware.http_exception produces for an HTTPException.",
+      "reference_answer_key_points": [
+        "http_exception returns PlainTextResponse(exc.detail, status_code=exc.status_code, headers=exc.headers)",
+        "204/304 -> a bodyless Response instead",
+        "that Response is then sent through the same send channel"
+      ],
+      "required_criteria_expected": [
+        "ExceptionMiddleware's default HTTPException handler returns a PlainTextResponse",
+        "the response carries the exception's status code and detail"
+      ],
+      "acceptable_anchors": [
+        "starlette/middleware/exceptions.py::ExceptionMiddleware",
+        "starlette/responses.py::Response"
+      ],
+      "must_not": [
+        "must not claim it returns an HTML error page by default"
+      ]
+    }
+  ]
+}

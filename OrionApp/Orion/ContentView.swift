@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var isPresentingBuildModelSheet = false
     @State private var shellState = AppShellState()
     @State private var askHistory = AskHistory()
+    @State private var teachingSession = TeachingSession()
     @State private var diagnosticsSession = DiagnosticsSession()
     /// Docs/16_phase6_continuous_model_updates.md §8, M5: the sidebar's Model Changes badge --
     /// see the `.task(id: shellState.destination)` in `readyState(_:)` for how these three are
@@ -55,6 +56,7 @@ struct ContentView: View {
                     semanticSession = SemanticInvestigationSession()
                     shellState = AppShellState()
                     askHistory = AskHistory()
+                    teachingSession = TeachingSession()
                     diagnosticsSession = DiagnosticsSession()
                     modelChangeCount = 0
                     viewedModelChangeCount = 0
@@ -172,6 +174,12 @@ struct ContentView: View {
                 if shellState.destination == .changes {
                     viewedModelChangeCount = modelChangeCount
                 }
+                // Docs/17 §11, M6: keep the sidebar's Teaching mastery strip + misconception
+                // badge current. A read-only pass (no `ConceptExtractor` bootstrap here -- that's
+                // the Teaching screen's own `.task`), cheap enough to run on every destination
+                // switch, same as the Model Changes count just above.
+                await teachingSession.refresh(
+                    outputDirectory: summary.outputDirectory, bootstrap: false)
             }
         }
     }
@@ -203,9 +211,14 @@ struct ContentView: View {
                 outputDirectory: summary.outputDirectory,
                 focusedRevisionId: shellState.focusedModelChangeRevisionId)
         case .teaching:
-            // Docs/14 §4.8/§8 M7: real screen, sample-backed data (Docs/14 §7 Decision 3) -- see
-            // `TeachingSample`'s own doc comment for why.
-            TeachingView(sample: .tokenManagerVsSessionManager)
+            // Docs/17_phase7_teaching_mode.md §11, M6: real screen, real data -- `TeachingLoader`
+            // reads `teaching_concepts`/`knowledge_states`, `TeachingRunner` drives
+            // `TeachingQuestionGenerator`/`RubricGrader`. `TeachingSession.isCalibrated` is `false`
+            // until Phase 7 M7's calibration gate clears (Docs/17 Decision 10): grades are shown
+            // but no mastery is persisted, and the screen carries a "self-check only" note.
+            TeachingView(
+                session: teachingSession, repoRoot: summary.repoRoot,
+                outputDirectory: summary.outputDirectory)
         case .diagnostics:
             // Docs/14 §4.9/§8 M8: the real screen, last-only per §7 Decision 2 --
             // `DiagnosticsSession`'s own doc comment explains why it isn't a rolling log.
@@ -309,6 +322,11 @@ struct ContentView: View {
         case .changes:
             let unread = modelChangeCount - viewedModelChangeCount
             return unread > 0 ? unread : nil
+        case .teaching:
+            // Docs/17 §11: concepts the developer currently holds a misconception about --
+            // shaky *load-bearing* understanding is what most wants attention.
+            let n = teachingSession.overview.misconceptionConcepts
+            return n > 0 ? n : nil
         default:
             return nil
         }
@@ -358,11 +376,29 @@ struct ContentView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+            // Docs/17 §11, M6: a one-line at-a-glance of Teaching Mode progress, shown only once
+            // the developer has actually engaged with it (concepts derived + >=1 attempt).
+            if let strip = teachingMasteryStrip {
+                Text(strip)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+
+    private var teachingMasteryStrip: String? {
+        let o = teachingSession.overview
+        guard !o.isEmpty else { return nil }
+        var parts = ["\(o.total) concepts"]
+        if o.solid > 0 { parts.append("\(o.solid) solid") }
+        if o.shaky > 0 { parts.append("\(o.shaky) shaky") }
+        if o.misconceptionConcepts > 0 { parts.append("⚠ \(o.misconceptionConcepts)") }
+        return parts.joined(separator: " · ")
     }
 
     /// Docs/14 §4.1: Build Architecture Model status (Docs/13 M3, relocated from the old

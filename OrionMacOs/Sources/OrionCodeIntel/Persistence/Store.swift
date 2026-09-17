@@ -681,4 +681,199 @@ public struct Store {
             return count > 0
         }
     }
+
+    /// Per-symbol degree (in + out) over the Phase 1 relationship graph for a run — every symbol
+    /// that appears as either endpoint of at least one `relationships` row, mapped to how many
+    /// rows it touches. `ConceptExtractor` (Docs/17 §5, M1) sums these across a concept's member
+    /// symbols for its raw centrality score, then normalises. A symbol with no edges is simply
+    /// absent from the result (treat as 0).
+    public func symbolDegrees(runId: String) throws -> [String: Int] {
+        try db.dbQueue.read { dbc in
+            let rows = try Row.fetchAll(
+                dbc,
+                sql: """
+                SELECT sym, COUNT(*) AS n FROM (
+                    SELECT source_symbol_id AS sym FROM relationships
+                        WHERE run_id = ? AND source_symbol_id IS NOT NULL
+                    UNION ALL
+                    SELECT target_symbol_id AS sym FROM relationships
+                        WHERE run_id = ? AND target_symbol_id IS NOT NULL
+                ) GROUP BY sym
+                """,
+                arguments: [runId, runId]
+            )
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0["sym"] as String, $0["n"] as Int) })
+        }
+    }
+
+    // MARK: Phase 7 — teaching (Docs/17 §9)
+    //
+    // Bare CRUD primitives only, matching the M0 precedent Phase 5's `ask_sessions` and Phase 6's
+    // `model_revision_entries` each set: the real logic — `ConceptExtractor`'s derive-and-restale
+    // pass (M1), the generate-then-verify pipeline (M2), `RubricGrader`'s criterion aggregation
+    // (M3), the BKT-style mastery update (M4) — all compose these, they aren't in `Store`.
+
+    public func insertTeachingConcepts(_ records: [TeachingConceptRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    /// Highest-centrality first — the order `TeachingPlanner` (M4) and the CLI's `teach concepts`
+    /// both want. `includeStale: false` drops concepts whose source rows were all removed by a
+    /// later analysis (Docs/17 §5); pass `true` when reconciling during a `ConceptExtractor` re-run.
+    public func teachingConcepts(
+        repositoryId: String, includeStale: Bool = false
+    ) throws -> [TeachingConceptRecord] {
+        try db.dbQueue.read { dbc in
+            var request = TeachingConceptRecord.filter(Column("repository_id") == repositoryId)
+            if !includeStale { request = request.filter(Column("stale") == false) }
+            return try request.order(Column("centrality").desc).fetchAll(dbc)
+        }
+    }
+
+    public func teachingConcept(id: String) throws -> TeachingConceptRecord? {
+        try db.dbQueue.read { dbc in try TeachingConceptRecord.fetchOne(dbc, key: id) }
+    }
+
+    /// Bare single-column write — `ConceptExtractor` (M1) marks a concept whose sources all
+    /// vanished as `stale` rather than deleting it, so a `knowledge_states` row still resolves.
+    public func setTeachingConceptStale(id: String, stale: Bool) throws {
+        try db.dbQueue.write { dbc in
+            try dbc.execute(
+                sql: "UPDATE teaching_concepts SET stale = ? WHERE id = ?",
+                arguments: [stale, id]
+            )
+        }
+    }
+
+    public func insertTeachingQuestion(_ record: TeachingQuestionRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func teachingQuestion(id: String) throws -> TeachingQuestionRecord? {
+        try db.dbQueue.read { dbc in try TeachingQuestionRecord.fetchOne(dbc, key: id) }
+    }
+
+    /// `verifiedOnly: true` is what the app/CLI offer a developer — an unverified row is a
+    /// candidate that failed §6.3's checks and is kept only for diagnostics.
+    public func teachingQuestions(
+        conceptId: String, verifiedOnly: Bool = true
+    ) throws -> [TeachingQuestionRecord] {
+        try db.dbQueue.read { dbc in
+            var request = TeachingQuestionRecord.filter(Column("concept_id") == conceptId)
+            if verifiedOnly { request = request.filter(Column("verified") == true) }
+            return try request.order(Column("created_at")).fetchAll(dbc)
+        }
+    }
+
+    public func insertTeachingRubricCriteria(_ records: [TeachingRubricCriterionRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func teachingRubricCriteria(questionId: String) throws -> [TeachingRubricCriterionRecord] {
+        try db.dbQueue.read { dbc in
+            try TeachingRubricCriterionRecord.filter(Column("question_id") == questionId)
+                .order(Column("ordinal")).fetchAll(dbc)
+        }
+    }
+
+    public func insertTeachingAttempt(_ record: TeachingAttemptRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func teachingAttempt(id: String) throws -> TeachingAttemptRecord? {
+        try db.dbQueue.read { dbc in try TeachingAttemptRecord.fetchOne(dbc, key: id) }
+    }
+
+    public func teachingAttempts(questionId: String) throws -> [TeachingAttemptRecord] {
+        try db.dbQueue.read { dbc in
+            try TeachingAttemptRecord.filter(Column("question_id") == questionId)
+                .order(Column("created_at")).fetchAll(dbc)
+        }
+    }
+
+    public func insertTeachingCriterionResults(_ records: [TeachingCriterionResultRecord]) throws {
+        guard !records.isEmpty else { return }
+        try db.dbQueue.write { dbc in for r in records { try r.insert(dbc) } }
+    }
+
+    public func teachingCriterionResults(
+        attemptId: String
+    ) throws -> [TeachingCriterionResultRecord] {
+        try db.dbQueue.read { dbc in
+            try TeachingCriterionResultRecord.filter(Column("attempt_id") == attemptId).fetchAll(dbc)
+        }
+    }
+
+    public func insertKnowledgeState(_ record: KnowledgeStateRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    /// Insert-if-absent, returning the existing or freshly-created row. `RubricGrader` (M3) needs
+    /// a `knowledge_states` row to hang a `teaching_misconceptions` row off before M4's real
+    /// mastery-update rule exists; a fresh row is left at its schema defaults (`p_mastered` 0.15,
+    /// `confidence_band` "new", `attempts_count` 0) for M4 to start moving.
+    @discardableResult
+    public func ensureKnowledgeState(
+        developerId: String = "local", conceptId: String, now: String
+    ) throws -> KnowledgeStateRecord {
+        if let existing = try knowledgeState(developerId: developerId, conceptId: conceptId) {
+            return existing
+        }
+        let record = KnowledgeStateRecord(
+            id: DeterministicID.newUUID(), developerId: developerId, conceptId: conceptId,
+            firstSeenAt: now, lastAssessedAt: now)
+        try db.dbQueue.write { try record.insert($0) }
+        return record
+    }
+
+    /// M4's mastery update computes a fresh `KnowledgeStateRecord` from the attempt's criterion
+    /// results and writes it back whole — a bare row update, like `finishRun` does for a run.
+    public func updateKnowledgeState(_ record: KnowledgeStateRecord) throws {
+        try db.dbQueue.write { try record.update($0) }
+    }
+
+    public func knowledgeState(
+        developerId: String = "local", conceptId: String
+    ) throws -> KnowledgeStateRecord? {
+        try db.dbQueue.read { dbc in
+            try KnowledgeStateRecord
+                .filter(Column("developer_id") == developerId && Column("concept_id") == conceptId)
+                .fetchOne(dbc)
+        }
+    }
+
+    public func knowledgeStates(developerId: String = "local") throws -> [KnowledgeStateRecord] {
+        try db.dbQueue.read { dbc in
+            try KnowledgeStateRecord.filter(Column("developer_id") == developerId)
+                .order(Column("last_assessed_at").desc).fetchAll(dbc)
+        }
+    }
+
+    public func insertTeachingMisconception(_ record: TeachingMisconceptionRecord) throws {
+        try db.dbQueue.write { try record.insert($0) }
+    }
+
+    public func teachingMisconceptions(
+        knowledgeStateId: String, openOnly: Bool = false
+    ) throws -> [TeachingMisconceptionRecord] {
+        try db.dbQueue.read { dbc in
+            var request = TeachingMisconceptionRecord
+                .filter(Column("knowledge_state_id") == knowledgeStateId)
+            if openOnly { request = request.filter(Column("cleared_at") == nil) }
+            return try request.order(Column("detected_at")).fetchAll(dbc)
+        }
+    }
+
+    /// Bare single-column write — M3/M4 sets this once a later attempt judges the same `anti`
+    /// criterion not-met with high confidence (Docs/17 §7.2).
+    public func setTeachingMisconceptionCleared(id: String, clearedAt: String?) throws {
+        try db.dbQueue.write { dbc in
+            try dbc.execute(
+                sql: "UPDATE teaching_misconceptions SET cleared_at = ? WHERE id = ?",
+                arguments: [clearedAt, id]
+            )
+        }
+    }
 }

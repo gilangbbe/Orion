@@ -44,4 +44,6 @@ jobs:
             --skip Qwen3AgentTests \
             --skip ModelBackedDepthClassifierLiveTests \
             --skip Qwen3NonThinkingToolCallingLiveTests \
-            --skip AppleFoundationDepthClassifierLiveTests
+            --skip AppleFoundationDepthClassifierLiveTests \
+            --skip TeachingGenerationLiveTests \
+            --skip TeachingGradingLiveTests

@@ -21,6 +21,14 @@ import GRDB
 /// computes between investigations, replacing Phase 2/3's coarse one-row-per-ingestion log. Same
 /// "genuinely new migration, not an amendment" reasoning as `v4`: Phase 2's `model_revisions`
 /// table already shipped.
+/// `v6_phase7_schema` adds the Teaching Mode tables — `teaching_concepts`, `teaching_questions`,
+/// `teaching_rubric_criteria`, `teaching_attempts`, `teaching_criterion_results`,
+/// `knowledge_states` (the one Phase 2 reserved and left unbuilt), `teaching_misconceptions`. See
+/// `Docs/17_phase7_teaching_mode.md` §9 "Schema". Additive only — no Phase 1–6 table is altered.
+/// M0 is schema + typed records + bare `Store` CRUD only; `ConceptExtractor` (M1),
+/// `TeachingQuestionGenerator` (M2), `RubricGrader` (M3) and the `KnowledgeState` update rule
+/// (M4) are all still unbuilt — this migration exists to give those a persisted shape to write
+/// to, the same "types/schema exist from M0" precedent Phase 2/5/6 each set.
 public enum OrionMigrations {
 
     public static func makeMigrator() -> DatabaseMigrator {
@@ -33,6 +41,7 @@ public enum OrionMigrations {
         registerV3(&migrator)
         registerV4(&migrator)
         registerV5(&migrator)
+        registerV6(&migrator)
         return migrator
     }
 
@@ -63,6 +72,12 @@ public enum OrionMigrations {
     private static func registerV5(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v5_phase6_schema") { db in
             try db.execute(sql: Self.v5SQL)
+        }
+    }
+
+    private static func registerV6(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("v6_phase7_schema") { db in
+            try db.execute(sql: Self.v6SQL)
         }
     }
 
@@ -211,8 +226,8 @@ public enum OrionMigrations {
 
     /// Phase 2 semantic tables. Additive only — no Phase 1 table is altered, so Phase 1's
     /// golden snapshot and tests are unaffected. See
-    /// `Docs/11_phase2_semantic_analysis.md` "SQLite v2 schema". `knowledge_states` stays
-    /// reserved and unbuilt (Phase 7 — Teaching).
+    /// `Docs/11_phase2_semantic_analysis.md` "SQLite v2 schema". (`knowledge_states`, reserved
+    /// here since Phase 2, is finally built by `v6_phase7_schema` below.)
     private static let v2SQL = """
     CREATE TABLE investigations (
         id                 TEXT PRIMARY KEY,
@@ -432,5 +447,123 @@ public enum OrionMigrations {
     CREATE INDEX idx_model_revision_entries_revision ON model_revision_entries(model_revision_id);
     CREATE INDEX idx_model_revision_entries_type ON model_revision_entries(entity_type, change_type);
     CREATE INDEX idx_model_revision_entries_related_claim ON model_revision_entries(related_claim_id);
+    """
+
+    /// Phase 7 Teaching Mode tables. Additive only — no Phase 1–6 table is altered. See
+    /// `Docs/17_phase7_teaching_mode.md` §9 "Schema".
+    ///
+    /// Scoping: teaching rows are keyed by `repository_id` only, not `(repository_id, commit_hash,
+    /// run_id)` like the Phase 2 semantic tables. A `repositories` row is already one-per-commit
+    /// (Phase 1's `UNIQUE(local_path, commit_hash)`), and a developer's learning artifacts
+    /// (concepts they've seen, questions asked of them, mastery) are meant to persist across a
+    /// re-analysis of the same commit rather than being wiped with the old `analysis_run` — same
+    /// reasoning Phase 6 used to drop a redundant `commit_hash` from `model_revisions`.
+    ///
+    /// `teaching_concepts.source_component_id`/`source_claim_id` are `ON DELETE SET NULL` (not
+    /// `CASCADE`): a re-analysis deletes the old run's `components`/`claims` rows, but the derived
+    /// concept survives — `ConceptExtractor` (M1) re-runs and marks a concept whose sources all
+    /// vanished as `stale = 1` rather than deleting it, so a `knowledge_states` row still resolves
+    /// (the same "pointer outlives its target" discipline as Docs/15 §4.2 sessions).
+    ///
+    /// `teaching_attempts.score`/`verdict_tier` are **derived** by `RubricGrader` (§7.3, M3) from
+    /// the atomic per-criterion booleans in `teaching_criterion_results` — never model-authored.
+    /// Likewise `knowledge_states.p_mastered`/`confidence_band` are computed by the M4 update rule
+    /// from those same criterion results, not asked for. M0 only gives all of this a typed shape.
+    ///
+    /// `developer_id` defaults to `'local'` everywhere — v1 is a single-user local tool (Docs/17
+    /// Decision 7); the column exists for a future multi-user story, mirroring Docs/07's `user_id`.
+    private static let v6SQL = """
+    CREATE TABLE teaching_concepts (
+        id                  TEXT PRIMARY KEY,
+        repository_id       TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        kind                TEXT NOT NULL,      -- TeachingConceptKind
+        subject_label       TEXT NOT NULL,
+        source_component_id TEXT REFERENCES components(id) ON DELETE SET NULL,
+        source_claim_id     TEXT REFERENCES claims(id) ON DELETE SET NULL,
+        evidence_anchors    TEXT NOT NULL DEFAULT '[]',   -- JSON array of benchmark-form anchors
+        centrality          REAL NOT NULL DEFAULT 0,
+        difficulty_band     INTEGER NOT NULL DEFAULT 1,
+        stale               INTEGER NOT NULL DEFAULT 0,
+        created_at          TEXT NOT NULL,
+        UNIQUE (repository_id, kind, subject_label)
+    );
+    CREATE INDEX idx_teaching_concepts_repo ON teaching_concepts(repository_id, stale, centrality);
+
+    CREATE TABLE teaching_questions (
+        id                TEXT PRIMARY KEY,
+        concept_id        TEXT NOT NULL REFERENCES teaching_concepts(id) ON DELETE CASCADE,
+        investigation_id  TEXT REFERENCES investigations(id) ON DELETE SET NULL,
+        difficulty_band   INTEGER NOT NULL,
+        explain           TEXT NOT NULL,
+        prompt            TEXT NOT NULL,
+        reference_answer  TEXT NOT NULL,
+        reference_anchors TEXT NOT NULL DEFAULT '[]',      -- JSON array
+        transfer_problem  TEXT,
+        generated_by      TEXT NOT NULL,      -- TeachingQuestionSource ('local' | 'claude_code')
+        verified          INTEGER NOT NULL DEFAULT 0,
+        created_at        TEXT NOT NULL
+    );
+    CREATE INDEX idx_teaching_questions_concept ON teaching_questions(concept_id, verified);
+
+    CREATE TABLE teaching_rubric_criteria (
+        id               TEXT PRIMARY KEY,
+        question_id      TEXT NOT NULL REFERENCES teaching_questions(id) ON DELETE CASCADE,
+        ordinal          INTEGER NOT NULL,
+        kind             TEXT NOT NULL,       -- RubricCriterionKind ('required' | 'bonus' | 'anti')
+        text             TEXT NOT NULL,
+        evidence_anchors TEXT NOT NULL DEFAULT '[]',       -- JSON array
+        UNIQUE (question_id, ordinal)
+    );
+
+    CREATE TABLE teaching_attempts (
+        id           TEXT PRIMARY KEY,
+        question_id  TEXT NOT NULL REFERENCES teaching_questions(id) ON DELETE CASCADE,
+        developer_id TEXT NOT NULL DEFAULT 'local',
+        answer_text  TEXT NOT NULL,
+        score        REAL NOT NULL,           -- derived (§7.3), never model-authored
+        verdict_tier TEXT NOT NULL,           -- TeachingVerdictTier
+        model_used   TEXT,
+        disputed     INTEGER NOT NULL DEFAULT 0,   -- §7.4 pairwise-sanity tripwire
+        created_at   TEXT NOT NULL
+    );
+    CREATE INDEX idx_teaching_attempts_question ON teaching_attempts(question_id, created_at);
+
+    CREATE TABLE teaching_criterion_results (
+        id             TEXT PRIMARY KEY,
+        attempt_id     TEXT NOT NULL REFERENCES teaching_attempts(id) ON DELETE CASCADE,
+        criterion_id   TEXT NOT NULL REFERENCES teaching_rubric_criteria(id) ON DELETE CASCADE,
+        met            INTEGER NOT NULL,
+        confidence     TEXT NOT NULL,         -- GraderConfidence ('high' | 'medium' | 'low')
+        evidence_quote TEXT NOT NULL DEFAULT '',
+        note           TEXT NOT NULL DEFAULT '',
+        vote_detail    TEXT,                  -- JSON: the k=3 self-consistency sample outcomes
+        UNIQUE (attempt_id, criterion_id)
+    );
+
+    CREATE TABLE knowledge_states (
+        id               TEXT PRIMARY KEY,
+        developer_id     TEXT NOT NULL DEFAULT 'local',
+        concept_id       TEXT NOT NULL REFERENCES teaching_concepts(id) ON DELETE CASCADE,
+        p_mastered       REAL NOT NULL DEFAULT 0.15,
+        attempts_count   INTEGER NOT NULL DEFAULT 0,
+        last_verdict     TEXT,
+        confidence_band  TEXT NOT NULL DEFAULT 'new',   -- KnowledgeConfidenceBand
+        first_seen_at    TEXT NOT NULL,
+        last_assessed_at TEXT NOT NULL,
+        UNIQUE (developer_id, concept_id)
+    );
+    CREATE INDEX idx_knowledge_states_dev ON knowledge_states(developer_id, concept_id);
+
+    CREATE TABLE teaching_misconceptions (
+        id                 TEXT PRIMARY KEY,
+        knowledge_state_id TEXT NOT NULL REFERENCES knowledge_states(id) ON DELETE CASCADE,
+        criterion_id       TEXT NOT NULL REFERENCES teaching_rubric_criteria(id) ON DELETE CASCADE,
+        attempt_id         TEXT NOT NULL REFERENCES teaching_attempts(id) ON DELETE CASCADE,
+        statement          TEXT NOT NULL,
+        detected_at        TEXT NOT NULL,
+        cleared_at         TEXT
+    );
+    CREATE INDEX idx_teaching_misconceptions_ks
+        ON teaching_misconceptions(knowledge_state_id, cleared_at);
     """
 }
