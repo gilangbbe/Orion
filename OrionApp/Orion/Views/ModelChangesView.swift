@@ -234,8 +234,21 @@ struct ModelChangesView: View {
         return entries.first?.id
     }
 
+    /// Deliberately *not* wrapped in `withAnimation` -- and not just for taste (an initial
+    /// "restore the position" jump on appear shouldn't animate anyway; macOS lists don't).
+    ///
+    /// macOS 27 crash, root-caused live (Docs/14 "macOS 27 addendum"): animating this scroll from
+    /// `onAppear` -- i.e. in the very layout pass that inserts this pane's `NSSplitView` under the
+    /// window's toolbar -- put AppKit into an unbounded constraint loop and killed the app with
+    /// `NSGenericException: The window has been marked as needing another Update Constraints in
+    /// Window pass, but it has already had more Update Constraints in Window passes than there are
+    /// views in the window`. The captured loop is `-[NSSplitView setFrameSize:]` ->
+    /// `NSHostingView.invalidateSafeAreaInsets` -> `setNeedsUpdateConstraints` -> relayout ->
+    /// resize -> ..., with both panes' scroll views carrying the toolbar scroll-edge pocket (52pt)
+    /// whose inset never converged while the animated offset was in flight. Reproduced 3/3 with
+    /// `withAnimation`, 0/6 without it; the scroll itself is not the problem.
     private func scrollToInitialSelection(entries: [ModelChangeSummary], proxy: ScrollViewProxy) {
         guard let selectedID else { return }
-        withAnimation { proxy.scrollTo(selectedID, anchor: .top) }
+        proxy.scrollTo(selectedID, anchor: .top)
     }
 }

@@ -5,4 +5,5 @@ DerivedData/
 *.xcworkspace
 .orion/
 *.profraw
-
+Vendor/
+OnePager/

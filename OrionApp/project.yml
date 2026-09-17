@@ -21,9 +21,17 @@ packages:
   # Verified against the real tagged 1.1.0 source (Docs/13 Decision 3, M0) -- swift-tools-version
   # 5.9, macOS 14+ floor, `Grape` product (depends on `ForceSimulation`), confirmed API:
   # ForceDirectedGraph/NodeMark/LinkMark/ForceDirectedGraphState.
+  #
+  # Vendored, not `url:`/`from: 1.1.0`, since macOS 27 / Xcode 27 (Swift 6.4): the tagged release
+  # no longer compiles there (`@State` is now a real macro whose synthesized `private` backing
+  # store can't be referenced from Grape's `@inlinable` `GraphDragModifier` -- "Property
+  # '_dragState' is private and cannot be referenced from an '@inlinable' function"), no upstream
+  # release contains the fix (open PR li3zhen1/Grape#78), and pinning a third-party fork's commit
+  # would make every build depend on that fork surviving. ../Vendor/Grape is upstream `main` plus
+  # exactly that one 17-line `@inlinable`-removal patch -- see Vendor/Grape/ORION_VENDORED.md for
+  # full provenance and how to un-vendor once upstream tags a release with the fix.
   Grape:
-    url: https://github.com/SwiftGraphs/Grape
-    from: 1.1.0
+    path: ../Vendor/Grape
 
 targets:
   Orion:

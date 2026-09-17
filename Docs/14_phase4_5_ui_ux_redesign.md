@@ -1194,3 +1194,59 @@ true-centering it in the whole pane -- any leftover space now sits at the bottom
 above and below the message. Verified against the same `pdf-merge` repository afterward: the empty
 state now sits immediately under the banner, matching the fix's intent. Full `OrionAppTests` suite
 (132 tests -- grown since M9 from other sessions' own test additions) green throughout.
+
+### macOS 27 addendum: build break in Grape, and a layout-loop crash in Model Changes / Ask
+
+Two separate problems surfaced together after the machine was updated to macOS 27 / Xcode 27
+(Swift 6.4). Neither existed on macOS 26.5, and neither turned out to be a logic bug in Orion.
+
+**1. Build break: `Property '_dragState' is private and cannot be referenced from an
+'@inlinable' function`** (three copies, all in a compiler-generated
+`@__swiftmacro_5Grape17GraphDragModifierV9dragState...swift`). Root cause is a toolchain change:
+`@State` is now expanded by a real Swift macro whose synthesized backing store is `private`, and
+Grape 1.1.0's `GraphDragModifier` marks its `@State dragState` (and every other member)
+`@inlinable` -- which the compiler now correctly refuses. It's the only `@inlinable @State` in the
+whole package (confirmed by grep across `Sources/`). Confirmed upstream, not guessed:
+[li3zhen1/Grape#77](https://github.com/li3zhen1/Grape/issues/77) is the identical error and
+[li3zhen1/Grape#78](https://github.com/li3zhen1/Grape/pull/78) ("remove @inlinable macro to be
+compatible with SDK-27") is the still-open fix -- removing `@inlinable` only disables cross-module
+inlining, no behavior change. No tagged release contains it (1.1.0 is still the latest tag).
+
+Resolution: Grape is now **vendored** at `Vendor/Grape` (`project.yml` uses `path:` instead of
+`url:`/`from:`), as upstream `main` (three trivial commits past 1.1.0) plus exactly that one
+17-line patch, with the un-vendored test targets dropped from its `Package.swift`. Full provenance
+and the un-vendoring steps are in `Vendor/Grape/ORION_VENDORED.md`. A first attempt pinned
+`project.yml` at the PR author's fork commit instead; vendoring won because a build shouldn't
+depend on a third-party fork continuing to exist, and the patch stays reviewable in-tree. Note
+Orion only ever uses Grape's tap gesture via `.graphOverlay` (`ArchitectureOverviewView.diagram`),
+so the patched drag modifier merely has to compile -- it's never instantiated at runtime; node
+tap -> inspector was re-verified live after the switch.
+
+**2. Runtime crash entering Model Changes** (and, rarely, Ask): `NSGenericException: The window
+has been marked as needing another Update Constraints in Window pass, but it has already had more
+Update Constraints in Window passes than there are views in the window`. Reproduced 3/3 on the
+`Pulsed` repository; Overview, Diagnostics and Teaching were fine. Crash reports show only AppKit
+layout recursion, so the cause was captured by running the built app under `lldb` with a
+breakpoint on `+[NSApplication _crashOnException:]`: the loop is
+`-[NSSplitView setFrameSize:]` -> KVO dependency chain -> `NSHostingView.didChangeValue(forKey:)`
+-> `invalidateSafeAreaInsets` -> `setNeedsUpdateConstraints` -> relayout -> resize -> ..., with
+the live view hierarchy showing the inner `HSplitView` mid-oscillation (host 1512×859 but the
+split sized 806×104 at x=-123, the "fixed 260pt" pane at 485, fractional origins) and both panes'
+scroll views carrying macOS 26+'s 52pt toolbar scroll-edge pocket whose inset never converged.
+
+Bisected live in Orion itself, one build per hypothesis (a standalone repro of the same view shape
+-- nested `HSplitView`, fixed pane, late-inserted split, toolbar, sidebar insets -- ran clean, so
+the shape alone is not it): removing `.textSelection(.enabled)` changed nothing (still crashed);
+removing the `onAppear { withAnimation { proxy.scrollTo(...) } }` on the change list fixed it
+(0/3); restoring the `scrollTo` *without* `withAnimation` stayed fixed (0/3, plus 0/6 across Ask
+and Teaching). So the trigger is specifically an **animated `ScrollView` offset change in the same
+layout pass that inserts its `HSplitView` pane under the toolbar** on macOS 27.
+
+Fix: `ModelChangesView.scrollToInitialSelection` no longer animates (an initial "restore the
+position" jump on appear shouldn't animate anyway -- macOS lists don't), and `AskView`'s
+`onChange(of: history.turns.last?.id)` scroll -- which also fires on a session's *initial* turn
+load, right as its detail `ScrollView` appears -- now animates only while `isSubmitting` (a
+freshly submitted turn), and jumps otherwise. `TeachingView`'s post-grading `scrollTo` is left
+animated: it runs in a long-lived scroll view, not one being inserted. Verified live on the final
+build: Model Changes 3/3, Ask (including selecting a session, which exercises the now-unanimated
+path) and Teaching all clean; full `OrionAppTests` suite 148 tests, 0 failures.

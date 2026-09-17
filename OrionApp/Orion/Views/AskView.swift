@@ -351,9 +351,21 @@ struct AskView: View {
                 // Keeps a freshly-submitted turn in view without the developer having to scroll
                 // to it themselves -- the one place this redesign's own "stacked, oldest-first
                 // column" needs to behave like a live conversation rather than a static list.
+                //
+                // Animated only for that freshly-submitted turn. This also fires on a session's
+                // *initial* turn load (selecting a session swaps `turns` from empty to loaded,
+                // right as this `ScrollView` appears inside the `HSplitView`) -- and on macOS 27
+                // an animated scroll in the same layout pass that inserts a split-view pane under
+                // the toolbar is exactly what crashed Model Changes (see
+                // `ModelChangesView.scrollToInitialSelection`'s comment for the captured loop).
+                // A jump-to-latest on open shouldn't animate anyway.
                 .onChange(of: history.turns.last?.id) { _, newValue in
                     guard let newValue else { return }
-                    withAnimation { proxy.scrollTo(newValue, anchor: .bottom) }
+                    if isSubmitting {
+                        withAnimation { proxy.scrollTo(newValue, anchor: .bottom) }
+                    } else {
+                        proxy.scrollTo(newValue, anchor: .bottom)
+                    }
                 }
             }
         } else if let scope = history.pendingScope {

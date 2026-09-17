@@ -122,6 +122,7 @@
 		836CAD26D97ACA9EFA67F40B /* AskRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskRunnerTests.swift; sourceTree = "<group>"; };
 		88B788B511B8397652B7FA83 /* AskRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskRunner.swift; sourceTree = "<group>"; };
 		89D1294ECBD2DE9547E8444C /* ClaudeBinaryLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeBinaryLocatorTests.swift; sourceTree = "<group>"; };
+		8BB040412532F47FA4C0444B /* Grape */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Grape; path = ../Vendor/Grape; sourceTree = SOURCE_ROOT; };
 		8CE2A06F83CB36C04CFA9F66 /* ArchitectureModelLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureModelLoaderTests.swift; sourceTree = "<group>"; };
 		9357B8EDC92320C5AFF2EAF8 /* SemanticInvestigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticInvestigator.swift; sourceTree = "<group>"; };
 		936E7B2551979768731E36E4 /* RecentRepositoriesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentRepositoriesTests.swift; sourceTree = "<group>"; };
@@ -286,6 +287,7 @@
 		8D2E3E2A074A6CB864B69488 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				8BB040412532F47FA4C0444B /* Grape */,
 				F3DD2E5F39F0699C96E0A396 /* OrionMacOs */,
 			);
 			name = Packages;
@@ -404,7 +406,7 @@
 			mainGroup = 6E07E0C622125DC8A27E4A62;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FC2DED1F43109E7E037B540E /* XCRemoteSwiftPackageReference "Grape" */,
+				4B697EC3AF54F52B6A3C2E5F /* XCLocalSwiftPackageReference "../Vendor/Grape" */,
 				65D498F5CCED02CDDB35AEA8 /* XCLocalSwiftPackageReference "../OrionMacOs" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -592,7 +594,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S3AP74B5TH;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -645,7 +646,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S3AP74B5TH;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -777,22 +777,15 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		4B697EC3AF54F52B6A3C2E5F /* XCLocalSwiftPackageReference "../Vendor/Grape" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Vendor/Grape;
+		};
 		65D498F5CCED02CDDB35AEA8 /* XCLocalSwiftPackageReference "../OrionMacOs" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../OrionMacOs;
 		};
 /* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		FC2DED1F43109E7E037B540E /* XCRemoteSwiftPackageReference "Grape" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SwiftGraphs/Grape";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		5E0366F62E91C79D09AEB216 /* OrionCodeIntel */ = {
@@ -801,7 +794,6 @@
 		};
 		8B11A55D0C309FA1C2987798 /* Grape */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FC2DED1F43109E7E037B540E /* XCRemoteSwiftPackageReference "Grape" */;
 			productName = Grape;
 		};
 		B491120E9B7E460D1FB7E851 /* OrionAgent */ = {
