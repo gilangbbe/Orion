@@ -1,0 +1,9 @@
+2026-09-28 12:36:24 START model_bench_mlx
+2026-09-28 12:43:38 END   model_bench_mlx rc=0 434s
+2026-09-28 12:43:38 START model_bench_coreai
+2026-09-28 12:51:06 END   model_bench_coreai rc=0 448s
+2026-09-28 12:51:06 START bench_d2_mlx
+2026-09-28 14:11:13 END   bench_d2_mlx rc=0 4807s
+2026-09-28 14:11:13 START bench_d2_coreai
+2026-09-28 15:32:29 END   bench_d2_coreai rc=0 4876s
+2026-09-28 15:32:29 START bench_d1_mlx

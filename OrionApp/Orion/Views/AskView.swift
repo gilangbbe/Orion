@@ -1,3 +1,4 @@
+import OrionAgent
 import SwiftUI
 
 /// Docs/14_phase4_5_ui_ux_redesign.md §4.6/§8 M4: a master-detail list, not a chat transcript --
@@ -29,6 +30,8 @@ struct AskView: View {
     /// stashed in `history.loadError`, and never shown anywhere, so asking a question that hit it
     /// looked exactly like nothing had happened at all (no turn, no spinner, no message).
     @State private var submitError: String?
+    /// Core AI bundles the answering role needs that aren't exported yet (Docs/18 M6).
+    @State private var missingModels: [String] = []
     /// Docs/15_phase5_adaptive_exploration.md §4.7/§5, M8.5: which session a right-click's
     /// "Rename…" is currently acting on -- drives the `.sheet(item:)` below. `nil` when no rename
     /// is in progress.
@@ -81,6 +84,11 @@ struct AskView: View {
                 }
             }
             Divider()
+            if !missingModels.isEmpty {
+                LocalModelSetupNotice(missing: missingModels, recheck: checkModels)
+                    .padding(.horizontal, DesignTokens.Spacing.md)
+                    .padding(.top, DesignTokens.Spacing.sm)
+            }
             if let submitError {
                 errorBanner(submitError)
             } else if let scope = history.pendingScope {
@@ -88,7 +96,10 @@ struct AskView: View {
             }
             inputBar
         }
-        .task { await history.refresh(outputDirectory: outputDirectory) }
+        .task {
+            checkModels()
+            await history.refresh(outputDirectory: outputDirectory)
+        }
         .sheet(item: $renamingSession) { session in
             RenameSessionSheet(session: session) { newTitle in
                 Task { await history.rename(session.id, title: newTitle, outputDirectory: outputDirectory) }
@@ -114,6 +125,10 @@ struct AskView: View {
                     + "\(session.turnCount == 1 ? "" : "s"). The underlying investigation history is kept."
             )
         }
+    }
+
+    private func checkModels() {
+        missingModels = CoreAIModelLocator.missingVariants(for: .default, roles: [.answering])
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -466,8 +481,8 @@ struct AskEntryView: View {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
                     Text(
-                        "Thinking… (the first local-model question can take a few minutes to "
-                            + "download real model weights)"
+                        "Thinking… (the first local question also loads the Core AI model, "
+                            + "which takes a few seconds)"
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)

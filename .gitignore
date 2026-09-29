@@ -1,4 +1,7 @@
 .venv
 .vscode
+.DS_Store
 Vendor/
 OnePager/
+.agents/
+skills-lock.json

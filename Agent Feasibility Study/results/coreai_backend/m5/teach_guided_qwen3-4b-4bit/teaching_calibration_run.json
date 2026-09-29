@@ -1,0 +1,10 @@
+{
+  "comparerModel" : "coreai:qwen3-4b-4bit",
+  "failedJudgeCalls" : 0,
+  "judgeCalls" : 117,
+  "judgeOutput" : "guided",
+  "localModel" : "coreai:qwen3-4b-4bit",
+  "modelLoadMs" : 1416.959459,
+  "unparseableJudgeOutputs" : 0,
+  "wallClockSeconds" : 442.909096792
+}

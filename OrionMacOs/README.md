@@ -29,37 +29,72 @@ swift run orion-index --help
   unavailable the pipeline still emits files, symbols, and syntactic import edges, and records
   a `SCIP_UNAVAILABLE` diagnostic.
 
-## OrionAgent (Phase 3) — first-run model download
+## OrionAgent — local model setup (Core AI, Docs/18)
 
-`Sources/OrionAgent/` and its `orion-agent ask` CLI (design:
-[`../Docs/12_phase3_mlx_agent.md`](../Docs/12_phase3_mlx_agent.md)) load a local
-`mlx-community/Qwen3-8B-4bit` checkpoint for depth 1/2 questions. **The first `ask` on a fresh
-machine downloads the real weights (~4.3GB) from the Hugging Face Hub** — `orion-agent` prints
-download progress to stderr while this happens (a silent multi-minute wait otherwise looks like
-a hung process, not a slow one); every run after that loads from the on-disk cache in seconds.
+`Sources/OrionAgent/` and its `orion-agent` CLI (design:
+[`../Docs/12_phase3_mlx_agent.md`](../Docs/12_phase3_mlx_agent.md), runtime:
+[`../Docs/18_os27_foundation_models_coreai.md`](../Docs/18_os27_foundation_models_coreai.md)) run
+Qwen3 locally on **Core AI** for depth 1/2 answers and teaching mode. Since Docs/18 M6 this is the
+only local runtime: MLX, its Hugging Face download and its `xcodebuild` requirement are gone, so
+plain `swift build`, `swift test` and `swift run orion-agent` work.
 
-That cache lives wherever `swift-huggingface`'s `HubClient` puts it — same resolution order the
-Python `huggingface_hub` library uses, so a cache is shareable between the two:
-
-1. `HF_HUB_CACHE` environment variable, if set.
-2. `HF_HOME` environment variable + `/hub`, if set.
-3. Otherwise `~/.cache/huggingface/hub` (confirmed on this machine: a real `orion-agent` run
-   landed the checkpoint at `~/.cache/huggingface/hub/models--mlx-community--Qwen3-8B-4bit`,
-   ~4.3GB on disk).
-
-Deleting that directory (or the one model's subdirectory within it) forces a re-download next
-run; nothing else in this repo depends on its contents.
-
-Building/running an MLX-touching binary (`orion-agent`, or any `OrionAgentTests` gated behind
-`ORION_AGENT_LIVE_MODEL_TEST=1`) needs `xcodebuild`, not plain `swift build`/`swift test` —
-`mlx-swift`'s Metal shaders are compiled as an Xcode build phase that plain SwiftPM's build
-system never runs, so a plain `swift build` links fine but fails at runtime with "Failed to load
-the default metallib" the moment a model actually loads:
+**First run: export the model bundles.** Nothing is downloaded automatically. A bundle is a folder
+with `<name>.aimodel`, a `tokenizer/` and `metadata.json`, which `CoreAILanguageModel(resourcesAt:)`
+loads. The default setup needs two:
 
 ```sh
-xcodebuild -scheme orion-agent -destination 'platform=macOS' -derivedDataPath .build/xcodebuild \
-  -skipPackagePluginValidation -skipMacroValidation build
-.build/xcodebuild/Build/Products/Debug/orion-agent ask <repo> "<question>"
+scripts/coreai/export-qwen3.sh                         # qwen3-8b-4bit: judging, comparing, drafting
+scripts/coreai/export-qwen3.sh --model qwen3-4b         # qwen3-4b-4bit: depth-1/2 answering
+scripts/coreai/export-qwen3.sh --dry-run                # print the resolved config only
+```
+
+A missing bundle fails with the exact export command, and the app's Ask and Teaching pages show
+it up front.
+
+**What the script does:**
+- Clones `apple/coreai-models` at a pinned commit into `~/Library/Caches/Orion/coreai-models`.
+- Runs its `coreai.llm.export` in its own `uv` environment.
+- Downloads the fp16 Hugging Face checkpoint into the normal HF cache (Qwen3-8B is ~16GB).
+- Writes the bundle to `<root>/<model>-<compression>/`. Exports take ~5 min (4B) to ~8 min (8B)
+  and peak at ~15 GB of memory.
+
+**Where bundles live.** `<root>` is `ORION_COREAI_MODEL_DIR` if set, otherwise
+`~/Library/Application Support/Orion/CoreAIModels`. `CoreAIModelLocator` resolves the same path.
+
+**Optional `--aot`.** This also compiles the bundle ahead of time for this Mac
+(`xcrun coreai-build compile`) and points `metadata.json` at the compiled asset. Docs/18 M1
+measured it slower, so it is off by default.
+
+**Choosing the bundle.** Pass `--local-backend coreai|coreai:<variant>` to `ask`, `bench`,
+`teach next`, `teach answer`, `teach bench` and `model-bench`, or set `ORION_LOCAL_BACKEND` (the
+app reads that variable). The default is `coreai`.
+
+**Choosing a model per role (Docs/18 M4).**
+- Plain `coreai` uses the measured table:
+  - depth-1/2 answering on `qwen3-4b-4bit` with thinking off;
+  - rubric judging, the pairwise comparer and question drafting on `qwen3-8b-4bit` with thinking on.
+- `coreai:<variant>` runs every role on that one bundle.
+- `ORION_LOCAL_ROLES` overrides both. It takes comma-separated `role=setting` pairs:
+  - roles are `answering`, `drafting`, `judging`, `comparing`, or `*` for the rest;
+  - a setting is a variant, `on|off`, or `variant:on|off`;
+  - for example `*=qwen3-4b-4bit:off,judging=qwen3-8b-4bit:on`.
+
+**Depth-2 tool calling (Docs/18 M3.5).** Depth 2 uses FoundationModels' native tool calling
+(`NativeToolLoop`). The model calls the query tools in Qwen3's own `<tool_call>` format. The old
+text-JSON `ActionLoop` workaround, and its `--tool-protocol` / `ORION_TOOL_PROTOCOL` switch, were
+removed with MLX in M6.
+
+**Teaching grader output (Docs/18 M5).** `teach answer` and `teach bench` take
+`--judge-output text|guided`, or `ORION_JUDGE_OUTPUT`.
+- `text` (the default) lets the model think, then parses its JSON verdict.
+- `guided` uses Core AI guided generation: it is 2.5× faster, but agrees less with the expert
+  labels (κ 0.53 vs 0.78 on the short M5 run).
+
+**Smoke-test a bundle** with the package's own runner:
+
+```sh
+cd ~/Library/Caches/Orion/coreai-models
+swift run -c release llm-runner --model "$HOME/Library/Application Support/Orion/CoreAIModels/qwen3-8b-4bit" --prompt "Hello"
 ```
 
 ## Status

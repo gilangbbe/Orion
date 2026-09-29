@@ -36,7 +36,7 @@ enum TeachingRunner {
                 maxBudgetUsd: maxBudgetUsd, timeoutSeconds: timeoutSeconds, claudeBinary: claudeBinary)
         } else {
             do {
-                let agent = try await Qwen3Agent.load()
+                let agent = try await LocalModelLoader.shared.model(for: .default, role: .drafting)
                 drafter = LocalTeachingDrafter { prompt in
                     try await agent.respond(
                         to: prompt, instructions: LocalTeachingDrafter.systemInstruction)
@@ -83,11 +83,8 @@ enum TeachingRunner {
             judge = injected
         } else {
             do {
-                let agent = try await Qwen3Agent.load()
-                judge = LocalCriterionJudge { prompt in
-                    try await agent.respond(
-                        to: prompt, instructions: LocalCriterionJudge.systemInstruction)
-                }
+                let agent = try await LocalModelLoader.shared.model(for: .default, role: .judging)
+                judge = try LocalGrading.judge(agent: agent, output: .current)
             } catch {
                 return .failed(String(describing: error))
             }

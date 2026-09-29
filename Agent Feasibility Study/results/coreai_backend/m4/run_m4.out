@@ -1,0 +1,25 @@
+2026-09-29 10:42:01 START model_qwen3-8b-4bit
+2026-09-29 10:45:38 END   model_qwen3-8b-4bit rc=0 217s
+2026-09-29 10:45:38 START model_qwen3-8b-4bit_weights_8bit_kv_cache
+2026-09-29 10:49:56 END   model_qwen3-8b-4bit_weights_8bit_kv_cache rc=0 258s
+2026-09-29 10:49:56 START model_qwen3-4b-4bit
+2026-09-29 10:52:13 END   model_qwen3-4b-4bit rc=0 137s
+2026-09-29 10:52:13 START answer_qwen3-8b-4bit_off
+2026-09-29 11:01:11 END   answer_qwen3-8b-4bit_off rc=0 538s
+2026-09-29 11:01:11 START answer_qwen3-8b-4bit_weights_8bit_kv_cache_on
+2026-09-29 11:24:03 END   answer_qwen3-8b-4bit_weights_8bit_kv_cache_on rc=0 1372s
+2026-09-29 11:24:03 START answer_qwen3-8b-4bit_weights_8bit_kv_cache_off
+2026-09-29 11:33:30 END   answer_qwen3-8b-4bit_weights_8bit_kv_cache_off rc=0 567s
+2026-09-29 11:33:30 START answer_qwen3-4b-4bit_on
+2026-09-29 11:45:01 END   answer_qwen3-4b-4bit_on rc=0 691s
+2026-09-29 11:45:01 START answer_qwen3-4b-4bit_off
+2026-09-29 11:52:16 END   answer_qwen3-4b-4bit_off rc=0 435s
+2026-09-29 11:52:16 START teach_qwen3-8b-4bit_on
+2026-09-29 12:22:51 END   teach_qwen3-8b-4bit_on rc=0 1835s
+2026-09-29 12:22:51 START teach_qwen3-8b-4bit_off
+2026-09-29 12:28:22 END   teach_qwen3-8b-4bit_off rc=0 331s
+2026-09-29 12:28:22 START teach_qwen3-4b-4bit_on
+2026-09-29 12:42:28 END   teach_qwen3-4b-4bit_on rc=0 846s
+2026-09-29 12:42:28 START teach_qwen3-4b-4bit_off
+2026-09-29 12:45:14 END   teach_qwen3-4b-4bit_off rc=0 166s
+2026-09-29 12:45:14 ALL DONE

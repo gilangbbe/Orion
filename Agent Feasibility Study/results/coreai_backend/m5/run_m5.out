@@ -1,0 +1,5 @@
+2026-09-29 13:33:48 START teach_guided_qwen3-8b-4bit
+2026-09-29 13:44:44 END   teach_guided_qwen3-8b-4bit rc=0 656s
+2026-09-29 13:44:44 START teach_guided_qwen3-4b-4bit
+2026-09-29 13:52:04 END   teach_guided_qwen3-4b-4bit rc=0 440s
+2026-09-29 13:52:04 ALL DONE

@@ -4,14 +4,13 @@ import PackageDescription
 let package = Package(
     name: "OrionCodeIntel",
     platforms: [
-        // Bumped from .v14 for FoundationModels (Docs/12_phase3_mlx_agent.md M1's Depth
-        // Model fallback) -- @available(macOS 26.0, *) is the framework's real floor,
-        // confirmed against the installed SDK's swiftinterface, not vendor docs. `.v26`
-        // requires PackageDescription 6.2, hence the tools-version bump above; every target
-        // stays pinned to Swift 5 language mode below (`swiftLanguageModes: [.v5]`) so this
-        // doesn't also silently switch the whole codebase to Swift 6's strict concurrency
-        // checking -- Phase 1 deliberately avoided that churn on the shared pipeline context.
-        .macOS(.v26)
+        // macOS 27 (Docs/18 M0): the FoundationModels OS 27 surface (`LanguageModelError`,
+        // `SystemLanguageModel.variant`, the `LanguageModel` protocol) and Core AI are
+        // @available(macOS 27.0, *) only, confirmed against the MacOSX27.0 SDK's swiftinterfaces.
+        // String form because PackageDescription 6.2 has no `.v27` case. Every target stays in
+        // Swift 5 language mode (`swiftLanguageModes: [.v5]` below) -- Phase 1 deliberately
+        // avoided Swift 6 strict-concurrency churn on the shared pipeline context.
+        .macOS("27.0")
     ],
     products: [
         .library(name: "OrionCodeIntel", targets: ["OrionCodeIntel"]),
@@ -34,16 +33,13 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
         .package(url: "https://github.com/apple/swift-protobuf", from: "1.30.0"),
         .package(url: "https://github.com/dduan/TOMLDecoder", from: "0.4.5"),
-        // Phase 3 (MLX Agent). Real product/target names verified against the actual tagged
-        // Package.swift at 3.31.4, not vendor docs/AI summaries -- see
-        // Docs/12_phase3_mlx_agent.md's M0 note. mlx-swift-lm's own manifest declares
-        // swift-tools-version 6.1; that's independent of this root manifest's 5.10.
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.4"),
-        // HuggingFace Hub download + tokenizer, wired to mlx-swift-lm via its MLXHuggingFace
-        // macro integration (`#hubDownloader()` / `#huggingFaceTokenizerLoader()`) -- the
-        // package's own recommended path for parity with its 2.x all-in-one API.
-        .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.10.0"),
-        .package(url: "https://github.com/huggingface/swift-transformers", from: "1.3.4"),
+        // The local model runtime (Docs/18 M2; the only one since M6 removed mlx-swift-lm and
+        // swift-huggingface): `CoreAILanguageModel`, a FoundationModels `LanguageModel` over an
+        // exported Core AI bundle. Pinned by revision, not the 0.2.0 tag -- 0.2.0 depends on
+        // xgrammar `branch: main`, which SwiftPM rejects under a version pin (Docs/18 M1) -- and to
+        // the exact commit `scripts/coreai/export-qwen3.sh` exports with, since the bundle format
+        // and the runtime must match.
+        .package(url: "https://github.com/apple/coreai-models", revision: "e7b24da85ea64a77d26324d7ce9607de9b955f57"),
     ],
     targets: [
         .target(
@@ -77,11 +73,7 @@ let package = Package(
             name: "OrionAgent",
             dependencies: [
                 "OrionCodeIntel",
-                .product(name: "MLXLLM", package: "mlx-swift-lm"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
-                .product(name: "HuggingFace", package: "swift-huggingface"),
-                .product(name: "Tokenizers", package: "swift-transformers"),
+                .product(name: "CoreAILM", package: "coreai-models"),
             ]
         ),
         .executableTarget(

@@ -1,0 +1,31 @@
+{
+  "byCategory" : {
+    "architecture" : 6,
+    "behavioral_reasoning" : 9,
+    "code_understanding" : 9,
+    "contradiction_detection" : 5,
+    "cross_file_reasoning" : 8,
+    "dependency_change_impact" : 6,
+    "evidence" : 4,
+    "teaching" : 4,
+    "transfer" : 4
+  },
+  "byDepth" : {
+    "2" : {
+      "count" : 55,
+      "outcomeCounts" : {
+        "partially_verified" : 21,
+        "unverified" : 2,
+        "verified" : 32
+      },
+      "p50LatencyMs" : 100223.249542,
+      "p95LatencyMs" : 175923.538458,
+      "totalCostUsd" : 0
+    }
+  },
+  "localModel" : "coreai:qwen3-8b-4bit",
+  "modelLoadMs" : 2365.581458,
+  "toolProtocol" : "native",
+  "totalCostUsd" : 0,
+  "totalQuestions" : 55
+}

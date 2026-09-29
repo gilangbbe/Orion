@@ -1,0 +1,49 @@
+{
+  "criterionPairs" : 36,
+  "disputedItems" : 3,
+  "gatePasses" : false,
+  "goldItems" : 6,
+  "gradedItems" : 6,
+  "kappaAnti" : 0,
+  "kappaBar" : 0.6,
+  "kappaConfidentOnly" : 0.06060606060606047,
+  "kappaOverall" : 0.1639344262295082,
+  "kappaRequired" : 0.18181818181818193,
+  "rawAgreementOverall" : 0.5277777777777778,
+  "scoreMAE" : 0.5277777777777778,
+  "scoreRMSE" : 0.6701298934341566,
+  "skipped" : {
+
+  },
+  "splitVoteCriteria" : 5,
+  "splitVoteFraction" : 0.12195121951219512,
+  "splitVoteMajorityMatchesExpert" : 0.6,
+  "unmatchedCriteria" : 0,
+  "verdictAccuracy" : 0,
+  "verdictConfusion" : {
+    "off-track" : {
+      "off-track" : 0,
+      "partial" : 3,
+      "shaky" : 0,
+      "solid" : 0
+    },
+    "partial" : {
+      "off-track" : 0,
+      "partial" : 0,
+      "shaky" : 0,
+      "solid" : 0
+    },
+    "shaky" : {
+      "off-track" : 0,
+      "partial" : 1,
+      "shaky" : 0,
+      "solid" : 0
+    },
+    "solid" : {
+      "off-track" : 0,
+      "partial" : 2,
+      "shaky" : 0,
+      "solid" : 0
+    }
+  }
+}

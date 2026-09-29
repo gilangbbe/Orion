@@ -1,0 +1,8 @@
+Loading coreai:qwen3-8b-4bit_weights_8bit_kv_cache...
+  loaded in 21899ms, footprint 0.19 GB
+  short: prompt=725 tok, TTFT=995ms (warm-up 3241ms), prefill=728 tok/s, decode=28.2 tok/s
+  production: prompt=4927 tok, TTFT=6303ms (warm-up 6328ms), prefill=781 tok/s, decode=20.2 tok/s
+  long: prompt=18025 tok, TTFT=27635ms (warm-up 28351ms), prefill=652 tok/s, decode=8.0 tok/s
+  production-repeat (identical prompt, new session): TTFT=162ms
+  follow-up turn: TTFT=6373ms vs first turn 6190ms
+  peak footprint 17.97 GB; wrote /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/coreai_backend/m4/model/model_bench_coreai_qwen3-8b-4bit_weights_8bit_kv_cache.json

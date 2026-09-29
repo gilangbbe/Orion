@@ -1,0 +1,49 @@
+{
+  "criterionPairs" : 30,
+  "disputedItems" : 2,
+  "gatePasses" : true,
+  "goldItems" : 6,
+  "gradedItems" : 5,
+  "kappaAnti" : 0.782608695652174,
+  "kappaBar" : 0.6,
+  "kappaConfidentOnly" : 0.8524590163934427,
+  "kappaOverall" : 0.801762114537445,
+  "kappaRequired" : 0.7272727272727274,
+  "rawAgreementOverall" : 0.9,
+  "scoreMAE" : 0.1,
+  "scoreRMSE" : 0.22360679774997896,
+  "skipped" : {
+    "gc-exceptions-b1-swapped" : "grade threw: Session ended without producing a response."
+  },
+  "splitVoteCriteria" : 3,
+  "splitVoteFraction" : 0.09090909090909091,
+  "splitVoteMajorityMatchesExpert" : 0.6666666666666666,
+  "unmatchedCriteria" : 0,
+  "verdictAccuracy" : 0.6,
+  "verdictConfusion" : {
+    "off-track" : {
+      "off-track" : 1,
+      "partial" : 0,
+      "shaky" : 1,
+      "solid" : 0
+    },
+    "partial" : {
+      "off-track" : 0,
+      "partial" : 0,
+      "shaky" : 0,
+      "solid" : 0
+    },
+    "shaky" : {
+      "off-track" : 0,
+      "partial" : 0,
+      "shaky" : 1,
+      "solid" : 0
+    },
+    "solid" : {
+      "off-track" : 0,
+      "partial" : 1,
+      "shaky" : 0,
+      "solid" : 1
+    }
+  }
+}

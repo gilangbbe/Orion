@@ -1,0 +1,149 @@
+{
+  "backend" : "coreAI(variant: \"qwen3-4b-4bit\")",
+  "cases" : [
+    {
+      "median" : {
+        "decodeTokensPerSecond" : 51.13600002727254,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1471.7023348579871,
+        "promptTokens" : 725,
+        "totalMs" : 5479.328917,
+        "ttftMs" : 492.626792
+      },
+      "name" : "short",
+      "samples" : [
+        {
+          "decodeTokensPerSecond" : 51.13600002727254,
+          "outputTokens" : 256,
+          "prefillTokensPerSecond" : 1471.7023348579871,
+          "promptTokens" : 725,
+          "totalMs" : 5479.328917,
+          "ttftMs" : 492.626792
+        }
+      ],
+      "warmup" : {
+        "decodeTokensPerSecond" : 50.24148503779898,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1411.356129218807,
+        "promptTokens" : 725,
+        "totalMs" : 5589.17725,
+        "ttftMs" : 513.690333
+      }
+    },
+    {
+      "median" : {
+        "decodeTokensPerSecond" : 40.7381960827229,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1435.09885936997,
+        "promptTokens" : 4927,
+        "totalMs" : 9692.694833,
+        "ttftMs" : 3433.212958
+      },
+      "name" : "production",
+      "samples" : [
+        {
+          "decodeTokensPerSecond" : 40.7381960827229,
+          "outputTokens" : 256,
+          "prefillTokensPerSecond" : 1435.09885936997,
+          "promptTokens" : 4927,
+          "totalMs" : 9692.694833,
+          "ttftMs" : 3433.212958
+        }
+      ],
+      "warmup" : {
+        "decodeTokensPerSecond" : 40.711160106415775,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1419.382471397099,
+        "promptTokens" : 4927,
+        "totalMs" : 9734.866625,
+        "ttftMs" : 3471.227875
+      }
+    },
+    {
+      "median" : {
+        "decodeTokensPerSecond" : 12.598503701653451,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1053.3035818654753,
+        "promptTokens" : 18025,
+        "totalMs" : 37353.324,
+        "ttftMs" : 17112.825125
+      },
+      "name" : "long",
+      "samples" : [
+        {
+          "decodeTokensPerSecond" : 12.598503701653451,
+          "outputTokens" : 256,
+          "prefillTokensPerSecond" : 1053.3035818654753,
+          "promptTokens" : 18025,
+          "totalMs" : 37353.324,
+          "ttftMs" : 17112.825125
+        }
+      ],
+      "warmup" : {
+        "decodeTokensPerSecond" : 12.590128398571503,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1016.7009942497489,
+        "promptTokens" : 18025,
+        "totalMs" : 37982.873,
+        "ttftMs" : 17728.909583
+      }
+    },
+    {
+      "median" : {
+        "decodeTokensPerSecond" : 40.990643106567205,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 52460.93646019112,
+        "promptTokens" : 4927,
+        "totalMs" : 6314.849417,
+        "ttftMs" : 93.9175
+      },
+      "name" : "production-repeat",
+      "samples" : [
+        {
+          "decodeTokensPerSecond" : 40.990643106567205,
+          "outputTokens" : 256,
+          "prefillTokensPerSecond" : 52460.93646019112,
+          "promptTokens" : 4927,
+          "totalMs" : 6314.849417,
+          "ttftMs" : 93.9175
+        }
+      ],
+      "warmup" : {
+        "decodeTokensPerSecond" : 40.97373327057173,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1512.0671909333732,
+        "promptTokens" : 4927,
+        "totalMs" : 9481.952375,
+        "ttftMs" : 3258.453083
+      }
+    }
+  ],
+  "footprintAfterLoadBytes" : 238996288,
+  "loadMs" : 1353.1077500000001,
+  "maxTokens" : 256,
+  "modelIdentifier" : "coreai:qwen3-4b-4bit",
+  "multiTurn" : [
+    {
+      "first" : {
+        "decodeTokensPerSecond" : 40.977674278350015,
+        "outputTokens" : 256,
+        "prefillTokensPerSecond" : 1487.2890482130956,
+        "promptTokens" : 4927,
+        "totalMs" : 9535.639458,
+        "ttftMs" : 3312.738708
+      },
+      "followUp" : {
+        "decodeTokensPerSecond" : 38.59913037024831,
+        "outputTokens" : 34,
+        "prefillTokensPerSecond" : 1455.692177029285,
+        "promptTokens" : 5211,
+        "totalMs" : 4434.681875,
+        "ttftMs" : 3579.740334
+      }
+    }
+  ],
+  "multiTurnMedianFirstTTFTMs" : 3312.738708,
+  "multiTurnMedianFollowUpTTFTMs" : 3579.740334,
+  "peakFootprintBytes" : 9349417840,
+  "trials" : 1
+}

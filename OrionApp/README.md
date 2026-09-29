@@ -24,12 +24,9 @@ Design: [`../Docs/13_phase4_architecture_ui.md`](../Docs/13_phase4_architecture_
 
 ## Build & test
 
-Building or testing this project needs `xcodebuild` (or Xcode's own Run/Test), **not** plain
-`swift build`/`swift test` — `OrionAgent` links `mlx-swift-lm`, whose Metal shaders are compiled
-as an Xcode build phase that plain SwiftPM's build system never runs (the same caveat
-`OrionMacOs/README.md` documents for `orion-agent`). Building through this actual Xcode project
-handles that correctly, including when launched from Xcode's own Run button — this was a real
-gotcha for the *library's* CLI tools (Docs/12), not for this app.
+The app builds through its Xcode project (`xcodebuild`, or Xcode's own Run/Test). Since Docs/18 M6
+the local model runs on Core AI rather than MLX, so the `mlx-swift` Metal-shader build-phase
+caveat that used to apply here, and to `orion-agent`, is gone.
 
 ```sh
 cd OrionApp
@@ -40,20 +37,22 @@ xcodebuild -project OrionApp.xcodeproj -scheme Orion -destination 'platform=macO
   -skipPackagePluginValidation -skipMacroValidation test
 ```
 
-`-skipPackagePluginValidation -skipMacroValidation` avoid an interactive plugin-approval prompt
-for `mlx-swift`'s (CUDA-only, no-op on macOS) build tool plugin — needed the first time a fresh
-checkout builds this project.
+`-skipPackagePluginValidation -skipMacroValidation` avoid Xcode's interactive package
+plugin/macro approval prompts the first time a fresh checkout builds from the command line.
 
 The built app lands at `.build/xcodebuild/Build/Products/Debug/Orion.app` (or wherever Xcode's
 own DerivedData puts it, if built from the Xcode GUI instead).
 
 ## Runtime requirements
 
-- **First local-model question downloads real weights (~4.3GB).** "Ask" (Docs/13 M7) loads
-  `mlx-community/Qwen3-8B-4bit` for depth 1/2 questions on first use — the app shows a generic
-  "this can take a few minutes" notice, not a real progress bar (Docs/12 M6's own stderr-based
-  progress reporter isn't visible from a GUI app). Every run after the first loads from the
-  on-disk Hugging Face cache in seconds — see `OrionMacOs/README.md` for the exact cache location.
+- **Local answers and teaching need exported Core AI bundles** (Docs/18 M6).
+  - Ask's depth-1/2 answers run on `qwen3-4b-4bit`. Teaching's drafting and grading run on
+    `qwen3-8b-4bit`.
+  - Nothing is downloaded automatically. Ask and Teaching show a "Local model not installed"
+    notice listing the exact export command for each missing bundle, with Copy and "Check again"
+    buttons.
+  - Export once with `OrionMacOs/scripts/coreai/export-qwen3.sh` (see `OrionMacOs/README.md`).
+    After that, the first question only pays a few seconds of model load.
 - **"Build Architecture Model" and depth-3 "Ask" answers need the real `claude` CLI installed.**
   `ClaudeBinaryLocator` resolves its absolute path itself (checking common install locations,
   then a login shell) specifically because a GUI app does *not* inherit an interactive shell's

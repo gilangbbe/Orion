@@ -1,0 +1,29 @@
+{
+  "_scale": "Yes=2, Reasonable=1.5, Partial=1, No=0, Confabulated=0; graded against benchmark.resolved.json expected_answer, the same 10 questions Phase 5 (PHASE5_ROUTING_BENCHMARK.md §4.3) hand-graded",
+  "mlx": {
+    "CU-05": ["No", "invents BodyStreamGenerator; omits _stream_consumed guard and RuntimeError"],
+    "CU-08": ["No", "says 302; real default is 307"],
+    "XF-04": ["Partial", "'stack finalized' idea right; wrongly says built during initialization (it is lazy, first request)"],
+    "AR-02": ["Confabulated", "centers benchmarks/gzip_benchmark.py::ASGIRunner"],
+    "DC-01": ["Confabulated", "ASGIRunner confabulation again"],
+    "BR-02": ["Partial", "405 right; code path HTTPEndpoint.method_not_allowed wrong; Allow omits HEAD"],
+    "CD-01": ["No", "claims docs omit nothing; misses RequestBodyLimitMiddleware"],
+    "EV-01": ["No", "claims no evidence exists"],
+    "TE-02": ["Reasonable", "rejects misconception; not the real reason (response already sent)"],
+    "TR-03": ["Partial", "streaming/race hypotheses; misses exception path"],
+    "_score": 4.5
+  },
+  "coreai": {
+    "CU-05": ["No", "malformed action -- no answer"],
+    "CU-08": ["No", "malformed action -- no answer"],
+    "XF-04": ["Partial", "same 'during initialization' slip as MLX"],
+    "AR-02": ["No", "malformed action -- no answer"],
+    "DC-01": ["Partial", "correct manual Request(scope)/tests/_CachedRequest points, plus an ASGIRunner confabulation"],
+    "BR-02": ["Partial", "405 right; code path HTTPEndpoint wrong; Allow omits HEAD"],
+    "CD-01": ["No", "claims docs omit nothing"],
+    "EV-01": ["Partial", "right conclusion, wrong mechanism (says it must be added via add_middleware)"],
+    "TE-02": ["Yes", "tasks run after the response is sent; cannot alter it"],
+    "TR-03": ["No", "malformed action -- no answer"],
+    "_score": 6.0
+  }
+}

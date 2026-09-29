@@ -118,6 +118,64 @@ final class RubricGraderTests: XCTestCase {
         XCTAssertEqual(votes?.count, 3)
     }
 
+    /// Throws on the listed call numbers (1-based, per criterion) and otherwise replays `verdict`.
+    private final class FlakyJudge: CriterionJudging, @unchecked Sendable {
+        struct Failure: Error {}
+        let source: TeachingQuestionSource = .local
+        let failOn: [String: Set<Int>]
+        let verdict: CriterionVerdict
+        var calls: [String: Int] = [:]
+        init(failOn: [String: Set<Int>], verdict: CriterionVerdict) {
+            self.failOn = failOn
+            self.verdict = verdict
+        }
+        func judge(criterionText: String, criterionKind: RubricCriterionKind, answer: String,
+                   conceptEvidence: [String]) async throws -> CriterionVerdict {
+            let n = calls[criterionText, default: 0] + 1
+            calls[criterionText] = n
+            if failOn[criterionText]?.contains(n) == true { throw Failure() }
+            return verdict
+        }
+    }
+
+    private struct ThrowingComparer: AnswerComparing {
+        func conveysSameIdea(_ a: String, as b: String) async throws -> Bool { throw FlakyJudge.Failure() }
+    }
+
+    /// Docs/18 M5 hardening: Docs/18 M4 saw one Core AI judge call end with no response, which
+    /// used to fail the whole grade. A failed call is now one unconfident "not met" vote.
+    func testAFailedJudgeCallIsAnUnconfidentVoteNotAFailedGrade() async throws {
+        let f = try seed(criteria: [("required", "R1"), ("required", "R2")])
+        let judge = FlakyJudge(failOn: ["R2": [2]], verdict: met())
+        let r = try await grade(f, judge: judge)
+        // R2: met, <failed>, met -> majority met but split -> low confidence, needs review.
+        XCTAssertEqual([r.requiredMet, r.requiredTotal], [1, 1])
+        XCTAssertEqual(r.needsReview, ["R2"])
+        let cr2 = try XCTUnwrap(
+            try f.store.teachingCriterionResults(attemptId: r.attemptId).first { $0.criterionId == "cr1" })
+        let votes = try JSONSerialization.jsonObject(with: Data((cr2.voteDetail ?? "").utf8)) as? [[String: Any]]
+        XCTAssertEqual(votes?.map { $0["met"] as? Bool }, [true, false, true])
+        XCTAssertEqual(votes?[1]["confidence"] as? String, "low", "the failed call is an unconfident vote")
+    }
+
+    func testAllVotesFailingLeavesTheCriterionUnconfidentAndNotMet() async throws {
+        let f = try seed(criteria: [("required", "R1"), ("required", "R2")])
+        let r = try await grade(f, judge: FlakyJudge(failOn: ["R2": [1, 2, 3]], verdict: met()))
+        XCTAssertEqual(r.needsReview, ["R2"])
+        let cr2 = try XCTUnwrap(
+            try f.store.teachingCriterionResults(attemptId: r.attemptId).first { $0.criterionId == "cr1" })
+        XCTAssertFalse(cr2.met)
+        XCTAssertEqual(cr2.confidence, "low")
+    }
+
+    func testAFailedComparerLeavesTheTripwireUnrunInsteadOfFailingTheGrade() async throws {
+        let f = try seed(criteria: [("required", "R1")])
+        let r = try await grade(f, judge: ScriptedJudge(["R1": [met()]]), comparer: ThrowingComparer())
+        XCTAssertEqual(r.verdict, .solid)
+        XCTAssertNil(r.pairwiseSameIdea)
+        XCTAssertFalse(r.disputed)
+    }
+
     func testSplitVoteOnRequiredIsLowConfidenceAndExcluded() async throws {
         let f = try seed(criteria: [("required", "R1"), ("required", "R2")])
         // R2's three k-calls: met, not-met, met -> majority met but NOT unanimous -> low, excluded.

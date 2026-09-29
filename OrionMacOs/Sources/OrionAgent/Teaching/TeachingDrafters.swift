@@ -1,8 +1,8 @@
 import Foundation
 import OrionCodeIntel
 
-/// The local (Qwen3-8B) drafting path — a single plain-chat generation. Docs/17 §6.2: band 1–2
-/// questions are drafted locally. Wraps a closure rather than `Qwen3Agent` directly so the CLI
+/// The local (Qwen3 on Core AI) drafting path — a single plain-chat generation. Docs/17 §6.2: band
+/// 1–2 questions are drafted locally. Wraps a closure rather than a model directly so the CLI
 /// owns model loading and this stays trivially testable; `TeachingQuestionGenerator` does the
 /// tolerant JSON extraction on whatever string comes back.
 public struct LocalTeachingDrafter: TeachingQuestionDrafting {
@@ -18,7 +18,7 @@ public struct LocalTeachingDrafter: TeachingQuestionDrafting {
     }
 
     /// The short system instruction the local model runs under — keeps it in "emit one JSON
-    /// object" mode, the same discipline `ActionLoop` imposes for its own JSON-action protocol.
+    /// object" mode.
     public static let systemInstruction = """
         You author grounded teaching questions for a code-comprehension tutor. You always reply \
         with exactly one JSON object and nothing else — no prose, no markdown fences, no \

@@ -1,0 +1,218 @@
+{
+  "_scale": "Yes=2, Reasonable=1.5, Partial=1, No=0, Confabulated=0; same 10 questions and rubric as m3/hand_grades_d2.json and m3_5/hand_grades_d2_native.json. qwen3-8b-4bit:on is m3_5's run.",
+  "qwen3-8b-4bit:off": {
+    "CU-05": [
+      "Partial",
+      "chunked async iterable right; double-read prevention vague ('stream closed or reset'), no _stream_consumed guard / RuntimeError"
+    ],
+    "CU-08": [
+      "No",
+      "says 302 confidently; real default is 307"
+    ],
+    "XF-04": [
+      "Partial",
+      "'stack finalized' right; guesses add_middleware calls build_middleware_stack and 'initialization' (it is lazy, first request)"
+    ],
+    "AR-02": [
+      "Partial",
+      "generic but correct ASGI flow, none of Starlette's layers (middleware, Router, request_response, Response.__call__); no confabulation"
+    ],
+    "DC-01": [
+      "No",
+      "asserts Request.__init__ is never called elsewhere (misreads tool output); generic checklist only"
+    ],
+    "BR-02": [
+      "Partial",
+      "405 + Allow right; code path HTTPEndpoint.method_not_allowed wrong; Allow content unstated"
+    ],
+    "CD-01": [
+      "No",
+      "says the docs match exactly; misses RequestBodyLimitMiddleware"
+    ],
+    "EV-01": [
+      "No",
+      "concludes the claim is not supported by the codebase"
+    ],
+    "TE-02": [
+      "Yes",
+      "incorrect claim; the response is already sent; handle errors in request processing"
+    ],
+    "TR-03": [
+      "Partial",
+      "race / stream / timing hypotheses; misses the exception path"
+    ],
+    "_score": 7.0
+  },
+  "qwen3-8b-4bit_weights_8bit_kv_cache:on": {
+    "CU-05": [
+      "Partial",
+      "chunked async iterator right; 'raise an error or return empty' hedge, no _stream_consumed guard"
+    ],
+    "CU-08": [
+      "No",
+      "says 302"
+    ],
+    "XF-04": [
+      "Partial",
+      "same 'built during initialization' slip"
+    ],
+    "AR-02": [
+      "Confabulated",
+      "centers benchmarks' StaticResponseApp"
+    ],
+    "DC-01": [
+      "Partial",
+      "_CachedRequest plausible; RequestBodyLimitMiddleware and ASGIRunner benchmark confabulation"
+    ],
+    "BR-02": [
+      "Partial",
+      "405 + Allow right; HTTPEndpoint.method_not_allowed code path wrong"
+    ],
+    "CD-01": [
+      "No",
+      "says the order matches and invents 'omissions'; misses RequestBodyLimitMiddleware"
+    ],
+    "EV-01": [
+      "Partial",
+      "right conclusion; invented __init__ add_middleware loop"
+    ],
+    "TE-02": [
+      "Yes",
+      "response already committed; background tasks are side effects; handle errors in the request pipeline"
+    ],
+    "TR-03": [
+      "Partial",
+      "await/race/stream hypotheses; misses the exception path"
+    ],
+    "_score": 8.0
+  },
+  "qwen3-8b-4bit_weights_8bit_kv_cache:off": {
+    "CU-05": [
+      "Partial",
+      "chunked streaming right; double-read prevention vague, no guard / RuntimeError"
+    ],
+    "CU-08": [
+      "No",
+      "says 302"
+    ],
+    "XF-04": [
+      "Partial",
+      "'already built and finalized' right; no mention of lazy build or the middleware_stack check"
+    ],
+    "AR-02": [
+      "Partial",
+      "generic correct ASGI flow; no Starlette layers; no confabulation"
+    ],
+    "DC-01": [
+      "No",
+      "asserts Request.__init__ has no callers; generic checklist"
+    ],
+    "BR-02": [
+      "Partial",
+      "405 + Allow right; HTTPEndpoint path wrong"
+    ],
+    "CD-01": [
+      "No",
+      "cannot confirm; misses RequestBodyLimitMiddleware"
+    ],
+    "EV-01": [
+      "No",
+      "says the claim is not supported by the codebase"
+    ],
+    "TE-02": [
+      "Yes",
+      "response sent before background tasks; they cannot change it"
+    ],
+    "TR-03": [
+      "Partial",
+      "concurrency / ordering hypotheses; misses the exception path"
+    ],
+    "_score": 7.0
+  },
+  "qwen3-4b-4bit:on": {
+    "CU-05": [
+      "Confabulated",
+      "claims stream() allows multiple reads; invents AsyncContentStream / BodyStreamGenerator"
+    ],
+    "CU-08": [
+      "No",
+      "says 302"
+    ],
+    "XF-04": [
+      "Partial",
+      "'built once, finalized' right; 'during initialization' slip"
+    ],
+    "AR-02": [
+      "Partial",
+      "generic correct ASGI flow; no Starlette layers; no confabulation"
+    ],
+    "DC-01": [
+      "Partial",
+      "_CachedRequest and Request(...) without receive right; misses the empty_receive stub, tests and TestClient"
+    ],
+    "BR-02": [
+      "Partial",
+      "405 + Allow right; HTTPEndpoint.dispatch code path wrong"
+    ],
+    "CD-01": [
+      "No",
+      "claims build_middleware_stack doesn't enforce the order"
+    ],
+    "EV-01": [
+      "Partial",
+      "right conclusion; invented RequestResponseMiddleware and test path"
+    ],
+    "TE-02": [
+      "Reasonable",
+      "content right (response already sent; handle before sending) but opens with 'correct in its intent'"
+    ],
+    "TR-03": [
+      "Partial",
+      "await/race hypotheses; misses the exception path"
+    ],
+    "_score": 7.5
+  },
+  "qwen3-4b-4bit:off": {
+    "CU-05": [
+      "Partial",
+      "async generator right; 'read once' asserted with no mechanism (no guard / RuntimeError)"
+    ],
+    "CU-08": [
+      "No",
+      "says 302"
+    ],
+    "XF-04": [
+      "Partial",
+      "'stack finalized' right; vague on the lazy build and the check"
+    ],
+    "AR-02": [
+      "Confabulated",
+      "centers benchmarks' ASGIRunner"
+    ],
+    "DC-01": [
+      "Partial",
+      "_CachedRequest plausible; RequestBodyLimitMiddleware / ExceptionHandler guesses; misses empty_receive and tests"
+    ],
+    "BR-02": [
+      "Partial",
+      "405 + Allow right; code path vague/wrong"
+    ],
+    "CD-01": [
+      "No",
+      "says the docs match; no omission found"
+    ],
+    "EV-01": [
+      "Partial",
+      "right conclusion; evidence is only the import and a guess about build_middleware_stack"
+    ],
+    "TE-02": [
+      "Reasonable",
+      "rejects the misconception; misses the real reason (the response is already sent)"
+    ],
+    "TR-03": [
+      "Partial",
+      "ordering / await hypotheses; misses the exception path"
+    ],
+    "_score": 7.5
+  }
+}

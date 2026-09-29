@@ -1,0 +1,16 @@
+{
+  "_scale": "Yes=2, Reasonable=1.5, Partial=1, No=0, Confabulated=0; same 10 questions and rubric as m3/hand_grades_d2.json (Phase 5 sample)",
+  "coreai_native": {
+    "CU-05": ["Partial", "async chunk iterator right; says a second read yields no data -- misses the _stream_consumed guard / RuntimeError('Stream consumed') and the cached _body path"],
+    "CU-08": ["No", "hedges 302-or-307, leans 302 and says 302 preserves the method; real default is 307"],
+    "XF-04": ["Partial", "'stack finalized' right; same 'built during initialization' slip as MLX and Core AI json (it is lazy, first request)"],
+    "AR-02": ["Confabulated", "centers benchmarks' ASGIRunner / StaticResponseApp / ResponsivenessBenchmark"],
+    "DC-01": ["Partial", "_CachedRequest point plausible; RequestBodyLimitMiddleware reasoning wrong; ASGIRunner benchmarks confabulation; misses header-only Request(scope) callers and tests"],
+    "BR-02": ["Partial", "405 right; code path HTTPEndpoint.method_not_allowed wrong; Allow omits HEAD"],
+    "CD-01": ["No", "claims ExceptionMiddleware sits before ServerErrorMiddleware; misses RequestBodyLimitMiddleware"],
+    "EV-01": ["Partial", "right conclusion; invents an __init__ that add_middleware()s ServerErrorMiddleware and cites benchmarks as tests"],
+    "TE-02": ["Yes", "tasks run after the response is sent; cannot change status or headers; do the work in the endpoint"],
+    "TR-03": ["Partial", "streaming/timing, ordering and cancellation hypotheses; misses the main exception path"],
+    "_score": 8.0
+  }
+}

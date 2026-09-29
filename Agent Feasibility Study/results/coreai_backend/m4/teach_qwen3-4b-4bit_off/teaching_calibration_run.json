@@ -1,0 +1,8 @@
+{
+  "comparerModel" : "coreai:qwen3-4b-4bit+nothink",
+  "judgeCalls" : 117,
+  "localModel" : "coreai:qwen3-4b-4bit+nothink",
+  "modelLoadMs" : 505.469042,
+  "unparseableJudgeOutputs" : 0,
+  "wallClockSeconds" : 165.743680875
+}

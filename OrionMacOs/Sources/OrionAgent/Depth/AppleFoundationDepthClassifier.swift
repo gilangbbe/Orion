@@ -5,6 +5,7 @@ import FoundationModels
 /// Apple Foundation Models would use `@Generable` guided generation").
 @Generable
 struct DepthClassificationOutput {
+    @Guide(.range(1...3))
     let depth: Int
     let intent: String
     @Guide(.anyOf(["high", "medium", "low"]))
@@ -109,20 +110,34 @@ public struct AppleFoundationDepthClassifier: DepthFallbackClassifying {
             )
         }
 
+        // The system model changes with OS updates (Docs/18 M0), so every model-produced
+        // rationale records which variant made the call -- `routing_decisions` then shows whether
+        // a routing shift coincides with an OS model change.
+        let systemModel = model.variant.displayName
+
         let session = LanguageModelSession(instructions: Instructions(instructions))
-        let response = try await session.respond(
-            to: question, generating: DepthClassificationOutput.self)
-        let output = response.content
+        let output: DepthClassificationOutput
+        do {
+            output = try await session.respond(
+                to: question, generating: DepthClassificationOutput.self
+            ).content
+        } catch {
+            guard let escalation = Self.escalation(for: error, systemModel: systemModel) else {
+                throw error
+            }
+            return escalation
+        }
 
         // Checked before the confidence field is even parsed (Docs/15 §3.2): a declined
         // classification's depth/confidence are the model's ignored best guess, not something
         // to validate as if they were going to be routed on.
         guard output.isRepositoryRelated else {
+            let reason =
+                output.offTopicRationale.isEmpty
+                ? "Judged unrelated to the analyzed repository." : output.offTopicRationale
             return DepthDecision(
                 depth: 3, intent: output.intent, confidence: .low,
-                rationale:
-                    output.offTopicRationale.isEmpty
-                    ? "Judged unrelated to the analyzed repository." : output.offTopicRationale,
+                rationale: Self.tagged(reason, systemModel: systemModel),
                 method: .model, isInScope: false
             )
         }
@@ -130,14 +145,60 @@ public struct AppleFoundationDepthClassifier: DepthFallbackClassifying {
         guard let confidence = DepthConfidence(rawValue: output.confidence.lowercased()) else {
             return DepthDecision(
                 depth: 3, intent: output.intent, confidence: .low,
-                rationale: "Model returned an unrecognized confidence value: \"\(output.confidence)\".",
+                rationale: Self.tagged(
+                    "Model returned an unrecognized confidence value: \"\(output.confidence)\".",
+                    systemModel: systemModel),
                 method: .model
             )
         }
-        let depth = min(max(output.depth, 1), 3)
         return DepthDecision(
-            depth: depth, intent: output.intent, confidence: confidence,
-            rationale: output.rationale, method: .model
+            depth: output.depth, intent: output.intent, confidence: confidence,
+            rationale: Self.tagged(output.rationale, systemModel: systemModel), method: .model
         )
+    }
+
+    /// Maps an OS 27 FoundationModels failure (Docs/18 M0) to the same low-confidence depth-3
+    /// escalation the "Apple Intelligence unavailable" path uses: a classifier that couldn't
+    /// classify -- refusal, guardrail, context overflow, unsupported locale, unparseable output,
+    /// missing assets -- is a routing non-answer, not a reason to fail the whole `ask`. Never a
+    /// decline: Docs/15 §3.2 reserves `isInScope: false` for a confident off-topic judgement.
+    /// Returns `nil` for anything outside the FoundationModels error families (e.g.
+    /// cancellation), which the caller rethrows unchanged.
+    static func escalation(for error: any Error, systemModel: String) -> DepthDecision? {
+        let failure: String
+        switch error {
+        case LanguageModelError.contextSizeExceeded(let context):
+            failure = "question exceeded the context window (\(context.tokenCount) of \(context.contextSize) tokens)"
+        case LanguageModelError.guardrailViolation:
+            failure = "request tripped the model's safety guardrails"
+        case LanguageModelError.refusal:
+            failure = "model refused to classify the question"
+        case LanguageModelError.unsupportedLanguageOrLocale:
+            failure = "question's language is not supported by the on-device model"
+        case LanguageModelError.rateLimited:
+            failure = "on-device model is rate limited"
+        case LanguageModelError.timeout:
+            failure = "on-device model timed out"
+        case LanguageModelError.unsupportedCapability, LanguageModelError.unsupportedGenerationGuide,
+            LanguageModelError.unsupportedTranscriptContent:
+            failure = "on-device model does not support this classification request"
+        case is GeneratedContent.ParsingError:
+            failure = "model output could not be parsed into a classification"
+        case SystemLanguageModel.Error.assetsUnavailable:
+            failure = "on-device model assets are unavailable"
+        default:
+            return nil
+        }
+        return DepthDecision(
+            depth: 3, intent: "unclassified", confidence: .low,
+            rationale: tagged(
+                "Local classification failed (\(failure)); escalated to Claude Code.",
+                systemModel: systemModel),
+            method: .model
+        )
+    }
+
+    static func tagged(_ rationale: String, systemModel: String) -> String {
+        "\(rationale) (system model: \(systemModel))"
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Best-effort extraction of anchor-shaped strings (`<path>::<Dotted.Name>` or a bare module
-/// path) out of an `ActionLoop` run's tool-call trace, so a local-model answer can cite the
+/// path) out of a depth-2 run's tool-call trace, so a local-model answer can cite the
 /// same evidence shape a Claude-delegated one does (Docs/12 M4: "full epistemic claim/evidence
 /// persistence"). Deliberately tolerant of false positives: `SemanticImporter`'s own evidence
 /// resolution (Docs/11 "step 2") already drops any anchor that doesn't resolve against this

@@ -12,7 +12,11 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    # Package.swift's floor is macOS 27 (Docs/18 M0), which needs the macOS 27 SDK. `xcode-27` is
+    # GitHub's only hosted image with it (public preview, macOS 27 base since 2026-09-16 --
+    # actions/runner-images#14404); every other label ships the 26.x SDK and can't build this
+    # package. Preview images can queue or be unstable; switch to the GA label once one exists.
+    runs-on: xcode-27
     defaults:
       run:
         working-directory: OrionMacOs
@@ -22,28 +26,28 @@ jobs:
       - name: Swift version
         run: swift --version
 
-      - name: Available Xcode versions (diagnostic -- Package.swift needs macOS 26 SDK support)
-        run: ls /Applications | grep -i xcode || true
+      - name: Selected Xcode / SDK (diagnostic -- Package.swift needs the macOS 27 SDK)
+        run: xcodebuild -version && xcrun --sdk macosx --show-sdk-version
 
       - name: Build
         run: swift build
 
       # Network-free by construction, not just by convention (Docs/12_phase3_mlx_agent.md M6):
       # the Starlette integration tests XCTSkip when the (gitignored) vendored corpus and/or
-      # npx are absent (never present on a fresh CI checkout), and every MLX-model/`claude`-CLI
-      # test in OrionAgentTests XCTSkips unless an explicit ORION_AGENT_LIVE_* env var is set
-      # (never set here). The --skip list below is defense in depth on top of that runtime
-      # gating, not a substitute for it -- if one of these tests' own guard were ever weakened
-      # or removed, CI still can't accidentally start a live model load or a paid `claude` call.
+      # npx are absent (never present on a fresh CI checkout), and every local-model/`claude`-CLI
+      # test in OrionAgentTests XCTSkips unless an explicit ORION_AGENT_LIVE_* / ORION_TEACHING_LIVE_*
+      # env var is set (never set here) -- a hosted runner has no exported Core AI bundle anyway.
+      # The --skip list below is defense in depth on top of that runtime gating, not a substitute
+      # for it -- if one of these tests' own guard were ever weakened or removed, CI still can't
+      # accidentally start a live model load or a paid `claude` call.
       - name: Test
         run: |
           swift test \
-            --skip ActionLoopLiveTests \
             --skip FoundationModelsToolCallingLiveTests \
             --skip ClaudeCodeInvestigatorLiveTests \
-            --skip Qwen3AgentTests \
-            --skip ModelBackedDepthClassifierLiveTests \
-            --skip Qwen3NonThinkingToolCallingLiveTests \
             --skip AppleFoundationDepthClassifierLiveTests \
             --skip TeachingGenerationLiveTests \
-            --skip TeachingGradingLiveTests
+            --skip TeachingGradingLiveTests \
+            --skip CoreAIAgentLiveTests \
+            --skip CoreAINativeToolCallingLiveTests \
+            --skip CoreAIGuidedJudgeLiveTests

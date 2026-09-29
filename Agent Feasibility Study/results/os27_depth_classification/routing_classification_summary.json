@@ -1,0 +1,52 @@
+{
+  "confidenceCounts" : {
+    "low" : 1,
+    "medium" : 54
+  },
+  "declinedIds" : [
+
+  ],
+  "depthCounts" : {
+    "2" : 54,
+    "3" : 1
+  },
+  "depthCountsByCategory" : {
+    "architecture" : {
+      "2" : 6
+    },
+    "behavioral_reasoning" : {
+      "2" : 9
+    },
+    "code_understanding" : {
+      "2" : 9
+    },
+    "contradiction_detection" : {
+      "2" : 5
+    },
+    "cross_file_reasoning" : {
+      "2" : 8
+    },
+    "dependency_change_impact" : {
+      "2" : 6
+    },
+    "evidence" : {
+      "2" : 3,
+      "3" : 1
+    },
+    "teaching" : {
+      "2" : 4
+    },
+    "transfer" : {
+      "2" : 4
+    }
+  },
+  "errorIds" : [
+
+  ],
+  "methodCounts" : {
+    "model" : 55
+  },
+  "p50LatencyMs" : 2775.375125,
+  "p95LatencyMs" : 3830.611333,
+  "totalQuestions" : 55
+}

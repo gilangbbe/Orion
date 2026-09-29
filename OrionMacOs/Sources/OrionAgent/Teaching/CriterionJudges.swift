@@ -29,6 +29,12 @@ public struct LocalCriterionJudge: CriterionJudging {
         return Self.parse(raw)
     }
 
+    /// The system instruction for `GuidedCriterionJudge`, whose reply format is the schema.
+    public static let guidedSystemInstruction = """
+        You are a strict, terse code-comprehension grader. You judge whether a developer's answer \
+        states ONE specific idea — nothing else. You only credit what the answer actually says.
+        """
+
     static func buildPrompt(
         criterionText: String, criterionKind: RubricCriterionKind,
         answer: String, conceptEvidence: [String]
@@ -56,13 +62,16 @@ public struct LocalCriterionJudge: CriterionJudging {
         """
     }
 
+    /// The note on the verdict an unparseable reply becomes (counted by `teach bench`).
+    public static let unparseableNote = "grader output was not valid JSON"
+
     static func parse(_ raw: String) -> CriterionVerdict {
         guard let jsonText = TeachingQuestionGenerator.extractJSONObject(raw),
               let obj = try? JSONSerialization.jsonObject(with: Data(jsonText.utf8)) as? [String: Any]
         else {
             // Unparseable — the safest reading is "not established, and we're not sure".
             return CriterionVerdict(met: false, confidence: .low, evidenceQuote: "",
-                                    note: "grader output was not valid JSON")
+                                    note: unparseableNote)
         }
         let met = (obj["met"] as? Bool) ?? false
         let confidence = GraderConfidence(rawValue: (obj["confidence"] as? String ?? "").lowercased()) ?? .low
@@ -81,8 +90,8 @@ public struct LocalAnswerComparer: AnswerComparing {
         self.generate = generate
     }
 
-    public func conveysSameIdea(_ a: String, as b: String) async throws -> Bool {
-        let raw = try await generate("""
+    static func buildPrompt(_ a: String, _ b: String, jsonReplyFormat: Bool = true) -> String {
+        """
         Do these two answers convey the SAME core idea about the code? Ignore wording, length and \
         detail level — judge only whether the central point is the same.
 
@@ -95,9 +104,11 @@ public struct LocalAnswerComparer: AnswerComparing {
         \"\"\"
         \(b)
         \"\"\"
+        """ + (jsonReplyFormat ? "\n\nReply with EXACTLY one JSON object: {\"same\": true or false}" : "")
+    }
 
-        Reply with EXACTLY one JSON object: {"same": true or false}
-        """)
+    public func conveysSameIdea(_ a: String, as b: String) async throws -> Bool {
+        let raw = try await generate(Self.buildPrompt(a, b))
         guard let jsonText = TeachingQuestionGenerator.extractJSONObject(raw),
               let obj = try? JSONSerialization.jsonObject(with: Data(jsonText.utf8)) as? [String: Any]
         else { return false }

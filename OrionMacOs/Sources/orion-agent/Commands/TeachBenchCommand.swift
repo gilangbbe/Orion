@@ -52,6 +52,8 @@ struct TeachBench: AsyncParsableCommand {
     var kappaBar: Double = 0.60
     @Flag(help: "Also run the §7.4 pairwise same-idea tripwire and report the disputed rate.")
     var pairwise: Bool = false
+    @OptionGroup var backend: LocalBackendOption
+    @OptionGroup var judgeOutputOption: JudgeOutputOption
     @Flag(
         name: .customLong("verify-gold"),
         help: """
@@ -113,12 +115,17 @@ struct TeachBench: AsyncParsableCommand {
         print("Grader calibration: \(items.count) gold item(s) against \(repoURL.lastPathComponent) "
             + "(run \(run.id), k=\(k)\(pairwise ? ", pairwise" : ""))")
 
-        let agent = try await Qwen3Agent.load()
-        let judge = LocalCriterionJudge { p in
-            try await agent.respond(to: p, instructions: LocalCriterionJudge.systemInstruction)
-        }
-        let comparer: (any AnswerComparing)? = pairwise
-            ? LocalAnswerComparer { p in try await agent.respond(to: p) } : nil
+        let benchStart = ContinuousClock.now
+        let localBackend = try backend.resolve()
+        let judgeOutput = try judgeOutputOption.resolve()
+        let agent = try await LocalModelLoader.shared.model(for: localBackend, role: .judging)
+        let comparerAgent = pairwise
+            ? try await LocalModelLoader.shared.model(for: localBackend, role: .comparing) : nil
+        let modelLoadMs = Self.ms(since: benchStart)
+        let judgeStats = JudgeCallStats()
+        let judge = CountingJudge(
+            inner: try LocalGrading.judge(agent: agent, output: judgeOutput), stats: judgeStats)
+        let comparer = try comparerAgent.map { try LocalGrading.comparer(agent: $0, output: judgeOutput) }
         let now: @Sendable () -> String = { ISO8601DateFormatter().string(from: Date()) }
 
         var rows: [CalibrationRow] = []
@@ -143,9 +150,22 @@ struct TeachBench: AsyncParsableCommand {
         try Self.writeJSONL(rows, to: reportURL.appendingPathComponent("teaching_calibration.jsonl"))
         try Self.writeJSON(summary, to: reportURL.appendingPathComponent("teaching_calibration_summary.json"))
 
+        let runInfo = TeachBenchRunInfo(
+            localModel: agent.modelIdentifier, comparerModel: comparerAgent?.modelIdentifier,
+            judgeOutput: judgeOutput.rawValue, modelLoadMs: modelLoadMs,
+            wallClockSeconds: Self.ms(since: benchStart) / 1000,
+            judgeCalls: await judgeStats.calls, unparseableJudgeOutputs: await judgeStats.unparseable,
+            failedJudgeCalls: await judgeStats.failed)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+        try encoder.encode(runInfo).write(to: reportURL.appendingPathComponent("teaching_calibration_run.json"))
+
         print("")
         print("Wrote \(rows.count) row(s) to \(reportURL.path)")
         summary.printFormatted()
+        print("model \(runInfo.localModel): \(Int(runInfo.wallClockSeconds))s wall-clock, "
+            + "\(runInfo.unparseableJudgeOutputs)/\(runInfo.judgeCalls) judge replies unparseable, "
+            + "\(runInfo.failedJudgeCalls) failed (\(runInfo.judgeOutput) output)")
 
         // Exit 1 if nothing could be graded at all — a broken gold file or run, not a low κ.
         if summary.gradedItems == 0 { throw ExitCode(1) }
@@ -594,4 +614,67 @@ struct CalibrationSummary: Encodable {
 
 private extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}
+
+/// Per-run facts `teaching_calibration_summary.json` doesn't carry (Docs/18 M3): which local model
+/// graded, how long it took, and how often the judge's reply wasn't a parseable verdict.
+struct TeachBenchRunInfo: Encodable {
+    /// The judge's model (`LocalModelRole.judging`, Docs/18 M4).
+    let localModel: String
+    /// The pairwise comparer's model (`LocalModelRole.comparing`), when `--pairwise` ran.
+    let comparerModel: String?
+    /// `text` or `guided` (Docs/18 M5).
+    let judgeOutput: String
+    let modelLoadMs: Double
+    let wallClockSeconds: Double
+    let judgeCalls: Int
+    let unparseableJudgeOutputs: Int
+    /// Judge calls that threw; `RubricGrader` turns each into an unconfident vote (Docs/18 M5).
+    let failedJudgeCalls: Int
+}
+
+actor JudgeCallStats {
+    private(set) var calls = 0
+    private(set) var unparseable = 0
+    private(set) var failed = 0
+
+    func record(_ verdict: CriterionVerdict) {
+        calls += 1
+        if verdict.note == LocalCriterionJudge.unparseableNote { unparseable += 1 }
+    }
+
+    func recordFailure() {
+        calls += 1
+        failed += 1
+    }
+}
+
+/// Counts every judge call's outcome for `teaching_calibration_run.json`, whichever judge runs.
+struct CountingJudge: CriterionJudging {
+    let inner: any CriterionJudging
+    let stats: JudgeCallStats
+
+    var source: TeachingQuestionSource { inner.source }
+
+    func judge(
+        criterionText: String, criterionKind: RubricCriterionKind, answer: String, conceptEvidence: [String]
+    ) async throws -> CriterionVerdict {
+        do {
+            let verdict = try await inner.judge(
+                criterionText: criterionText, criterionKind: criterionKind, answer: answer,
+                conceptEvidence: conceptEvidence)
+            await stats.record(verdict)
+            return verdict
+        } catch {
+            await stats.recordFailure()
+            throw error
+        }
+    }
+}
+
+extension TeachBench {
+    static func ms(since start: ContinuousClock.Instant) -> Double {
+        let elapsed = start.duration(to: .now)
+        return Double(elapsed.components.seconds) * 1000 + Double(elapsed.components.attoseconds) / 1e15
+    }
 }

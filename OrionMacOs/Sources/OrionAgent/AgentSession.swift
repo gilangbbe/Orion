@@ -1,4 +1,5 @@
 import Foundation
+import FoundationModels
 import OrionCodeIntel
 
 /// Everything one `orion-agent ask` invocation needs to find its analyzed repository --
@@ -17,12 +18,16 @@ public struct AgentSessionConfig: Sendable {
     public var timeoutSeconds: Double
     public var claudeBinary: String
     public var claudeModel: String
+    /// Which Core AI bundle serves depth 1/2 (Docs/18 M2; roles per M4).
+    public var localBackend: LocalModelBackend
 
     public init(
         repoRoot: URL, outputDirectory: URL, commit: String? = nil, forceDepth: Int? = nil,
         toolBudget: Int = 6, maxBudgetUsd: Double = 1.00, timeoutSeconds: Double = 400,
-        claudeBinary: String = "claude", claudeModel: String = "claude-sonnet-5"
+        claudeBinary: String = "claude", claudeModel: String = "claude-sonnet-5",
+        localBackend: LocalModelBackend = .default
     ) {
+        self.localBackend = localBackend
         self.repoRoot = repoRoot
         self.outputDirectory = outputDirectory
         self.commit = commit
@@ -60,6 +65,9 @@ public enum AgentSessionError: Error, CustomStringConvertible {
     /// id that doesn't resolve is a caller bug (a stale/deleted session), not something to
     /// silently paper over by starting a fresh one under the hood.
     case sessionNotFound(String)
+    /// Docs/18 M3.5: depth 2 needs a `NativeToolCallingModel`; an injected model without it
+    /// can't run the tool loop.
+    case nativeToolCallingUnsupported(String)
 
     public var description: String {
         switch self {
@@ -67,12 +75,14 @@ public enum AgentSessionError: Error, CustomStringConvertible {
             return "no analyzed run found at \(path) -- run `orion-index analyze` first"
         case .sessionNotFound(let id):
             return "no ask session with id \(id) -- create one first (Docs/15 §4.6)"
+        case .nativeToolCallingUnsupported(let model):
+            return "\(model) does not support native tool calling, which depth 2 requires"
         }
     }
 }
 
 /// The orchestrator Docs/12 M2/M3 both deliberately deferred: wires `DepthModel` -> local
-/// `ActionLoop` (depth 1/2) or `ClaudeCodeInvestigator` (depth 3) -> `SemanticImporter` ->
+/// a direct answer (depth 1) / `NativeToolLoop` (depth 2) or `ClaudeCodeInvestigator` (depth 3) -> `SemanticImporter` ->
 /// `routing_decisions`/`agent_tool_calls` persistence, for one question.
 ///
 /// **Phase 5 (Docs/15 §4) added optional session continuity on top of this, without changing
@@ -85,14 +95,17 @@ public enum AgentSessionError: Error, CustomStringConvertible {
 public struct AgentSession {
     public let config: AgentSessionConfig
     private let sessionFactory: (String?) async throws -> any TurnGenerating
+    private let nativeSessionFactory: (String, [any Tool]) async throws -> any ToolCallingTurnGenerating
     private let depthFallback: DepthFallbackClassifying
 
-    /// - Parameter sessionFactory: how depth 1/2 obtain a `TurnGenerating` session for
-    ///   `ActionLoop` to drive. Defaults to loading the real `Qwen3Agent` (downloads/loads
-    ///   weights on first use) -- injectable so `AgentSessionTests` can substitute a scripted
-    ///   stub and cover the orchestration (routing/persistence/candidate-JSON construction)
-    ///   without a live model, the same seam `ActionLoopTests` already uses for `ActionLoop`
-    ///   itself.
+    /// - Parameter sessionFactory: how depth 1 obtains its plain-chat `TurnGenerating` session.
+    ///   `nil` (the default) uses `config.localBackend`'s answering model from `LocalModelLoader`
+    ///   (loaded once per process, Docs/18 M2) -- injectable so `AgentSessionTests` can substitute
+    ///   a scripted stub and cover the orchestration (routing/persistence/candidate-JSON
+    ///   construction) without a live model.
+    /// - Parameter nativeSessionFactory: the same seam for depth 2's `NativeToolLoop` (Docs/18
+    ///   M3.5; the only depth-2 path since M6). `nil` uses
+    ///   `config.localBackend`'s answering model, which must be a `NativeToolCallingModel`.
     /// - Parameter depthFallback: the Depth Model's non-heuristic classifier. `nil` (the
     ///   default) constructs the real `AppleFoundationDepthClassifier` grounded in this session's
     ///   own `config.repoRoot` -- Docs/15 §11 M8's own real finding: a bare parameter default
@@ -108,18 +121,25 @@ public struct AgentSession {
     ///   decline -- end to end without a live FoundationModels call.
     public init(
         config: AgentSessionConfig,
-        sessionFactory: @escaping (String?) async throws -> any TurnGenerating = { instructions in
-            // Docs/12 M6: a silent multi-minute hang on the very first run (real weight,
-            // ~4.3GB) reads as a hung CLI, not a slow one -- report real download progress
-            // instead of loading silently.
-            let reporter = ModelDownloadProgressReporter()
-            let agent = try await Qwen3Agent.load(progressHandler: { reporter.report($0) })
-            return agent.makeSession(instructions: instructions)
-        },
+        sessionFactory: ((String?) async throws -> any TurnGenerating)? = nil,
+        nativeSessionFactory: ((String, [any Tool]) async throws -> any ToolCallingTurnGenerating)? = nil,
         depthFallback: DepthFallbackClassifying? = nil
     ) {
         self.config = config
-        self.sessionFactory = sessionFactory
+        let backend = config.localBackend
+        self.sessionFactory =
+            sessionFactory ?? { instructions in
+                let agent = try await LocalModelLoader.shared.model(for: backend, role: .answering)
+                return agent.makeSession(instructions: instructions)
+            }
+        self.nativeSessionFactory =
+            nativeSessionFactory ?? { instructions, tools in
+                let agent = try await LocalModelLoader.shared.model(for: backend, role: .answering)
+                guard let native = agent as? any NativeToolCallingModel else {
+                    throw AgentSessionError.nativeToolCallingUnsupported(agent.modelIdentifier)
+                }
+                return native.makeToolSession(tools: tools, instructions: instructions)
+            }
         self.depthFallback =
             depthFallback ?? AppleFoundationDepthClassifier(repositoryName: config.repoRoot.lastPathComponent)
     }
@@ -224,7 +244,7 @@ public struct AgentSession {
         return try await DepthModel(fallback: depthFallback).classify(question)
     }
 
-    /// Docs/15 §3.3: a guardrail decline never loads `Qwen3Agent` or invokes
+    /// Docs/15 §3.3: a guardrail decline never loads the local model or invokes
     /// `ClaudeCodeInvestigator` -- the whole point is that an out-of-scope question costs
     /// nothing and takes no meaningful time. Persists exactly like any other routing decision
     /// (visible via `--explain`/Diagnostics), and one `investigations` row with
@@ -248,7 +268,7 @@ public struct AgentSession {
             investigation: record, claimCount: 0, droppedClaimCount: 0, partial: false)
     }
 
-    // MARK: depth 1/2 -- local Qwen3-8B, `ActionLoop` (budget 0 or N)
+    // MARK: depth 1/2 -- local Qwen3 on Core AI: a direct answer (budget 0) or `NativeToolLoop`
 
     private func runLocal(
         question: String, decision: DepthDecision, db: OrionDatabase, store: Store,
@@ -256,19 +276,31 @@ public struct AgentSession {
         componentContext: String? = nil
     ) async throws -> AgentSessionResult {
         let tools: [AgentTool] = budget > 0 ? QueryEngineTools.all(engine: QueryEngine(db), commit: config.commit) : []
-        let loop = ActionLoop(tools: tools, budget: budget)
         let context = ContextBuilder.build(
             exportDir: config.exportDir, priorTurns: priorTurns, componentContext: componentContext)
 
-        let session = try await sessionFactory(loop.instructions(context: context))
-        let answer = try await loop.run(question: question, session: session)
+        let answer: AgentAnswer
+        if budget > 0 {
+            let loop = try NativeToolLoop(tools: tools, budget: budget)
+            let session = try await nativeSessionFactory(
+                loop.instructions(context: context), loop.foundationModelsTools)
+            answer = try await loop.run(question: question, session: session)
+        } else {
+            // Depth 1 (Docs/12 Decision #4): no tools, the question asked directly against the
+            // primed context. A reasoning model's thinking arrives as transcript reasoning
+            // entries, never in the text (Docs/18 M2).
+            let session = try await sessionFactory(context ?? "")
+            let text = try await session.respond(to: question)
+            answer = AgentAnswer(
+                text: text.trimmingCharacters(in: .whitespacesAndNewlines), toolCalls: [], partial: false)
+        }
 
         let evidence = EvidenceAnchors.extract(from: answer.toolCalls)
         let candidateData = try Self.buildCandidateJSON(
             answer: answer.text, evidence: evidence, confidence: decision.confidence.rawValue,
             assertClaim: budget > 0)
         let meta = InvestigationMeta(
-            modelUsed: Qwen3Agent.modelConfiguration.name, sessionId: nil,
+            modelUsed: config.localBackend.modelIdentifier(for: .answering), sessionId: nil,
             numTurns: answer.toolCalls.count, totalCostUsd: 0, durationMs: nil,
             toolsUsed: tools.map { $0.name })
 

@@ -1,0 +1,28 @@
+{
+  "byCategory" : {
+    "architecture" : 6,
+    "behavioral_reasoning" : 9,
+    "code_understanding" : 9,
+    "contradiction_detection" : 5,
+    "cross_file_reasoning" : 8,
+    "dependency_change_impact" : 6,
+    "evidence" : 4,
+    "teaching" : 4,
+    "transfer" : 4
+  },
+  "byDepth" : {
+    "1" : {
+      "count" : 55,
+      "outcomeCounts" : {
+        "verified" : 55
+      },
+      "p50LatencyMs" : 75494.696709,
+      "p95LatencyMs" : 169492.715042,
+      "totalCostUsd" : 0
+    }
+  },
+  "localModel" : "mlx:mlx-community\/Qwen3-8B-4bit",
+  "modelLoadMs" : 1039.457958,
+  "totalCostUsd" : 0,
+  "totalQuestions" : 55
+}

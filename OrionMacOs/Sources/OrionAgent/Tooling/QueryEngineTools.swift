@@ -3,7 +3,7 @@ import OrionCodeIntel
 /// The four `AgentTool`s over Phase 1's `QueryEngine` -- no new deterministic capability, just
 /// agent-callable wrappers over what Phase 1 already computed (Docs/12 "Tools").
 public enum QueryEngineTools {
-    /// All four tools, ready to hand to an `ActionLoop`.
+    /// All four tools, ready to hand to a `NativeToolLoop`.
     public static func all(engine: QueryEngine, commit: String? = nil) -> [AgentTool] {
         [
             LookupSymbolTool(engine: engine, commit: commit),
@@ -24,6 +24,11 @@ public struct LookupSymbolTool: AgentTool {
     public let description =
         "Find symbols whose anchor or qualified name contains a substring. "
         + "Arguments: {\"query\": \"<substring>\"}"
+
+    public let parameters = [
+        AgentToolParameter(
+            name: "query", description: "Substring of a symbol anchor or qualified name, e.g. \"Router\" or \"build_stack\".")
+    ]
 
     public func execute(arguments: [String: Any]) -> String {
         guard let query = arguments["query"] as? String, !query.isEmpty else {
@@ -48,6 +53,11 @@ public struct ModuleSymbolsTool: AgentTool {
         "List the symbols defined in a module by its dotted module path. "
         + "Arguments: {\"module\": \"<dotted.module.path>\"}"
 
+    public let parameters = [
+        AgentToolParameter(
+            name: "module", description: "Dotted module path, e.g. \"package.module\".")
+    ]
+
     public func execute(arguments: [String: Any]) -> String {
         guard let module = arguments["module"] as? String, !module.isEmpty else {
             return "Error: module_symbols requires a non-empty \"module\" argument."
@@ -71,6 +81,11 @@ public struct CallersTool: AgentTool {
         "List what points at a symbol (imports it, calls it, extends it, etc.), by its exact "
         + "anchor. Arguments: {\"anchor\": \"<path::Dotted.Name>\"}"
 
+    public let parameters = [
+        AgentToolParameter(
+            name: "anchor", description: "Exact symbol anchor, as returned by lookup_symbol, e.g. \"pkg/module.py::Class.method\".")
+    ]
+
     public func execute(arguments: [String: Any]) -> String {
         guard let anchor = arguments["anchor"] as? String, !anchor.isEmpty else {
             return "Error: callers requires a non-empty \"anchor\" argument."
@@ -92,6 +107,11 @@ public struct CalleesTool: AgentTool {
     public let description =
         "List what a symbol points at (imports, calls, extends, etc.), by its exact anchor. "
         + "Arguments: {\"anchor\": \"<path::Dotted.Name>\"}"
+
+    public let parameters = [
+        AgentToolParameter(
+            name: "anchor", description: "Exact symbol anchor, as returned by lookup_symbol, e.g. \"pkg/module.py::Class.method\".")
+    ]
 
     public func execute(arguments: [String: Any]) -> String {
         guard let anchor = arguments["anchor"] as? String, !anchor.isEmpty else {

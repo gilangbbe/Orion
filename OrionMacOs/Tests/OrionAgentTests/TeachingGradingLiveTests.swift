@@ -2,13 +2,12 @@ import XCTest
 @testable import OrionCodeIntel
 @testable import OrionAgent
 
-/// Docs/17 M3's "one live grade of a good/bad answer pair". Costs a real Qwen3-8B load, so it is
-/// `XCTSkip`'d unless `ORION_TEACHING_LIVE_GRADE=1`. Also in CI's `--skip` set.
+/// Docs/17 M3's "one live grade of a good/bad answer pair". Costs a real Core AI model load, so
+/// it is `XCTSkip`'d unless `ORION_TEACHING_LIVE_GRADE=1`. Also in CI's `--skip` set. Plain
+/// SwiftPM since Docs/18 M6:
 ///
 /// ```
-/// ORION_TEACHING_LIVE_GRADE=1 xcrun xctest -XCTest \
-///   OrionAgentTests.TeachingGradingLiveTests/testGoodAnswerScoresHigherThanBad \
-///   .build/xcodebuild/Build/Products/Debug/OrionAgentPackageTests.xctest
+/// ORION_TEACHING_LIVE_GRADE=1 swift test --filter TeachingGradingLiveTests
 /// ```
 final class TeachingGradingLiveTests: XCTestCase {
 
@@ -49,10 +48,8 @@ final class TeachingGradingLiveTests: XCTestCase {
     func testGoodAnswerScoresHigherThanBad() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["ORION_TEACHING_LIVE_GRADE"] == "1")
         let f = try fixture()
-        let agent = try await Qwen3Agent.load()
-        let judge = LocalCriterionJudge { p in
-            try await agent.respond(to: p, instructions: LocalCriterionJudge.systemInstruction)
-        }
+        let agent = try await LocalModelLoader.shared.model(for: .defaultCoreAI, role: .judging)
+        let judge = try LocalGrading.judge(agent: agent, output: .text)
 
         let good = try await RubricGrader(store: f.store, run: f.run, judge: judge, k: 3, now: { "t1" })
             .grade(questionId: f.questionId,

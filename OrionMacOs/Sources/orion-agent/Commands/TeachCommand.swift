@@ -167,6 +167,7 @@ struct TeachNext: AsyncParsableCommand {
     var timeout: Double = 400
     @Flag(help: "Always generate a fresh question even if a verified one exists.")
     var fresh: Bool = false
+    @OptionGroup var backend: LocalBackendOption
     @Flag(help: "Emit JSON.")
     var json: Bool = false
 
@@ -217,7 +218,7 @@ struct TeachNext: AsyncParsableCommand {
                     repoRoot: repoURL, exportDir: outURL.appendingPathComponent("export"),
                     maxBudgetUsd: maxBudgetUsd, timeoutSeconds: timeout)
             } else {
-                let agent = try await Qwen3Agent.load()
+                let agent = try await LocalModelLoader.shared.model(for: try backend.resolve(), role: .drafting)
                 drafter = LocalTeachingDrafter { p in
                     try await agent.respond(to: p, instructions: LocalTeachingDrafter.systemInstruction)
                 }
@@ -285,6 +286,8 @@ struct TeachAnswer: AsyncParsableCommand {
     var k: Int = 3
     @Flag(help: "Also run the pairwise reference-sanity tripwire (§7.4).")
     var pairwise: Bool = false
+    @OptionGroup var backend: LocalBackendOption
+    @OptionGroup var judgeOutputOption: JudgeOutputOption
     @Flag(help: "Print the k-vote detail and pairwise result.")
     var explain: Bool = false
     @Flag(help: "Emit JSON.")
@@ -299,12 +302,13 @@ struct TeachAnswer: AsyncParsableCommand {
             throw ExitCode(3)
         }
 
-        let agent = try await Qwen3Agent.load()
-        let judge = LocalCriterionJudge { p in
-            try await agent.respond(to: p, instructions: LocalCriterionJudge.systemInstruction)
-        }
-        let comparer: (any AnswerComparing)? = pairwise
-            ? LocalAnswerComparer { p in try await agent.respond(to: p) } : nil
+        let localBackend = try backend.resolve()
+        let judgeOutput = try judgeOutputOption.resolve()
+        let agent = try await LocalModelLoader.shared.model(for: localBackend, role: .judging)
+        let judge = try LocalGrading.judge(agent: agent, output: judgeOutput)
+        let comparerAgent = pairwise
+            ? try await LocalModelLoader.shared.model(for: localBackend, role: .comparing) : nil
+        let comparer = try comparerAgent.map { try LocalGrading.comparer(agent: $0, output: judgeOutput) }
 
         let result: RubricGrader.Result
         do {

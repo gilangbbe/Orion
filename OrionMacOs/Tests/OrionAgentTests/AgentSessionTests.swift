@@ -1,14 +1,16 @@
-import XCTest
+import FoundationModels
 import OrionCodeIntel
+import XCTest
 
 @testable import OrionAgent
 
 /// Docs/12_phase3_mlx_agent.md M4 ("State management + CLI"): `AgentSession` wires
-/// `DepthModel` -> local `ActionLoop` (depth 1/2) or `ClaudeCodeInvestigator` (depth 3) ->
-/// `SemanticImporter` -> `routing_decisions`/`agent_tool_calls` persistence. No live model, no
-/// network: depth 1/2 use an injected scripted `TurnGenerating` stub (the same seam
-/// `ActionLoopTests` uses for `ActionLoop` itself), depth 3 uses a stand-in `claude` shell
-/// script (the same approach `ClaudeCodeInvestigatorTests` uses).
+/// `DepthModel` -> a local answer (depth 1 direct, depth 2 `NativeToolLoop`) or
+/// `ClaudeCodeInvestigator` (depth 3) -> `SemanticImporter` -> `routing_decisions`/
+/// `agent_tool_calls` persistence. No live model, no network: depth 1 uses a scripted
+/// `TurnGenerating` stub, depth 2 a scripted `ToolCallingTurnGenerating` that calls the offered
+/// tools itself the way `LanguageModelSession` does, and depth 3 a stand-in `claude` shell script
+/// (the same approach `ClaudeCodeInvestigatorTests` uses).
 final class AgentSessionTests: XCTestCase {
 
     private var keepAlive: [TempDir] = []
@@ -55,15 +57,43 @@ final class AgentSessionTests: XCTestCase {
         return (repo.url, out.url)
     }
 
+    /// A depth-2 stand-in for `LanguageModelSession` with tools: on its first turn it calls each
+    /// scripted tool through the offered `AgentToolAdapter`s, then answers.
+    private final class NativeScriptedSession: ToolCallingTurnGenerating {
+        let tools: [any Tool]
+        let calls: [(tool: String, arguments: String)]
+        let answer: String
+        init(tools: [any Tool], calls: [(tool: String, arguments: String)], answer: String) {
+            self.tools = tools
+            self.calls = calls
+            self.answer = answer
+        }
+        func respond(to message: String, toolsAllowed: Bool) async throws -> String {
+            for call in calls {
+                let tool = try XCTUnwrap(tools.first { $0.name == call.tool } as? AgentToolAdapter)
+                _ = try await tool.call(arguments: GeneratedContent(json: call.arguments))
+            }
+            return answer
+        }
+    }
+
+    /// - Parameters:
+    ///   - script: depth 1's plain-chat replies.
+    ///   - toolCalls/answer: depth 2's scripted native tool calls and final answer.
     private func session(
         repoRoot: URL, outDir: URL, forceDepth: Int, script: [String] = [],
+        toolCalls: [(tool: String, arguments: String)] = [], answer: String = "",
         claudeBinary: String = "claude"
     ) -> AgentSession {
         let config = AgentSessionConfig(
             repoRoot: repoRoot, outputDirectory: outDir, forceDepth: forceDepth,
             maxBudgetUsd: 1.00, timeoutSeconds: 5, claudeBinary: claudeBinary
         )
-        return AgentSession(config: config, sessionFactory: { _ in ScriptedSession(script) })
+        return AgentSession(
+            config: config, sessionFactory: { _ in ScriptedSession(script) },
+            nativeSessionFactory: { _, tools in
+                NativeScriptedSession(tools: tools, calls: toolCalls, answer: answer)
+            })
     }
 
     // MARK: depth 1 -- local, no tools
@@ -96,13 +126,28 @@ final class AgentSessionTests: XCTestCase {
 
     func testForceDepth2RunsToolLoopAndPersistsTrace() async throws {
         let (repoRoot, outDir) = try analyzed()
-        let result = try await session(
-            repoRoot: repoRoot, outDir: outDir, forceDepth: 2,
-            script: [
-                #"{"action": "call_tool", "tool": "lookup_symbol", "arguments": {"query": "Router"}}"#,
-                #"{"action": "answer", "text": "Router dispatches requests to handlers."}"#,
-            ]
+        var offered: [String] = []
+        var instructionsSeen = ""
+        let config = AgentSessionConfig(
+            repoRoot: repoRoot, outputDirectory: outDir, forceDepth: 2, maxBudgetUsd: 1.00, timeoutSeconds: 5)
+        let result = try await AgentSession(
+            config: config,
+            sessionFactory: { _ in
+                XCTFail("depth 2 must not use the plain-chat session")
+                return ScriptedSession([])
+            },
+            nativeSessionFactory: { instructions, tools in
+                instructionsSeen = instructions
+                offered = tools.map(\.name)
+                return NativeScriptedSession(
+                    tools: tools, calls: [("lookup_symbol", #"{"query": "Router"}"#)],
+                    answer: "Router dispatches requests to handlers.")
+            }
         ).ask("What does the Router class do?")
+
+        XCTAssertEqual(offered, ["lookup_symbol", "module_symbols", "callers", "callees"])
+        XCTAssertFalse(instructionsSeen.contains(#""action""#), "no JSON-action contract (Docs/18 M6)")
+        XCTAssertFalse(result.partial)
 
         XCTAssertEqual(result.depthDecision.depth, 2)
         XCTAssertEqual(result.answerText, "Router dispatches requests to handlers.")
@@ -124,10 +169,8 @@ final class AgentSessionTests: XCTestCase {
         let (repoRoot, outDir) = try analyzed()
         let result = try await session(
             repoRoot: repoRoot, outDir: outDir, forceDepth: 2,
-            script: [
-                #"{"action": "call_tool", "tool": "lookup_symbol", "arguments": {"query": "NoSuchThing"}}"#,
-                #"{"action": "answer", "text": "I could not find anything relevant."}"#,
-            ]
+            toolCalls: [("lookup_symbol", #"{"query": "NoSuchThing"}"#)],
+            answer: "I could not find anything relevant."
         ).ask("What does NoSuchThing do?")
 
         // A tool call was made, but nothing anchor-shaped came back to ground a claim in --

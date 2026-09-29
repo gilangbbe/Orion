@@ -253,8 +253,8 @@ public struct RubricGrader {
             let kind = RubricCriterionKind(rawValue: criterion.kind) ?? .required
             var votes: [CriterionVerdict] = []
             for _ in 0..<k {
-                votes.append(try await judge.judge(
-                    criterionText: criterion.text, criterionKind: kind, answer: answer,
+                votes.append(try await Self.vote(
+                    judge: judge, criterionText: criterion.text, criterionKind: kind, answer: answer,
                     conceptEvidence: conceptEvidence))
             }
             let metCount = votes.filter(\.met).count
@@ -289,12 +289,20 @@ public struct RubricGrader {
         // --- §7.4 pairwise tripwire.
         var pairwiseSame: Bool?
         var disputed = false
+        // A comparer failure leaves the tripwire unrun (`pairwiseSame` nil) rather than failing the
+        // grade -- it's a calibration flag, never the grade itself (Docs/18 M5).
         if let comparer {
-            let a = try await comparer.conveysSameIdea(answer, as: question.referenceAnswer)
-            let b = try await comparer.conveysSameIdea(question.referenceAnswer, as: answer)
-            let same = a && b
-            pairwiseSame = same
-            disputed = (agg.score >= 0.6) != same
+            do {
+                let a = try await comparer.conveysSameIdea(answer, as: question.referenceAnswer)
+                let b = try await comparer.conveysSameIdea(question.referenceAnswer, as: answer)
+                let same = a && b
+                pairwiseSame = same
+                disputed = (agg.score >= 0.6) != same
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                pairwiseSame = nil
+            }
         }
 
         // --- Persist.
@@ -407,6 +415,28 @@ public struct RubricGrader {
             lines.append("\(anchor) — \(detail)")
         }
         return lines
+    }
+
+    static let failedVoteNotePrefix = "judge call failed: "
+
+    /// One k-vote. A judge call that throws (Docs/18 M4: a Core AI call whose thinking ran into the
+    /// token cap ended with no response) becomes an unconfident "not met" vote instead of failing
+    /// the whole grade -- the other votes still decide, and a criterion left with only failed
+    /// votes is unconfident, so the attempt is flagged for review rather than silently scored.
+    static func vote(
+        judge: any CriterionJudging, criterionText: String, criterionKind: RubricCriterionKind,
+        answer: String, conceptEvidence: [String]
+    ) async throws -> CriterionVerdict {
+        do {
+            return try await judge.judge(
+                criterionText: criterionText, criterionKind: criterionKind, answer: answer,
+                conceptEvidence: conceptEvidence)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return CriterionVerdict(
+                met: false, confidence: .low, evidenceQuote: "", note: failedVoteNotePrefix + "\(error)")
+        }
     }
 
     private func encodeVotes(_ votes: [CriterionVerdict]) -> String {

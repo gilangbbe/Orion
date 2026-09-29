@@ -1,0 +1,538 @@
+{
+  "metadata": {
+    "repository": "starlette",
+    "remote": "https://github.com/Kludex/starlette",
+    "version": "v1.6.0",
+    "commit_sha": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+    "language": "Python",
+    "license": "BSD-3-Clause",
+    "authored": "2026-09-02",
+    "line_hints_verified": true,
+    "notes": "line_hint values are unverified estimates captured from the master branch during authoring. Resolve them against the pinned commit with tools/resolve_anchors.py before use. relevant_symbols anchors are authoritative.",
+    "scope_contract": {
+      "analyzed": [
+        "starlette/**",
+        "tests/**",
+        "docs/**",
+        "git metadata"
+      ],
+      "not_analyzed": [
+        "anyio and other third-party internals",
+        "ASGI server (uvicorn/hypercorn) behaviour",
+        "CI/packaging/tooling",
+        "runtime/production deployment"
+      ]
+    },
+    "category_counts": {
+      "code_understanding": 9,
+      "cross_file_reasoning": 8,
+      "architecture": 6,
+      "dependency_change_impact": 6,
+      "behavioral_reasoning": 9,
+      "contradiction_detection": 5,
+      "evidence": 4,
+      "teaching": 4,
+      "transfer": 4
+    },
+    "line_hint_resolution": {
+      "resolved": 85,
+      "unresolved": 42
+    }
+  },
+  "questions": [
+    {
+      "id": "CU-05",
+      "category": "code_understanding",
+      "question": "What does Request.stream() do, and how does it prevent the request body from being consumed twice?",
+      "expected_answer": "stream() is an async generator that yields body byte chunks. If the body was already fully read into self._body it yields that cached value and returns. Otherwise it pulls 'http.request' messages from the ASGI receive channel, yielding each body chunk, until a message with more_body False; it then sets self._stream_consumed = True and yields a final empty bytes. If it is called again after that, the self._stream_consumed guard raises RuntimeError('Stream consumed'). An 'http.disconnect' message raises ClientDisconnect.",
+      "required_concepts": [
+        "async generator yielding chunks",
+        "returns cached self._body if present",
+        "reads from ASGI receive channel",
+        "_stream_consumed guard -> RuntimeError('Stream consumed')",
+        "http.disconnect -> ClientDisconnect"
+      ],
+      "relevant_files": [
+        "starlette/requests.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.stream",
+        "starlette/requests.py::ClientDisconnect"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.stream",
+          "line_hint": 196,
+          "type": "SOURCE",
+          "line": 234
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.stream",
+          "line_hint": 199,
+          "type": "SOURCE",
+          "note": "_stream_consumed guard",
+          "line": 234
+        }
+      ],
+      "common_misconceptions": [
+        "stream() can be iterated repeatedly",
+        "stream() returns the whole body as one bytes object",
+        "consuming the stream twice returns an empty iterator silently"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must mention the 'Stream consumed' RuntimeError guard. Bonus for the cached-_body short-circuit and ClientDisconnect."
+    },
+    {
+      "id": "CU-08",
+      "category": "code_understanding",
+      "question": "What HTTP status code does RedirectResponse use by default, and why does that particular choice matter?",
+      "expected_answer": "RedirectResponse defaults to status_code=307 (Temporary Redirect). 307 preserves the request method and body across the redirect, unlike 301/302 which historically caused clients to switch to GET. This is why Router's redirect_slashes feature (also a RedirectResponse) can safely redirect a POST to the slash-corrected path without silently downgrading it to a GET. It is also not cacheable-as-permanent the way a 301 is.",
+      "required_concepts": [
+        "default status_code = 307",
+        "307 preserves method and body",
+        "contrast with 301/302 method-switching",
+        "used by redirect_slashes"
+      ],
+      "relevant_files": [
+        "starlette/responses.py",
+        "starlette/routing.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::RedirectResponse",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::RedirectResponse.__init__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 33
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 668,
+          "type": "SOURCE",
+          "note": "redirect_slashes branch",
+          "line": 58
+        }
+      ],
+      "common_misconceptions": [
+        "RedirectResponse defaults to 302",
+        "redirect_slashes issues a 301",
+        "307 and 302 are equivalent for a POST"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "easy",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "The number 307 and the method-preservation rationale are both required."
+    },
+    {
+      "id": "XF-04",
+      "category": "cross_file_reasoning",
+      "question": "How does Starlette.add_middleware relate to build_middleware_stack, and why does calling add_middleware after the application has started serving raise a RuntimeError?",
+      "expected_answer": "add_middleware inserts a Middleware(cls, **options) at position 0 of self.user_middleware (so later add_middleware calls wrap earlier ones -- outermost-last-added). build_middleware_stack reads self.user_middleware once, lazily, on the first request (or first __call__), and caches the result in self.middleware_stack. add_middleware checks whether self.middleware_stack is already built and raises RuntimeError('Cannot add middleware after an application has started') if so, because mutating user_middleware then would have no effect on the already-folded stack. add_exception_handler and add_route have analogous ordering considerations but routes are consulted live via the Router.",
+      "required_concepts": [
+        "add_middleware inserts at index 0 of user_middleware",
+        "build_middleware_stack consumes the list once and caches",
+        "raises if middleware_stack already built",
+        "rationale: post-build mutation would be silently ignored"
+      ],
+      "relevant_files": [
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.add_middleware",
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "starlette/applications.py::Starlette.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.add_middleware",
+          "line_hint": 78,
+          "type": "SOURCE",
+          "line": 104
+        },
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.__call__",
+          "line_hint": 68,
+          "type": "SOURCE",
+          "line": 92
+        }
+      ],
+      "common_misconceptions": [
+        "Middleware can be added at any time and takes effect on the next request",
+        "add_middleware appends (so first-added is outermost)",
+        "The stack is rebuilt per request so mutation is fine"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must connect the lazy-build-and-cache to the RuntimeError. Insert-at-0 ordering is a bonus."
+    },
+    {
+      "id": "AR-02",
+      "category": "architecture",
+      "question": "Describe the primary data flow from the ASGI scope/receive/send triple to an endpoint and back to the client.",
+      "expected_answer": "The ASGI server calls Starlette.__call__(scope, receive, send). It sets scope['app']=self, lazily builds the middleware stack, and calls it. Each middleware calls the next with the same (scope, receive, send) or wrapped versions. ExceptionMiddleware stores handler dicts in scope and calls Router. Router iterates routes, and on a FULL match updates scope with path_params/route/endpoint and calls Route.handle. request_response builds a Request(scope, receive), calls the endpoint (async awaited, sync via run_in_threadpool), and expects a Response back. Response.__call__ sends {'type':'http.response.start', status, headers} then one or more {'type':'http.response.body'} messages via send, then awaits self.background if present. Control unwinds back through the middleware; ServerErrorMiddleware only acts if something raised.",
+      "required_concepts": [
+        "Starlette.__call__ sets scope['app'] and delegates to the stack",
+        "receive/send threaded through middleware",
+        "Router match -> Route.handle -> request_response builds Request",
+        "endpoint returns Response; Response.__call__ emits start + body events",
+        "background awaited after body",
+        "unwind through middleware"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "starlette/routing.py",
+        "starlette/requests.py",
+        "starlette/responses.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.__call__",
+        "starlette/routing.py::request_response",
+        "starlette/responses.py::Response.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::Response.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 163
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::request_response",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 47
+        }
+      ],
+      "common_misconceptions": [
+        "The framework parses the body eagerly before calling the endpoint",
+        "Responses are returned up the call stack rather than sent via send()",
+        "Background tasks run before the response body is sent"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Must show that responses are emitted via send() as ASGI messages, and that background runs after the body. Lazy body reading is a bonus."
+    },
+    {
+      "id": "DC-01",
+      "category": "dependency_change_impact",
+      "question": "Suppose Request.__init__ were changed to require a non-empty, always-callable receive channel (today it defaults receive to a stub that is only valid if the body is never read). What in the codebase would break or need updating?",
+      "expected_answer": "Anywhere a Request (or HTTPConnection) is constructed with only a scope: request_response builds Request(scope, receive) so it is fine, but Request(scope) usages elsewhere would break -- notably places that build a Request just to read headers/url/state without a body (some middleware, templating's request context, tests). The default-stub path in requests.py (empty_receive) exists precisely so header-only Request objects work; removing it forces every caller to thread a real receive. TestClient and many tests in tests/ construct Requests directly. Third-party middleware relying on Request(scope) would also break. Mitigation: keep the stub but make it raise only on body access (which is the current design).",
+      "required_concepts": [
+        "request_response passes receive, unaffected",
+        "header-only Request(scope) callers break",
+        "empty_receive stub is the compatibility shim",
+        "tests and templating build Requests directly",
+        "third-party middleware impact"
+      ],
+      "relevant_files": [
+        "starlette/requests.py",
+        "starlette/routing.py",
+        "starlette/templating.py",
+        "starlette/testclient.py"
+      ],
+      "relevant_symbols": [
+        "starlette/requests.py::Request.__init__",
+        "starlette/requests.py::empty_receive",
+        "starlette/routing.py::request_response"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::empty_receive",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 206
+        },
+        {
+          "file": "starlette/requests.py",
+          "symbol": "starlette/requests.py::Request.__init__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 86
+        }
+      ],
+      "common_misconceptions": [
+        "Only endpoints construct Request objects",
+        "Nothing constructs Request without receive",
+        "This is a purely internal change with no external impact"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Reward identifying header-only Request construction as the break surface and naming the stub. Enumerating >=2 concrete call sites earns completeness."
+    },
+    {
+      "id": "BR-02",
+      "category": "behavioral_reasoning",
+      "question": "A request's path matches a route registered with methods=['GET'], but the request method is DELETE. What status code and what headers are returned, and through which code path?",
+      "expected_answer": "Route.matches returns Match.PARTIAL (path OK, method not allowed). Router.app finds no FULL match, so it uses the remembered PARTIAL: Route.handle sees the method is not permitted and raises HTTPException(status_code=405, headers={'Allow': 'GET, HEAD'}) (HEAD is auto-added alongside GET). That HTTPException is caught by ExceptionMiddleware, whose default handler returns PlainTextResponse('Method Not Allowed', status_code=405) and includes the Allow header. So the client gets 405 with 'Allow: GET, HEAD'.",
+      "required_concepts": [
+        "PARTIAL match -> 405",
+        "Route.handle raises HTTPException(405, Allow header)",
+        "HEAD auto-added with GET",
+        "ExceptionMiddleware default handler renders it",
+        "Allow header lists permitted methods"
+      ],
+      "relevant_files": [
+        "starlette/routing.py",
+        "starlette/middleware/exceptions.py"
+      ],
+      "relevant_symbols": [
+        "starlette/routing.py::Route.matches",
+        "starlette/routing.py::Route.handle",
+        "starlette/routing.py::Router.app"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Route.handle",
+          "line_hint": 229,
+          "type": "SOURCE",
+          "line": 174
+        },
+        {
+          "file": "starlette/routing.py",
+          "symbol": "starlette/routing.py::Router.app",
+          "line_hint": 629,
+          "type": "SOURCE",
+          "line": 58
+        },
+        {
+          "file": "tests/test_routing.py",
+          "symbol": "tests/test_routing.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "A method mismatch returns 404",
+        "No Allow header is sent",
+        "The response is JSON"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "405 + Allow header both required. HEAD in the Allow list is a bonus detail."
+    },
+    {
+      "id": "CD-01",
+      "category": "contradiction_detection",
+      "question": "docs/middleware.md presents the execution order as 'ServerErrorMiddleware -> [user middleware] -> ExceptionMiddleware -> Routing -> Endpoint'. Does build_middleware_stack implement exactly that, and is there anything the docs omit?",
+      "expected_answer": "The core ordering matches: build_middleware_stack lists ServerErrorMiddleware first, then user_middleware, then ExceptionMiddleware, then wraps the Router. One omission: current source also conditionally inserts a RequestBodyLimitMiddleware (when max_body_size is set) immediately after ServerErrorMiddleware and before user middleware -- the docs' fixed diagram does not mention it. The docs are otherwise consistent. No outright contradiction, but the doc diagram is incomplete for versions that have the body-limit middleware.",
+      "required_concepts": [
+        "core order matches the docs",
+        "source additionally inserts RequestBodyLimitMiddleware after ServerErrorMiddleware when max_body_size set",
+        "docs diagram omits it",
+        "no contradiction, an omission"
+      ],
+      "relevant_files": [
+        "docs/middleware.md",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "docs/middleware.md::Using middleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 55,
+          "type": "SOURCE",
+          "note": "RequestBodyLimitMiddleware conditional insert",
+          "line": 63
+        },
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md::Using middleware",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The docs are simply wrong about the order",
+        "There is no body-limit middleware in the stack",
+        "Docs and code disagree on where user middleware sits"
+      ],
+      "answerable_from": "source+docs",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "A precise answer distinguishes 'omission' from 'contradiction' and names RequestBodyLimitMiddleware. Verify the middleware's exact name/presence against the pinned checkout; if v1.6.0 lacks it, the correct answer is 'docs and code agree'. Reward the model that flags this dependence on version."
+    },
+    {
+      "id": "EV-01",
+      "category": "evidence",
+      "question": "What evidence in the repository supports the claim 'ServerErrorMiddleware is always the outermost middleware layer'? Cite source, docs, and tests.",
+      "expected_answer": "Source: starlette/applications.py::Starlette.build_middleware_stack constructs the list with Middleware(ServerErrorMiddleware, ...) as element 0, before user_middleware and before ExceptionMiddleware; the list is then reversed and folded around the Router, so ServerErrorMiddleware ends up outermost. Docs: docs/middleware.md 'Using middleware' states ServerErrorMiddleware 'is always the outermost middleware layer' and shows it first in the execution-order diagram. Tests: tests/middleware/test_errors.py exercises unhandled exceptions producing a 500 / traceback through a full app, and tests that combine user middleware with error handling show the 500 still being produced, implying ServerErrorMiddleware wraps them. The strongest single piece of evidence is build_middleware_stack itself.",
+      "required_concepts": [
+        "source: build_middleware_stack element 0 = ServerErrorMiddleware",
+        "docs: explicit 'always the outermost' statement",
+        "tests: test_errors.py end-to-end 500 behaviour",
+        "rank source as strongest"
+      ],
+      "relevant_files": [
+        "starlette/applications.py",
+        "docs/middleware.md",
+        "tests/middleware/test_errors.py"
+      ],
+      "relevant_symbols": [
+        "starlette/applications.py::Starlette.build_middleware_stack",
+        "docs/middleware.md::Using middleware"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/applications.py",
+          "symbol": "starlette/applications.py::Starlette.build_middleware_stack",
+          "line_hint": 54,
+          "type": "SOURCE",
+          "line": 63
+        },
+        {
+          "file": "docs/middleware.md",
+          "symbol": "docs/middleware.md::Using middleware",
+          "line_hint": null,
+          "type": "DOC",
+          "line": null
+        },
+        {
+          "file": "tests/middleware/test_errors.py",
+          "symbol": "tests/middleware/test_errors.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "The only evidence is the docs",
+        "There is no test coverage for this",
+        "The ordering is implied only, never stated"
+      ],
+      "answerable_from": "source+docs+tests",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "VERIFIED",
+      "grading_notes": "Evidence axis: full credit needs a specific source symbol, the docs statement, and a named test module. Vague 'it's in the code somewhere' scores 0 on evidence accuracy."
+    },
+    {
+      "id": "TE-02",
+      "category": "teaching",
+      "question": "Assess for correctness and correct any misconception: 'Background tasks are a good place to decide whether to send the user a different response -- e.g. if the task fails, return a 500 to the client instead.'",
+      "developer_explanation": "Background tasks are a good place to decide whether to send the user a different response -- e.g. if the task fails, return a 500 to the client instead.",
+      "expected_answer": "Incorrect. By the time background tasks run, the response (status line + headers + body) has already been sent to the client -- Response.__call__ awaits self.background only after emitting the body. A background task cannot alter, replace, or add to that response. If a task raises, the client still has the original (e.g. 200); the exception is logged server-side and, under TestClient, raised into the test. If the outcome must affect the client's response, do the work synchronously in the endpoint before returning, not in a background task. Background tasks are for fire-and-forget side effects (emails, cache warming, audit writes). Check for the developer: 'At what line of Response.__call__ is self.background awaited relative to the body send?'",
+      "required_concepts": [
+        "response already sent before tasks run",
+        "tasks cannot change the response",
+        "failure is logged, client keeps original response",
+        "move outcome-affecting work into the endpoint",
+        "background = fire-and-forget"
+      ],
+      "relevant_files": [
+        "starlette/responses.py",
+        "starlette/background.py"
+      ],
+      "relevant_symbols": [
+        "starlette/responses.py::Response.__call__",
+        "starlette/background.py::BackgroundTasks.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/responses.py",
+          "symbol": "starlette/responses.py::Response.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 163
+        },
+        {
+          "file": "starlette/background.py",
+          "symbol": "starlette/background.py::BackgroundTasks.__call__",
+          "line_hint": 34,
+          "type": "SOURCE",
+          "line": 19
+        }
+      ],
+      "common_misconceptions": [
+        "Agreeing that tasks can change the response",
+        "Claiming tasks run before the response so it's fine",
+        "Saying the client gets a 500 when a task fails"
+      ],
+      "answerable_from": "source_only",
+      "difficulty": "medium",
+      "points": 1,
+      "expected_epistemic_status": "CONTRADICTED",
+      "grading_notes": "Must state the response is already sent and give the correct alternative (do it in the endpoint)."
+    },
+    {
+      "id": "TR-03",
+      "category": "transfer",
+      "question": "Novel scenario: 'Under load, a small fraction of responses are missing a custom header that our BaseHTTPMiddleware adds after call_next. Generate plausible hypotheses grounded in how Starlette works.'",
+      "expected_answer": "Hypotheses: (1) Exception path -- when the inner app raises, control may leave call_next via exception before the header-adding code runs; ServerErrorMiddleware produces the 500 response without the middleware's post-processing. Fraction correlates with error rate. (2) Streaming / early response -- for StreamingResponse or when the response starts before dispatch resumes, BaseHTTPMiddleware's handling of the response stream can send the start message (with headers) before the middleware appends its header, or the append targets a response object whose headers are already flushed. (3) Client disconnect mid-stream -- dispatch's continuation after call_next may be skipped/cancelled. (4) Ordering -- another middleware or the endpoint sets the same header and a later layer overwrites/strips it; or GZip/other middleware rebuilds headers. (5) The header is added to a MutableHeaders copy that isn't the one sent. (6) Background-task or task-group cancellation interaction. Where to look: whether failures correlate with 4xx/5xx or with large/streamed bodies; the exact point in dispatch where the header is set; response type; middleware order in build_middleware_stack.",
+      "required_concepts": [
+        "exception path bypasses post-call_next code",
+        "streaming/early-send means headers already flushed",
+        "client disconnect / cancellation skips the continuation",
+        "header overwritten by another middleware / ordering",
+        "mutating the wrong headers object",
+        "correlate failures with errors or streamed responses"
+      ],
+      "relevant_files": [
+        "starlette/middleware/base.py",
+        "starlette/responses.py",
+        "starlette/applications.py"
+      ],
+      "relevant_symbols": [
+        "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+        "starlette/responses.py::StreamingResponse.__call__"
+      ],
+      "evidence": [
+        {
+          "file": "starlette/middleware/base.py",
+          "symbol": "starlette/middleware/base.py::BaseHTTPMiddleware.__call__",
+          "line_hint": null,
+          "type": "SOURCE",
+          "line": 101
+        },
+        {
+          "file": "tests/middleware/test_base.py",
+          "symbol": "tests/middleware/test_base.py",
+          "line_hint": null,
+          "type": "TEST",
+          "line": null
+        }
+      ],
+      "common_misconceptions": [
+        "It must be a load balancer stripping the header (ignoring the framework mechanics)",
+        "BaseHTTPMiddleware post-processing always runs",
+        "Streaming responses behave identically to plain ones here"
+      ],
+      "answerable_from": "source+tests",
+      "difficulty": "hard",
+      "points": 2,
+      "expected_epistemic_status": "INFERRED",
+      "grading_notes": "Transfer/debugging: reward >=2 framework-grounded hypotheses, especially the exception-path and streaming ones, plus a stated way to discriminate between them. Generic 'it's a race condition' with no mechanism scores low."
+    }
+  ]
+}

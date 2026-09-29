@@ -1,0 +1,8 @@
+Loading mlx:mlx-community/Qwen3-8B-4bit...
+  loaded in 1078ms, footprint 4.38 GB
+  short: prompt=725 tok, TTFT=892ms (warm-up 1505ms), prefill=812 tok/s, decode=26.8 tok/s
+  production: prompt=4927 tok, TTFT=6190ms (warm-up 5973ms), prefill=795 tok/s, decode=24.1 tok/s
+  long: prompt=18026 tok, TTFT=31908ms (warm-up 32468ms), prefill=564 tok/s, decode=16.6 tok/s
+  production-repeat (identical prompt, new session): TTFT=6173ms
+  follow-up turn: TTFT=157ms vs first turn 6160ms
+  peak footprint 17.43 GB; wrote /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/coreai_backend/m3/model_bench/model_bench_mlx_mlx-community_Qwen3-8B-4bit.json

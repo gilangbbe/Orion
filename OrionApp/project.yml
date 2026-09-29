@@ -9,10 +9,10 @@
 name: OrionApp
 options:
   createIntermediateGroups: true
-  # Matches OrionMacOs/Package.swift's `.macOS(.v26)` floor (FoundationModels' real minimum,
-  # Docs/12 M1) -- OrionAgent can't be linked below this anyway.
+  # Matches OrionMacOs/Package.swift's `.macOS("27.0")` floor (Docs/18 M0: FoundationModels OS 27
+  # APIs + Core AI) -- OrionAgent can't be linked below this anyway.
   deploymentTarget:
-    macOS: "26.0"
+    macOS: "27.0"
   bundleIdPrefix: com.orion
 
 packages:

@@ -1,0 +1,34 @@
+Grader calibration: 6 gold item(s) against starlette (run B4E85BF1-3D1A-4566-B709-654FBA2A9AEA, k=3, pairwise)
+[1/6] gc-routing-b1-strong (band 1)
+    grader 1.00/partial  vs  expert 1.00/solid   (6/6 criteria matched)
+[2/6] gc-exceptions-b1-swapped (band 1)
+    grader 1.00/partial  vs  expert 0.00/off-track   (7/7 criteria matched)
+[3/6] gc-match-b2-argmax (band 2)
+    grader 1.00/partial  vs  expert 0.00/off-track   (6/6 criteria matched)
+[4/6] gc-match-b2-hedged (band 2)
+    grader 1.00/partial  vs  expert 0.50/shaky   (6/6 criteria matched)
+[5/6] gc-mw-b3-strong (band 3)
+    grader 1.00/partial  vs  expert 1.00/solid   (7/7 criteria matched)
+[6/6] gc-mw-b3-overbroad (band 3)
+    grader 1.00/partial  vs  expert 0.00/off-track   (7/7 criteria matched)
+
+Wrote 6 row(s) to /Users/biru/Work/LearningDevelopment/Orion/Agent Feasibility Study/results/coreai_backend/m4/teach_qwen3-4b-4bit_off
+--- grader calibration (Docs/17 §12.2) ---
+gold items: 6  graded: 6  skipped: 0
+criterion pairs (matched, non-ambiguous): 36
+Cohen's κ (all):            0.081  — slight
+Cohen's κ (grader-confident): 0.043
+Cohen's κ (required only):     0.000
+Cohen's κ (anti only):         0.122
+raw agreement:                 0.472
+score MAE / RMSE:              0.583 / 0.736
+verdict-tier accuracy:         0.000
+  expert solid     -> soli=0 part=2 shak=0 off-=0
+  expert partial   -> soli=0 part=0 shak=0 off-=0
+  expert shaky     -> soli=0 part=1 shak=0 off-=0
+  expert off-track -> soli=0 part=3 shak=0 off-=0
+split k-votes:                 1  (0.027 of criteria; majority matched expert 1.000)
+disputed (pairwise tripwire):   2/6
+
+κ gate (Decision 10): κ 0.081 vs bar 0.60  ->  HOLD — keep 'self-check only'; TeachingSession.isCalibrated stays false
+model coreai:qwen3-4b-4bit+nothink: 165s wall-clock, 0/117 judge replies unparseable

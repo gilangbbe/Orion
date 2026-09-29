@@ -3,8 +3,7 @@ import OrionCodeIntel
 
 /// Produces a raw candidate-JSON string for a question-generation prompt. A protocol so
 /// `TeachingQuestionGenerator`'s orchestration (gather context -> prompt -> parse -> verify ->
-/// retry-once) is unit-testable with a scripted stub, no live model — the same seam
-/// `TurnGenerating` gives `ActionLoop` (Docs/12).
+/// retry-once) is unit-testable with a scripted stub, no live model.
 public protocol TeachingQuestionDrafting: Sendable {
     /// Which model authored the draft — recorded on the persisted `teaching_questions` row.
     var source: TeachingQuestionSource { get }

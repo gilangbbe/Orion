@@ -53,6 +53,8 @@ struct Ask: AsyncParsableCommand {
     @Flag(help: "Print a structured JSON answer instead of formatted text.")
     var json: Bool = false
 
+    @OptionGroup var backend: LocalBackendOption
+
     func validate() throws {
         if let forceDepth, !(1...3).contains(forceDepth) {
             throw ValidationError("--force-depth must be 1, 2, or 3 (got \(forceDepth))")
@@ -68,7 +70,7 @@ struct Ask: AsyncParsableCommand {
 
         let config = AgentSessionConfig(
             repoRoot: repoURL, outputDirectory: outURL, commit: commit, forceDepth: forceDepth,
-            maxBudgetUsd: maxBudgetUsd, timeoutSeconds: timeout
+            maxBudgetUsd: maxBudgetUsd, timeoutSeconds: timeout, localBackend: try backend.resolve()
         )
 
         let result: AgentSessionResult

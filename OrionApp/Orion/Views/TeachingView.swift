@@ -1,3 +1,4 @@
+import OrionAgent
 import OrionCodeIntel
 import SwiftUI
 
@@ -19,15 +20,26 @@ struct TeachingView: View {
     @State private var filter = ""
     @State private var bandOverride: Int = 1
     @State private var selectedEvidence: EvidenceDetail?
+    /// Core AI bundles the drafting and judging roles need that aren't exported yet (Docs/18 M6).
+    @State private var missingModels: [String] = []
 
     var body: some View {
-        HSplitView {
-            conceptRail
-                .frame(minWidth: 268, idealWidth: 268, maxWidth: 268, maxHeight: .infinity)
-            workPane
-                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 0) {
+            if !missingModels.isEmpty {
+                LocalModelSetupNotice(missing: missingModels, recheck: checkModels)
+                    .padding(DesignTokens.Spacing.md)
+            }
+            HSplitView {
+                conceptRail
+                    .frame(minWidth: 268, idealWidth: 268, maxWidth: 268, maxHeight: .infinity)
+                workPane
+                    .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
-        .task { await session.refresh(outputDirectory: outputDirectory) }
+        .task {
+            checkModels()
+            await session.refresh(outputDirectory: outputDirectory)
+        }
         .onChange(of: session.selectedConceptId) { _, newValue in
             if let id = newValue, let row = session.concepts.first(where: { $0.id == id }) {
                 bandOverride = row.difficultyBand
@@ -628,11 +640,15 @@ struct TeachingView: View {
             Text(
                 band >= 3
                     ? "Writing a transfer question — this uses Claude and can take a minute or two."
-                    : "Writing a question — the first one may take a few minutes to load the local model.")
+                    : "Writing a question — the first one also loads the local Core AI model.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func checkModels() {
+        missingModels = CoreAIModelLocator.missingVariants(for: .default, roles: [.drafting, .judging])
     }
 
     private func errorBanner(_ message: String) -> some View {

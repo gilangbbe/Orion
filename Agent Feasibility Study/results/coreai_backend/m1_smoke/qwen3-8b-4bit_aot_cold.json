@@ -1,0 +1,27 @@
+{
+  "averages" : {
+    "generation_tps" : 27.79450665695354,
+    "prompt_tps" : 916.6964159646833
+  },
+  "cache_hit" : false,
+  "generation_tokens" : 1024,
+  "model" : "qwen3-8b-4bit",
+  "num_trials" : 3,
+  "prepare_seconds" : 10.736411,
+  "prompt_tokens" : 512,
+  "trials" : [
+    {
+      "gen_tps" : 27.839105278913802,
+      "prompt_tps" : 909.400798069892
+    },
+    {
+      "gen_tps" : 27.685226819271893,
+      "prompt_tps" : 912.2342054420026
+    },
+    {
+      "gen_tps" : 27.85918787267493,
+      "prompt_tps" : 928.4542443821555
+    }
+  ],
+  "warmup_seconds" : 39.200201875
+}

@@ -2,15 +2,14 @@ import XCTest
 @testable import OrionCodeIntel
 @testable import OrionAgent
 
-/// Docs/17 M2's "one live generation confirmed by hand". Costs a real Qwen3-8B load (and, for
-/// the Claude variant, a real paid `claude` call), so it is `XCTSkip`'d unless the matching env
-/// var is set — same posture as `ActionLoopLiveTests` / `ClaudeCodeInvestigatorLiveTests`. Also
-/// listed in CI's `--skip` set as defense in depth.
+/// Docs/17 M2's "one live generation confirmed by hand". Costs a real Core AI model load (and,
+/// for the Claude variant, a real paid `claude` call), so it is `XCTSkip`'d unless the matching
+/// env var is set — same posture as `ClaudeCodeInvestigatorLiveTests`. Also listed in CI's
+/// `--skip` set as defense in depth. Plain SwiftPM since Docs/18 M6 (no `xcodebuild`):
 ///
 /// ```
-/// ORION_TEACHING_LIVE_LOCAL=1 xcrun xctest -XCTest \
-///   OrionAgentTests.TeachingGenerationLiveTests/testLocalDrafterGeneratesAVerifiedQuestion \
-///   .build/xcodebuild/Build/Products/Debug/OrionAgentPackageTests.xctest
+/// ORION_TEACHING_LIVE_LOCAL=1 swift test --filter \
+///   TeachingGenerationLiveTests/testLocalDrafterGeneratesAVerifiedQuestion
 /// ```
 final class TeachingGenerationLiveTests: XCTestCase {
 
@@ -57,7 +56,7 @@ final class TeachingGenerationLiveTests: XCTestCase {
     func testLocalDrafterGeneratesAVerifiedQuestion() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["ORION_TEACHING_LIVE_LOCAL"] == "1")
         let f = try fixture()
-        let agent = try await Qwen3Agent.load()
+        let agent = try await LocalModelLoader.shared.model(for: .defaultCoreAI, role: .drafting)
         let drafter = LocalTeachingDrafter { prompt in
             try await agent.respond(to: prompt, instructions: LocalTeachingDrafter.systemInstruction)
         }
