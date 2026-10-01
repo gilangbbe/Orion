@@ -46,7 +46,7 @@ struct TeachingView: View {
             }
         }
         .sheet(item: $selectedEvidence) { evidence in
-            EvidenceView(repoRoot: repoRoot, evidence: evidence)
+            EvidenceView(evidence: evidence, source: CheckoutEvidenceSource(repoRoot: repoRoot))
         }
     }
 
@@ -120,7 +120,7 @@ struct TeachingView: View {
                 }
                 HStack(spacing: 6) {
                     MasteryMeter(pMastered: row.pMastered, band: row.confidenceBand)
-                    Text(kindWord(row.kind))
+                    Text(TeachingVocabulary.kindWord(row.kind))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -238,7 +238,7 @@ struct TeachingView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                         HStack {
-                            Text(kindWord(row.kind).uppercased())
+                            Text(TeachingVocabulary.kindWord(row.kind).uppercased())
                                 .font(.caption2.bold())
                                 .foregroundStyle(.tertiary)
                                 .tracking(0.5)
@@ -261,7 +261,7 @@ struct TeachingView: View {
                 }
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                    eyebrow("Question depth")
+                    TeachingEyebrow("Question depth")
                     Picker("Question depth", selection: $bandOverride) {
                         Text("Recall").tag(1)
                         Text("Comprehension").tag(2)
@@ -320,7 +320,7 @@ struct TeachingView: View {
             questionHeader(card, compact: false)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                eyebrow("Your answer")
+                TeachingEyebrow("Your answer")
                 answerEditor
                 Text("You'll get a point-by-point breakdown of your answer, not just a score.")
                     .font(.caption2)
@@ -388,9 +388,9 @@ struct TeachingView: View {
 
             GroupBox {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                    verdictHeader(grade)
+                    TeachingVerdictHeader(grade: grade)
                     Divider()
-                    criterionChecklist(grade.criteria)
+                    TeachingCriterionChecklist(rows: grade.criteria) { selectedEvidence = $0 }
                     if grade.disputed {
                         Label(
                             "The overall score and a same-idea check disagreed — re-read the "
@@ -404,11 +404,11 @@ struct TeachingView: View {
             }
 
             if !grade.misconceptionsDetected.isEmpty || !grade.misconceptionsCleared.isEmpty {
-                misconceptionOutcome(grade)
+                TeachingMisconceptionOutcome(grade: grade)
             }
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                eyebrow("Correction")
+                TeachingEyebrow("Correction")
                 MarkdownText(raw: grade.correction)
                     .font(.callout)
             }
@@ -423,120 +423,9 @@ struct TeachingView: View {
         }
     }
 
-    private func verdictHeader(_ grade: TeachingGradeCard) -> some View {
-        let style = Self.verdictStyle(grade.verdict)
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Label(style.label, systemImage: style.icon)
-                    .font(.headline)
-                    .foregroundStyle(style.color)
-                Spacer()
-                Text("\(grade.requiredMet) of \(grade.requiredTotal) key points")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            Gauge(value: gaugeValue(grade)) { EmptyView() }
-                .gaugeStyle(.accessoryLinearCapacity)
-                .tint(style.color)
-            if grade.needsReviewCount > 0 {
-                Text(
-                    "\(grade.needsReviewCount) point(s) couldn't be graded confidently and were "
-                        + "left out — check them yourself below.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func gaugeValue(_ grade: TeachingGradeCard) -> Double {
-        grade.requiredTotal > 0 ? Double(grade.requiredMet) / Double(grade.requiredTotal) : 0
-    }
-
-    private func criterionChecklist(_ rows: [TeachingCriterionRow]) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            ForEach(rows.filter { $0.kind != .anti || $0.met }) { row in
-                criterionRow(row)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func criterionRow(_ row: TeachingCriterionRow) -> some View {
-        let mark = Self.criterionMark(row)
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: mark.icon)
-                .foregroundStyle(mark.color)
-                .accessibilityLabel(mark.accessibility)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(row.text)
-                        .font(.callout)
-                        .foregroundStyle(row.kind == .anti ? DesignTokens.contradicted : .primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if row.kind == .bonus {
-                        Text("bonus")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                if row.needsReview {
-                    Text("Not graded confidently — decide for yourself.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else if row.met, !row.evidenceQuote.isEmpty {
-                    Text("you wrote: “\(row.evidenceQuote)”")
-                        .font(.caption)
-                        .italic()
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if !row.evidence.isEmpty {
-                    HStack(spacing: 10) {
-                        ForEach(row.evidence) { evidence in
-                            Button {
-                                selectedEvidence = evidence
-                            } label: {
-                                Text(evidence.anchor)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(.blue)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func misconceptionOutcome(_ grade: TeachingGradeCard) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(grade.misconceptionsDetected, id: \.self) { s in
-                Label {
-                    Text("Your answer suggests: \(s)")
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                }
-                .font(.caption)
-                .foregroundStyle(DesignTokens.contradicted)
-            }
-            ForEach(grade.misconceptionsCleared, id: \.self) { s in
-                Label {
-                    Text("Cleared up: \(s)")
-                } icon: {
-                    Image(systemName: "checkmark.circle.fill")
-                }
-                .font(.caption)
-                .foregroundStyle(DesignTokens.fact)
-            }
-        }
-    }
-
     private func masteryMovedRow(before: Double, after: Double, band: String) -> some View {
         HStack(spacing: 8) {
-            eyebrow("Mastery")
+            TeachingEyebrow("Mastery")
             MasteryMeter(pMastered: before, band: band, showsLabel: false)
                 .opacity(0.5)
             Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
@@ -547,11 +436,11 @@ struct TeachingView: View {
     private func transferPanel(_ card: TeachingQuestionCard, _ grade: TeachingGradeCard) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             if let transfer = card.transferProblem, !transfer.isEmpty {
-                eyebrow("Transfer problem")
+                TeachingEyebrow("Transfer problem")
                 MarkdownText(raw: transfer)
                     .font(.callout)
             } else {
-                eyebrow("Keep going")
+                TeachingEyebrow("Keep going")
             }
             HStack(spacing: DesignTokens.Spacing.sm) {
                 if card.transferProblem?.isEmpty == false, card.band < 3 {
@@ -592,7 +481,7 @@ struct TeachingView: View {
     private func questionHeader(_ card: TeachingQuestionCard, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack(spacing: 6) {
-                Text(kindWord(card.conceptKind).uppercased() + " · " + bandWord(card.band).uppercased())
+                Text(TeachingVocabulary.kindWord(card.conceptKind).uppercased() + " · " + TeachingVocabulary.bandWord(card.band).uppercased())
                     .font(.caption2.bold())
                     .foregroundStyle(.tertiary)
                     .tracking(0.5)
@@ -605,14 +494,14 @@ struct TeachingView: View {
             }
             if !compact {
                 VStack(alignment: .leading, spacing: 4) {
-                    eyebrow("Explain")
+                    TeachingEyebrow("Explain")
                     MarkdownText(raw: card.explain)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
             }
             VStack(alignment: .leading, spacing: 4) {
-                eyebrow("Question")
+                TeachingEyebrow("Question")
                 MarkdownText(raw: card.prompt)
                     .font(compact ? .headline : .title3)
                     .fontWeight(.semibold)
@@ -622,7 +511,7 @@ struct TeachingView: View {
 
     private func answerQuote(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            eyebrow("Your answer")
+            TeachingEyebrow("Your answer")
             Text(text)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -665,33 +554,7 @@ struct TeachingView: View {
             in: RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
     }
 
-    private func eyebrow(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.caption2.bold())
-            .foregroundStyle(DesignTokens.accent)
-            .tracking(0.5)
-    }
-
     // MARK: - Vocabulary
-
-    private func kindWord(_ raw: String) -> String {
-        switch raw {
-        case TeachingConceptKind.component.rawValue: return "Component"
-        case TeachingConceptKind.claim.rawValue: return "Claim"
-        case TeachingConceptKind.relationship.rawValue: return "Relationship"
-        case TeachingConceptKind.role.rawValue: return "Role"
-        case TeachingConceptKind.dataflow.rawValue: return "Data flow"
-        default: return raw.capitalized
-        }
-    }
-
-    private func bandWord(_ band: Int) -> String {
-        switch band {
-        case 1: return "Recall"
-        case 2: return "Comprehension"
-        default: return "Transfer"
-        }
-    }
 
     private func bandHint(_ band: Int) -> String {
         switch band {
@@ -709,38 +572,4 @@ struct TeachingView: View {
         return parts.joined(separator: " · ")
     }
 
-    struct VerdictStyle { let label: String; let icon: String; let color: Color }
-
-    static func verdictStyle(_ raw: String) -> VerdictStyle {
-        switch raw {
-        case TeachingVerdictTier.solid.rawValue:
-            return VerdictStyle(label: "Solid", icon: "checkmark.seal.fill", color: DesignTokens.fact)
-        case TeachingVerdictTier.partial.rawValue:
-            return VerdictStyle(
-                label: "Partial", icon: "circle.lefthalf.filled", color: DesignTokens.confidenceMedium)
-        case TeachingVerdictTier.shaky.rawValue:
-            return VerdictStyle(
-                label: "Shaky", icon: "exclamationmark.circle", color: DesignTokens.confidenceLow)
-        default:
-            return VerdictStyle(
-                label: "Off track", icon: "xmark.circle", color: DesignTokens.contradicted)
-        }
-    }
-
-    struct CriterionMark { let icon: String; let color: Color; let accessibility: String }
-
-    static func criterionMark(_ row: TeachingCriterionRow) -> CriterionMark {
-        if row.kind == .anti {
-            return CriterionMark(
-                icon: "exclamationmark.triangle.fill", color: DesignTokens.contradicted,
-                accessibility: "Misconception")
-        }
-        if row.needsReview {
-            return CriterionMark(
-                icon: "minus.circle", color: .secondary, accessibility: "Needs your review")
-        }
-        return row.met
-            ? CriterionMark(icon: "checkmark.circle.fill", color: DesignTokens.fact, accessibility: "Met")
-            : CriterionMark(icon: "xmark.circle", color: .secondary, accessibility: "Not met")
-    }
 }

@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M1: `ConceptExtractor` against fixture data — real `Store`, hand-built rows, no model
 /// call, matching `RevisionDifferTests`/`SemanticImporterTests`' own established pattern for

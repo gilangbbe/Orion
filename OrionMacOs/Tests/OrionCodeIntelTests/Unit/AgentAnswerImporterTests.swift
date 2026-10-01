@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/12_phase3_mlx_agent.md "Claude delegation (L3)": `SemanticImporter.ingestAnswer` —
 /// the M3 entry point for one L3 question's answer. Only tests the schema/scope differences

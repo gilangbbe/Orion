@@ -1,4 +1,4 @@
-import OrionCodeIntel
+import OrionCore
 
 /// The four `AgentTool`s over Phase 1's `QueryEngine` -- no new deterministic capability, just
 /// agent-callable wrappers over what Phase 1 already computed (Docs/12 "Tools").

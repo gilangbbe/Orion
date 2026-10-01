@@ -1,5 +1,5 @@
 import Foundation
-import OrionCodeIntel
+import OrionCore
 
 /// Primes a local model with Phase 1/2's already-computed Code Graph before it reasons or
 /// calls tools -- Docs/12 "Local execution & tool loop": the model should not have to

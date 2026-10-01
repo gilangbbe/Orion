@@ -49,3 +49,5 @@ See:
 - `15_phase5_adaptive_exploration.md` — Phase 5 plan (complete, M0-M8.5)
 - `16_phase6_continuous_model_updates.md` — Phase 6 plan (complete, M0-M6)
 - `17_phase7_teaching_mode.md` — Phase 7 plan (teaching mode; plan only, not started)
+- `18_os27_foundation_models_coreai.md` — OS 27 Foundation Models + Core AI backend
+- `19_ios_companion.md` — iOS companion app (explore + learn on iPhone via on-device Foundation Models; M0–M8 done)

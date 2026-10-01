@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M4: the §8.2 BKT-style mastery update, in isolation. Numbers hand-checked against the
 /// pseudocode with the §8.2 default params (slip 0.1, guess 0.2, learn 0.15, antiSlip 0.05).

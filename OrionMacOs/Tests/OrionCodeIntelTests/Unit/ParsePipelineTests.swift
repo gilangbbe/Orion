@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M2: the pipeline runs the parse pass, records `parse_ok` and `parse`-stage diagnostics.
 final class ParsePipelineTests: XCTestCase {

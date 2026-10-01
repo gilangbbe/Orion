@@ -5,3 +5,5 @@ Vendor/
 OnePager/
 .agents/
 skills-lock.json
+.claude/
+ios_companion/

@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M4: the pipeline emits `imports` / `depends_on` edges and mints `external_dependencies`.
 final class ImportsPipelineTests: XCTestCase {

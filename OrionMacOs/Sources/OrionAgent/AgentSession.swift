@@ -1,6 +1,6 @@
 import Foundation
 import FoundationModels
-import OrionCodeIntel
+import OrionCore
 
 /// Everything one `orion-agent ask` invocation needs to find its analyzed repository --
 /// mirrors `orion-index`'s own `--out <dir>` convention (`<dir>/orion.db`, `<dir>/export/`), so
@@ -20,6 +20,11 @@ public struct AgentSessionConfig: Sendable {
     public var claudeModel: String
     /// Which Core AI bundle serves depth 1/2 (Docs/18 M2; roles per M4).
     public var localBackend: LocalModelBackend
+    /// Whether depth 3 can be delegated (to Claude Code). `false` on the iPhone (Docs/19 M6): it has
+    /// no deeper tier, so a question routed to depth 3 is answered at depth 2 as best effort
+    /// instead of getting "ask on your Mac" -- the phone's classifier sends a third of questions
+    /// there.
+    public var canDelegate: Bool = true
 
     public init(
         repoRoot: URL, outputDirectory: URL, commit: String? = nil, forceDepth: Int? = nil,
@@ -57,6 +62,23 @@ public struct AgentSessionResult: Sendable {
     /// `true` when the answer is known to be incomplete -- a depth-2 loop that ran out of tool
     /// budget, or an L3 investigation that timed out, errored, or failed validation.
     public let partial: Bool
+}
+
+/// What a `AgentSession.ContextProvider` is handed to build one ask's primed context (Docs/19 M6).
+public struct ContextRequest {
+    public let question: String
+    public let priorTurns: [AskSessionPriorTurn]
+    public let componentContext: String?
+    public let store: Store
+    public let run: AnalysisRunRecord
+    /// The instructions the context will be prepended to, without it -- part of what a token
+    /// budget has to leave room for.
+    public let baseInstructions: String
+    /// The tools the session will carry; their schemas take context too.
+    public let tools: [any Tool]
+    /// 0 first; 1 when the model reported the window exceeded and this is the one retry --
+    /// provide less.
+    public let attempt: Int
 }
 
 public enum AgentSessionError: Error, CustomStringConvertible {
@@ -97,6 +119,15 @@ public struct AgentSession {
     private let sessionFactory: (String?) async throws -> any TurnGenerating
     private let nativeSessionFactory: (String, [any Tool]) async throws -> any ToolCallingTurnGenerating
     private let depthFallback: DepthFallbackClassifying
+    private let contextProvider: ContextProvider?
+    private let toolsProvider: ToolsProvider?
+    private let toolResultCharLimit: Int?
+
+    /// Builds an ask's primed context (Docs/19 M6). `nil`: `ContextBuilder` over the export
+    /// files, the Mac's behavior. The iPhone passes a token-budgeted `CompactContextBuilder`.
+    public typealias ContextProvider = (ContextRequest) async throws -> String?
+    /// The depth-2 tools (Docs/19 M6). `nil`: `QueryEngineTools.all`, the Mac's.
+    public typealias ToolsProvider = (Store, AnalysisRunRecord) -> [AgentTool]
 
     /// - Parameter sessionFactory: how depth 1 obtains its plain-chat `TurnGenerating` session.
     ///   `nil` (the default) uses `config.localBackend`'s answering model from `LocalModelLoader`
@@ -123,9 +154,15 @@ public struct AgentSession {
         config: AgentSessionConfig,
         sessionFactory: ((String?) async throws -> any TurnGenerating)? = nil,
         nativeSessionFactory: ((String, [any Tool]) async throws -> any ToolCallingTurnGenerating)? = nil,
-        depthFallback: DepthFallbackClassifying? = nil
+        depthFallback: DepthFallbackClassifying? = nil,
+        contextProvider: ContextProvider? = nil,
+        toolsProvider: ToolsProvider? = nil,
+        toolResultCharLimit: Int? = nil
     ) {
         self.config = config
+        self.contextProvider = contextProvider
+        self.toolsProvider = toolsProvider
+        self.toolResultCharLimit = toolResultCharLimit
         let backend = config.localBackend
         self.sessionFactory =
             sessionFactory ?? { instructions in
@@ -151,7 +188,11 @@ public struct AgentSession {
     ///   one (Docs/15 §4.4, M4), and appends this turn to the session on completion. Ignored for
     ///   the guardrail's own decision (Docs/15 §3.2: a decline never advances a session's turn
     ///   count).
-    public func ask(_ question: String, sessionId: String? = nil) async throws -> AgentSessionResult {
+    /// - Parameter onPartialAnswer: the local answer's text so far, as it streams (Docs/19 M6);
+    ///   never called for a decline or a depth-3 delegation.
+    public func ask(
+        _ question: String, sessionId: String? = nil, onPartialAnswer: ((String) -> Void)? = nil
+    ) async throws -> AgentSessionResult {
         let db = try OrionDatabase(path: config.databasePath.path)
         let store = Store(db)
         guard let run = try store.latestRun(commitHash: config.commit) else {
@@ -185,14 +226,29 @@ public struct AgentSession {
         case 1:
             result = try await runLocal(
                 question: question, decision: decision, db: db, store: store, run: run, budget: 0,
-                priorTurns: priorTurns, componentContext: componentContext)
+                priorTurns: priorTurns, componentContext: componentContext, onPartialAnswer: onPartialAnswer)
         case 2:
             result = try await runLocal(
                 question: question, decision: decision, db: db, store: store, run: run,
-                budget: config.toolBudget, priorTurns: priorTurns, componentContext: componentContext)
+                budget: config.toolBudget, priorTurns: priorTurns, componentContext: componentContext,
+                onPartialAnswer: onPartialAnswer)
         default:
-            result = try await runDelegated(
-                question: question, decision: decision, store: store, run: run, session: session)
+            if config.canDelegate {
+                result = try await runDelegated(
+                    question: question, decision: decision, store: store, run: run, session: session)
+            } else {
+                // Recorded honestly: the routing trace keeps the classification and says why
+                // depth 2 ran; the answer's own outcome label says how well it held up.
+                let local = DepthDecision(
+                    depth: 2, intent: decision.intent, confidence: decision.confidence,
+                    rationale: decision.rationale
+                        + " (Classified for depth 3, which this device can't delegate to; answered at depth 2.)",
+                    method: decision.method, isInScope: decision.isInScope)
+                result = try await runLocal(
+                    question: question, decision: local, db: db, store: store, run: run,
+                    budget: config.toolBudget, priorTurns: priorTurns, componentContext: componentContext,
+                    onPartialAnswer: onPartialAnswer)
+            }
         }
 
         if let sessionId {
@@ -273,26 +329,23 @@ public struct AgentSession {
     private func runLocal(
         question: String, decision: DepthDecision, db: OrionDatabase, store: Store,
         run: AnalysisRunRecord, budget: Int, priorTurns: [AskSessionPriorTurn] = [],
-        componentContext: String? = nil
+        componentContext: String? = nil, onPartialAnswer: ((String) -> Void)? = nil
     ) async throws -> AgentSessionResult {
-        let tools: [AgentTool] = budget > 0 ? QueryEngineTools.all(engine: QueryEngine(db), commit: config.commit) : []
-        let context = ContextBuilder.build(
-            exportDir: config.exportDir, priorTurns: priorTurns, componentContext: componentContext)
+        let tools: [AgentTool] =
+            budget > 0 ? (toolsProvider?(store, run) ?? QueryEngineTools.all(engine: QueryEngine(db), commit: config.commit)) : []
 
+        // Docs/19 M6 / the Foundation Models skill: recover from context overflow explicitly.
+        // With a context provider (the phone), one retry asks it for less; without one (the Mac),
+        // the error propagates as before.
         let answer: AgentAnswer
-        if budget > 0 {
-            let loop = try NativeToolLoop(tools: tools, budget: budget)
-            let session = try await nativeSessionFactory(
-                loop.instructions(context: context), loop.foundationModelsTools)
-            answer = try await loop.run(question: question, session: session)
-        } else {
-            // Depth 1 (Docs/12 Decision #4): no tools, the question asked directly against the
-            // primed context. A reasoning model's thinking arrives as transcript reasoning
-            // entries, never in the text (Docs/18 M2).
-            let session = try await sessionFactory(context ?? "")
-            let text = try await session.respond(to: question)
-            answer = AgentAnswer(
-                text: text.trimmingCharacters(in: .whitespacesAndNewlines), toolCalls: [], partial: false)
+        do {
+            answer = try await answerLocally(
+                question: question, store: store, run: run, tools: tools, budget: budget,
+                priorTurns: priorTurns, componentContext: componentContext, attempt: 0, onPartialAnswer: onPartialAnswer)
+        } catch LanguageModelError.contextSizeExceeded where contextProvider != nil {
+            answer = try await answerLocally(
+                question: question, store: store, run: run, tools: tools, budget: budget,
+                priorTurns: priorTurns, componentContext: componentContext, attempt: 1, onPartialAnswer: onPartialAnswer)
         }
 
         let evidence = EvidenceAnchors.extract(from: answer.toolCalls)
@@ -307,7 +360,7 @@ public struct AgentSession {
         let ingestOutcome = try SemanticImporter(store: store).ingestAnswer(
             candidateData: candidateData, meta: meta, question: question, run: run,
             now: Timestamp.now(), complexity: Self.complexity(forDepth: decision.depth),
-            createdBy: "qwen3_local")
+            createdBy: config.localBackend == .system ? "system_local" : "qwen3_local")
 
         try persistRouting(decision: decision, investigationId: ingestOutcome.investigation.id, store: store)
         try persistToolCalls(answer.toolCalls, investigationId: ingestOutcome.investigation.id, store: store)
@@ -318,6 +371,38 @@ public struct AgentSession {
             claimCount: ingestOutcome.consistent.claims.count,
             droppedClaimCount: ingestOutcome.consistent.droppedClaims.count,
             partial: answer.partial)
+    }
+
+    /// One local attempt: build the context (the provider's, or `ContextBuilder`'s), open a
+    /// session, answer. A fresh tool loop per attempt, so a retry's tool budget starts full.
+    private func answerLocally(
+        question: String, store: Store, run: AnalysisRunRecord, tools: [AgentTool], budget: Int,
+        priorTurns: [AskSessionPriorTurn], componentContext: String?, attempt: Int,
+        onPartialAnswer: ((String) -> Void)?
+    ) async throws -> AgentAnswer {
+        let loop = budget > 0 ? try NativeToolLoop(tools: tools, budget: budget, resultCharLimit: toolResultCharLimit) : nil
+        let context: String?
+        if let contextProvider {
+            context = try await contextProvider(ContextRequest(
+                question: question, priorTurns: priorTurns, componentContext: componentContext, store: store,
+                run: run, baseInstructions: loop?.instructions(context: nil) ?? "",
+                tools: loop?.foundationModelsTools ?? [], attempt: attempt))
+        } else {
+            context = ContextBuilder.build(
+                exportDir: config.exportDir, priorTurns: priorTurns, componentContext: componentContext)
+        }
+
+        if let loop {
+            let session = try await nativeSessionFactory(loop.instructions(context: context), loop.foundationModelsTools)
+            return try await loop.run(question: question, session: session, onPartial: onPartialAnswer)
+        }
+        // Depth 1 (Docs/12 Decision #4): no tools, the question asked directly against the
+        // primed context. A reasoning model's thinking arrives as transcript reasoning
+        // entries, never in the text (Docs/18 M2).
+        let session = try await sessionFactory(context ?? "")
+        let text = try await session.respond(to: question).trimmingCharacters(in: .whitespacesAndNewlines)
+        onPartialAnswer?(text)
+        return AgentAnswer(text: text, toolCalls: [], partial: false)
     }
 
     /// Wraps a local answer in the same `phase3.v1` shape a Claude-delegated one already
@@ -379,6 +464,7 @@ public struct AgentSession {
         question: String, decision: DepthDecision, store: Store, run: AnalysisRunRecord,
         session: AskSessionRecord? = nil
     ) async throws -> AgentSessionResult {
+        #if os(macOS)
         var investigator = ClaudeCodeInvestigator(
             repoRoot: config.repoRoot, exportDir: config.exportDir, model: config.claudeModel,
             claudeBinary: config.claudeBinary)
@@ -458,6 +544,26 @@ public struct AgentSession {
                 question: question, depthDecision: decision, answerText: message, toolCalls: [],
                 investigation: record, claimCount: 0, droppedClaimCount: 0, partial: true)
         }
+        #else
+        // iOS (Docs/19 M1): there is no Claude Code to delegate to, and the on-device model has
+        // no deeper tier. Say so honestly, and persist it like any other outcome so the ask
+        // history and routing trace stay complete.
+        let text =
+            "This question needs a deeper investigation than the on-device model can do. "
+            + "Ask it in Orion on your Mac, which can delegate it to Claude Code; its answer "
+            + "reaches this device with the next sync."
+        let record = InvestigationRecord(
+            id: DeterministicID.newUUID(), repositoryId: run.repositoryId, commitHash: run.commitHash,
+            runId: run.id, question: question, complexity: "high", schemaVersion: nil,
+            modelUsed: config.localBackend.modelIdentifier, toolsUsed: [], sessionId: nil, numTurns: 0,
+            totalCostUsd: 0, durationMs: nil, outcome: InvestigationOutcome.incomplete.rawValue,
+            createdAt: Timestamp.now(), answerText: text)
+        try store.insertInvestigation(record)
+        try persistRouting(decision: decision, investigationId: record.id, store: store)
+        return AgentSessionResult(
+            question: question, depthDecision: decision, answerText: text, toolCalls: [],
+            investigation: record, claimCount: 0, droppedClaimCount: 0, partial: true)
+        #endif
     }
 
     // MARK: shared persistence

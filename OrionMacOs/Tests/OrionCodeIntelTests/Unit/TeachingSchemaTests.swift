@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M0: `v6_phase7_schema` applies cleanly on top of `v1`…`v5`, every Teaching Mode
 /// record round-trips through its typed shape + the bare `Store` CRUD M0 adds, and the cascade /

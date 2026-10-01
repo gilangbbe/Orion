@@ -17,13 +17,3 @@ public final class StageTimings {
         return try body()
     }
 }
-
-public enum Timestamp {
-    private static let formatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
-
-    public static func now() -> String { formatter.string(from: Date()) }
-}

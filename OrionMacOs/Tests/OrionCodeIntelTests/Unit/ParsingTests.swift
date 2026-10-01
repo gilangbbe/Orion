@@ -1,6 +1,7 @@
 import XCTest
 import SwiftTreeSitter
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 final class TreeSitterParserTests: XCTestCase {
 

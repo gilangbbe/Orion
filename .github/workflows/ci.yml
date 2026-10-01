@@ -50,4 +50,5 @@ jobs:
             --skip TeachingGradingLiveTests \
             --skip CoreAIAgentLiveTests \
             --skip CoreAINativeToolCallingLiveTests \
-            --skip CoreAIGuidedJudgeLiveTests
+            --skip CoreAIGuidedJudgeLiveTests \
+            --skip SystemModelLiveTests

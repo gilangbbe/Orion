@@ -1,4 +1,3 @@
-import Grape
 import SwiftUI
 
 /// Docs/13_phase4_architecture_ui.md M4: the Docs/05 Stage 3 / Docs/08 "architecture overview"
@@ -77,51 +76,12 @@ struct ArchitectureOverviewView: View {
         }
     }
 
-    /// Docs/14 §8 M8.8 item 3: with the inspector open, this banner's own column narrows a lot --
-    /// without an explicit `.lineLimit`, the `Label`'s text wrapped to a second line instead of
-    /// truncating, throwing off the row's vertical centering against the badge next to it (badge
-    /// looked stuck at the top of a now-two-line row instead of filling the row's height evenly).
-    /// `.lineLimit(1)` + `.truncationMode(.tail)` on the label and `.fixedSize()` on the badge fix
-    /// both halves of that: the text truncates gracefully instead of wrapping, and the badge keeps
-    /// its own compact intrinsic size instead of being squeezed by the layout pass.
+    /// The layer banner itself is shared with the iOS companion (`ArchitectureLayerBanner`,
+    /// Docs/19 M4); this adds the Mac's own padding.
     private func banner(for layer: ArchitectureLayer) -> some View {
-        HStack(spacing: 8) {
-            switch layer {
-            case .structural(let moduleCount):
-                Label(
-                    "Structural view — no architecture investigation yet (\(moduleCount) modules)",
-                    systemImage: "cube"
-                )
-                .lineLimit(1)
-                .truncationMode(.tail)
-                EpistemicBadge(.fact)
-                    .fixedSize()
-            case .semantic(_, let componentCount, let investigatedAt):
-                let formattedDate = investigatedAt.map { value in
-                    let formatter = ISO8601DateFormatter()
-                    guard let date = formatter.date(from: value) else {
-                        return value
-                    }
-
-                    return date.formatted(.iso8601.year().month().day())
-                }
-              
-                Label(
-                    "Semantic view — \(componentCount) components"
-                      + (formattedDate.map { ", investigated \($0)" } ?? ""),
-                    systemImage: "sparkles"
-                )
-                .foregroundStyle(.blue)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                EpistemicBadge(.interpretation)
-                    .fixedSize()
-            }
-            Spacer(minLength: 0)
-        }
-        .font(.callout)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        ArchitectureLayerBanner(layer: layer)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
     }
 
     /// Docs/13 M8: Grape renders nodes on a `Canvas`-like surface with no confirmed VoiceOver
@@ -204,87 +164,11 @@ struct ArchitectureOverviewView: View {
         .padding(.vertical, 8)
     }
 
-    /// Grape's own docs are explicit that linking to a node id absent from the diagram crashes
-    /// the view -- `ArchitectureModelLoader` already guarantees every edge's endpoints exist
-    /// among `model.nodes` (filtered at load time, unit-tested), so this view never has to
-    /// re-check that itself.
+    /// The map itself is shared with the iOS companion (`ArchitectureDiagramView`, Docs/19 M4);
+    /// on the Mac, tapping a node opens it in the shared inspector.
     private func diagram(_ model: ArchitectureModel) -> some View {
-        ForceDirectedGraph {
-            Series(model.nodes) { node in
-                NodeMark(id: node.id)
-                    .foregroundStyle(color(for: node))
-                    .symbolSize(radius: radius(for: node))
-                    .annotation(node.name, alignment: .bottom)
-            }
-            Series(model.edges) { edge in
-                LinkMark(from: edge.sourceId, to: edge.targetId)
-                    .stroke(
-                        edge.confidenceTier == "high" ? Color.secondary.opacity(0.6) : Color.orange,
-                        StrokeStyle(
-                            lineWidth: 1.5,
-                            dash: edge.confidenceTier == "high" ? [] : [4, 3])
-                    )
-            }
-        } force: {
-            // Docs/14 §8 M8.5 item 2: tuned for spacing -- the library's own defaults
-            // (`manyBody(strength: -30)`, `link(originalLength: 30)`, no collision force at all)
-            // are what produced the cramped, overlapping cluster this milestone exists to fix,
-            // confirmed against the vendored Grape package source (`ForceDescriptor.swift`).
-            // `.collide()` is new here: previously nothing stopped two nodes from overlapping
-            // regardless of repulsion strength; sizing its radius from each node's own
-            // `radius(for:)` (plus fixed padding) makes overlap structurally impossible rather
-            // than just less likely.
-            .manyBody(strength: -220)
-            .link(originalLength: 90.0)
-            .center()
-            .collide(
-                radius: .varied { (id: String) in
-                    guard let node = model.nodes.first(where: { $0.id == id }) else { return 16 }
-                    return radius(for: node) + 12
-                })
+        ArchitectureDiagramView(model: model) { node in
+            shellState.inspectorContent = .node(node, model.layer)
         }
-        .graphOverlay { proxy in
-            Rectangle().fill(.clear).contentShape(Rectangle())
-                .onTapGesture { location in
-                    if let id = proxy.node(of: String.self, at: location),
-                        let node = model.nodes.first(where: { $0.id == id })
-                    {
-                        shellState.inspectorContent = .node(node, model.layer)
-                    }
-                }
-        }
-    }
-
-    /// Docs/14 §8 M8.5 item 2: a per-node-identity color, not confidence-tier-based (that stays
-    /// visible via `ConfidenceBadge` in the inspector and in `nodeList`'s own row badge, so
-    /// nothing is lost, just relocated -- a deliberate trade-off, since this diagram's node fill
-    /// was previously the one place confidence was visible without opening a node). Hashed from
-    /// `node.id` into a fixed palette rather than `Int.random`, so a given node is always the same
-    /// color across reloads instead of reshuffling every re-render -- "randomly assigned" in the
-    /// sense the palette has nothing to do with confidence, not literally nondeterministic.
-    /// `String.hashValue` itself is seeded per-process (Swift's hash-flooding protection), so a
-    /// small deterministic hash is used here instead, to keep the mapping stable across launches
-    /// too, not just within one running session.
-    private func color(for node: ArchitectureNode) -> Color {
-        let palette: [Color] = [
-            .blue, .green, .orange, .purple, .pink, .teal, .mint, .cyan, .brown, .indigo, .red,
-            .yellow,
-        ]
-        return palette[Self.stableHash(node.id) % palette.count]
-    }
-
-    /// FNV-1a, chosen only for being tiny and dependency-free -- this has no correctness
-    /// requirements beyond "deterministic across runs," not cryptographic ones.
-    private static func stableHash(_ string: String) -> Int {
-        var hash: UInt64 = 14_695_981_039_346_656_037
-        for byte in string.utf8 {
-            hash ^= UInt64(byte)
-            hash = hash &* 1_099_511_628_211
-        }
-        return Int(hash % UInt64(Int.max))
-    }
-
-    private func radius(for node: ArchitectureNode) -> CGFloat {
-        node.confidenceTier == nil ? 8 : min(24, 8 + sqrt(Double(node.size)) * 3)
     }
 }

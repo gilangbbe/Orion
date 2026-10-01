@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M7: `analyze` writes a deterministic `export/`, and `orion-index export` regenerates it
 /// from the DB alone.

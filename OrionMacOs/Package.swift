@@ -10,9 +10,16 @@ let package = Package(
         // String form because PackageDescription 6.2 has no `.v27` case. Every target stays in
         // Swift 5 language mode (`swiftLanguageModes: [.v5]` below) -- Phase 1 deliberately
         // avoided Swift 6 strict-concurrency churn on the shared pipeline context.
-        .macOS("27.0")
+        .macOS("27.0"),
+        // iOS 27 (Docs/19 M1): the iOS companion links `OrionCore` (and `OrionAgent` for
+        // on-device Ask/Learn). The analysis targets still only make sense on the Mac -- they
+        // shell out to git/npx -- but declaring the platform lets SwiftPM resolve GRDB & co. at
+        // the right iOS floor for the targets that do build there.
+        .iOS("27.0"),
     ],
     products: [
+        .library(name: "OrionCore", targets: ["OrionCore"]),
+        .library(name: "OrionSync", targets: ["OrionSync"]),
         .library(name: "OrionCodeIntel", targets: ["OrionCodeIntel"]),
         .executable(name: "orion-index", targets: ["orion-index"]),
         .library(name: "OrionAgent", targets: ["OrionAgent"]),
@@ -42,9 +49,32 @@ let package = Package(
         .package(url: "https://github.com/apple/coreai-models", revision: "e7b24da85ea64a77d26324d7ce9607de9b955f57"),
     ],
     targets: [
+        // The portable half of the old `OrionCodeIntel` (Docs/19 M1): the persisted Codebase
+        // Model (records, `Store`, migrations), its queries, the semantic/revision layer and the
+        // teaching logic. GRDB only -- no tree-sitter, no subprocesses -- so it builds for iOS.
+        // `OrionCodeIntel` re-exports it (`@_exported import OrionCore`), so existing
+        // `import OrionCodeIntel` callers compile unchanged.
+        .target(
+            name: "OrionCore",
+            dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
+        ),
+        // Knowledge snapshots over CloudKit (Docs/19 M5): the Mac publishes, the iOS companion
+        // receives. Both sides use `CKSyncEngine` on the user's private database; the record
+        // mapping and persisted sync state are plain code, so they're unit-tested without iCloud.
+        .target(
+            name: "OrionSync",
+            dependencies: ["OrionCore"]
+        ),
+        .testTarget(
+            name: "OrionSyncTests",
+            dependencies: ["OrionSync", "OrionCore"]
+        ),
         .target(
             name: "OrionCodeIntel",
             dependencies: [
+                "OrionCore",
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
                 .product(name: "TreeSitter", package: "tree-sitter"),
@@ -66,26 +96,31 @@ let package = Package(
         ),
         .testTarget(
             name: "OrionCodeIntelTests",
-            dependencies: ["OrionCodeIntel"],
+            dependencies: ["OrionCodeIntel", "OrionCore"],
             exclude: ["Snapshots"]   // golden files read by #filePath-relative path, not bundled
         ),
         .target(
             name: "OrionAgent",
             dependencies: [
-                "OrionCodeIntel",
-                .product(name: "CoreAILM", package: "coreai-models"),
+                // `OrionCore`, not `OrionCodeIntel` (Docs/19 M1): the agent only reads the persisted
+                // model, so it builds for iOS without tree-sitter or the subprocess-driven analysis.
+                "OrionCore",
+                // Mac only (Docs/19 M1): on iOS every model call goes to the on-device system
+                // model, so the Core AI runtime (and xgrammar) would be dead weight in the app.
+                .product(name: "CoreAILM", package: "coreai-models", condition: .when(platforms: [.macOS])),
             ]
         ),
         .executableTarget(
             name: "orion-agent",
             dependencies: [
                 "OrionAgent",
+                "OrionCodeIntel",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "OrionAgentTests",
-            dependencies: ["OrionAgent"]
+            dependencies: ["OrionAgent", "OrionCore", "OrionCodeIntel"]
         ),
     ],
     swiftLanguageModes: [.v5]

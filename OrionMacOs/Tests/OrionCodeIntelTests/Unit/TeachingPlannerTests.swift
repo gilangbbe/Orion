@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M4 §8.3: `TeachingPlanner` next-concept ranking — fixture data, no model.
 final class TeachingPlannerTests: XCTestCase {

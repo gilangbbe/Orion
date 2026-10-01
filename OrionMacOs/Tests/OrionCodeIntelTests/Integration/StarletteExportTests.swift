@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M7 against vendored Starlette: the export honours the Phase 2 join contract, and a
 /// stable slice of `code_graph.json` is pinned as a golden snapshot.

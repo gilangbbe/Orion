@@ -14,7 +14,7 @@ struct OrionIndex: ParsableCommand {
         version: OrionCodeIntel.version,
         subcommands: [
             Analyze.self, Stats.self, Export.self, Query.self, IngestSemantic.self, Revisions.self,
-            TeachConcepts.self
+            TeachConcepts.self, Snapshot.self
         ]
     )
 }

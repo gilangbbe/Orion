@@ -1,3 +1,5 @@
+// Mac only (Docs/19 M1): runs a subprocess (`Process`), which iOS doesn't have.
+#if os(macOS)
 import Foundation
 
 /// The result of running one subprocess to completion or timeout.
@@ -140,3 +142,4 @@ public enum ProcessRunner {
         }
     }
 }
+#endif

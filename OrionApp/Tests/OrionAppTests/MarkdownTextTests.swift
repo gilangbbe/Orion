@@ -84,4 +84,14 @@ final class MarkdownTextTests: XCTestCase {
     func testEmptyStringProducesNoBlocks() {
         XCTAssertEqual(MarkdownText.blocks(""), [])
     }
+
+    /// Docs/19 M7: a dunder in prose rendered as bold ("RedirectResponse.**init**").
+    func testPythonDundersRenderAsWritten() {
+        let text = String(MarkdownText.attributed("defaults in RedirectResponse.__init__ and __call__.").characters)
+        XCTAssertEqual(text, "defaults in RedirectResponse.__init__ and __call__.")
+        XCTAssertEqual(
+            MarkdownText.escapingDunders("`self.__init__` stays code"), "`self.__init__` stays code",
+            "inside backticks nothing is escaped")
+        XCTAssertEqual(String(MarkdownText.attributed("**bold** stays bold").characters), "bold stays bold")
+    }
 }

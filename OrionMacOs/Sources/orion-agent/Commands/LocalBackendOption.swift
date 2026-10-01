@@ -6,9 +6,11 @@ struct LocalBackendOption: ParsableArguments {
     @Option(
         name: .customLong("local-backend"),
         help: """
-            Local Core AI model: coreai (default: qwen3-8b-4bit with the measured per-role table) \
-            or coreai:<variant> (every role on that bundle). Falls back to ORION_LOCAL_BACKEND; \
-            ORION_LOCAL_ROLES picks a variant and reasoning mode per role.
+            Local model: coreai (default: qwen3-8b-4bit with the measured per-role table), \
+            coreai:<variant> (every role on that bundle), or system (the on-device Apple system \
+            model -- the iOS companion's model family, but a larger variant on the Mac, Docs/19). \
+            Falls back to ORION_LOCAL_BACKEND; ORION_LOCAL_ROLES picks a variant and reasoning mode \
+            per role (ignored for system).
             """
     )
     var localBackend: String?

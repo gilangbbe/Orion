@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M3: the deterministic §7.3 threshold math, in isolation from any model or `Store`.
 final class RubricScoringTests: XCTestCase {
@@ -93,5 +94,12 @@ final class RubricScoringTests: XCTestCase {
         let text = RubricScoring.correctionText(
             unmetRequired: [], trippedAnti: [], needsReview: [], referenceAnswer: "ref")
         XCTAssertTrue(text.contains("covered every required point"))
+    }
+
+    func testCorrectionTextNeverClaimsCoverageWhilePointsAwaitReview() {
+        let text = RubricScoring.correctionText(
+            unmetRequired: [], trippedAnti: [], needsReview: ["a", "b"], referenceAnswer: "ref")
+        XCTAssertFalse(text.contains("covered every required point"), text)
+        XCTAssertTrue(text.contains("2 point(s) couldn't be graded confidently"), text)
     }
 }

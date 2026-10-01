@@ -217,6 +217,9 @@ struct TeachNext: AsyncParsableCommand {
                 drafter = ClaudeTeachingDrafter(
                     repoRoot: repoURL, exportDir: outURL.appendingPathComponent("export"),
                     maxBudgetUsd: maxBudgetUsd, timeoutSeconds: timeout)
+            } else if try backend.resolve() == .system {
+                // The phone's drafter (Docs/19 M7): guided, anchors limited to the concept's own.
+                drafter = SystemModelTeaching.drafter()
             } else {
                 let agent = try await LocalModelLoader.shared.model(for: try backend.resolve(), role: .drafting)
                 drafter = LocalTeachingDrafter { p in

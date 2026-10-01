@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/16 M0: `v5_phase6_schema` applies cleanly on top of `v1_phase1_schema`/
 /// `v2_phase2_schema`/`v3_phase3_schema`/`v4_phase5_schema`, `model_revisions.revision_number`

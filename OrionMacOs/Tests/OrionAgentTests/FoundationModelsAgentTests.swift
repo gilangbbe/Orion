@@ -7,8 +7,14 @@ import XCTest
 /// was sent instead of generating -- lets `FoundationModelsAgent` be tested through a real
 /// `LanguageModelSession`, offline, the same way `CoreAILanguageModel` plugs in (Docs/18 M2).
 private struct EchoLanguageModel: LanguageModel {
-    let capabilities = LanguageModelCapabilities([.reasoning])
+    /// With `.reasoning` by default, like `CoreAILanguageModel`; `supportsReasoning: false` stands
+    /// in for the system model, which has none (Docs/19 M0).
+    let capabilities: LanguageModelCapabilities
     let executorConfiguration = Executor.Configuration()
+
+    init(supportsReasoning: Bool = true) {
+        capabilities = LanguageModelCapabilities(supportsReasoning ? [.reasoning, .toolCalling] : [.toolCalling])
+    }
 
     struct Executor: LanguageModelExecutor {
         struct Configuration: Hashable, Sendable {}
@@ -98,6 +104,29 @@ final class FoundationModelsAgentTests: XCTestCase {
         XCTAssertTrue(multiTurn.contains("reasoning=none"), multiTurn)
         let toolTurn = try await off.makeToolSession(tools: [], instructions: nil).respond(to: "q", toolsAllowed: true)
         XCTAssertTrue(toolTurn.contains("reasoning=none"), toolTurn)
+    }
+
+    /// Docs/19 M1: the system model rejects any `reasoningLevel`, even `.custom("none")`, so on a
+    /// model without `.reasoning` a no-think role must send none -- on every request path.
+    func testReasoningLevelIsDroppedForAModelWithoutReasoning() async throws {
+        let base = FoundationModelsAgent(model: EchoLanguageModel(supportsReasoning: false), modelIdentifier: "system:test")
+        let off = base.with(
+            contextOptions: ContextOptions(reasoningLevel: .custom("none")), modelIdentifier: "system:test")
+        let oneShot = try await off.respond(to: "q", instructions: nil)
+        XCTAssertTrue(oneShot.contains("reasoning=default"), oneShot)
+        let multiTurn = try await off.makeSession(instructions: nil).respond(to: "q")
+        XCTAssertTrue(multiTurn.contains("reasoning=default"), multiTurn)
+        let toolTurn = try await off.makeToolSession(tools: [], instructions: nil).respond(to: "q", toolsAllowed: true)
+        XCTAssertTrue(toolTurn.contains("reasoning=default"), toolTurn)
+    }
+
+    func testSupportedKeepsOtherContextOptions() {
+        let options = ContextOptions(includeSchemaInPrompt: true, reasoningLevel: .custom("none"))
+        let stripped = FoundationModelsAgent<EchoLanguageModel>.supported(options, reasoning: false)
+        XCTAssertNil(stripped.reasoningLevel)
+        XCTAssertEqual(stripped.includeSchemaInPrompt, true)
+        XCTAssertEqual(
+            FoundationModelsAgent<EchoLanguageModel>.supported(options, reasoning: true).reasoningLevel, .custom("none"))
     }
 
     func testIdentifierIsTheBackendQualifiedName() {

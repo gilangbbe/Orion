@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M3 headline validation: extracted symbols line up with the Phase 0 benchmark
 /// (`benchmark.resolved.json`) — anchors are in benchmark form and their line ranges cover

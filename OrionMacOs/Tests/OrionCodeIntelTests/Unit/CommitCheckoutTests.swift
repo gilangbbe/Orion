@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M8: analyzing an explicit `--commit` checks it out, analyzes that tree, and restores the
 /// previous ref.

@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M3: the pipeline persists `symbols` with parent links and updates `symbol_count`.
 final class SymbolPipelineTests: XCTestCase {

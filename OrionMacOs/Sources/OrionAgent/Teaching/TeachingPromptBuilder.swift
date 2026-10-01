@@ -1,5 +1,5 @@
 import Foundation
-import OrionCodeIntel
+import OrionCore
 
 /// Everything the question-generation prompt needs about one concept, gathered from the `Store`
 /// by `TeachingQuestionGenerator` and handed here as plain values so the prompt assembly itself
@@ -16,11 +16,18 @@ public struct TeachingPromptInputs: Sendable, Equatable {
     /// On a retry, the reasons the previous attempt was rejected — fed back so the model can fix
     /// them (Docs/17 §6.3: "retried once ... with the diagnostics fed back into the prompt").
     public let priorRejectionReasons: [String]
+    /// The anchors `evidenceLines` describe, in the same order.
+    public let evidenceAnchors: [String]
+    /// The code of each anchor that has it, by anchor -- only a knowledge snapshot carries code
+    /// (`evidence_snippets`, Docs/19 M2), so on the Mac this is empty. The guided drafter shows
+    /// it under the top symbols (Docs/19 M8).
+    public let codeExcerpts: [String: String]
 
     public init(
         conceptId: String, conceptKind: String, conceptLabel: String, band: Int,
         evidenceLines: [String], relatedConceptLabels: [String] = [],
-        priorRejectionReasons: [String] = []
+        priorRejectionReasons: [String] = [], evidenceAnchors: [String] = [],
+        codeExcerpts: [String: String] = [:]
     ) {
         self.conceptId = conceptId
         self.conceptKind = conceptKind
@@ -29,6 +36,8 @@ public struct TeachingPromptInputs: Sendable, Equatable {
         self.evidenceLines = evidenceLines
         self.relatedConceptLabels = relatedConceptLabels
         self.priorRejectionReasons = priorRejectionReasons
+        self.evidenceAnchors = evidenceAnchors
+        self.codeExcerpts = codeExcerpts
     }
 }
 

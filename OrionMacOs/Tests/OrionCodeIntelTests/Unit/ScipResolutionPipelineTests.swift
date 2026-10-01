@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M5: the pipeline runs scip-python and emits `calls` / `extends` edges — and degrades
 /// cleanly when resolution is turned off.

@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Ingestion against the pinned vendored Starlette checkout. Skips when it is absent
 /// (the vendor dir is gitignored). Symbol/relationship assertions arrive in later milestones.

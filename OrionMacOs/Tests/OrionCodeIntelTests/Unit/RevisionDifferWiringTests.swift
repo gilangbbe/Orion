@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/16 M4: `RevisionDiffer` actually wired into `SemanticImporter.ingest()`/`.ingestAnswer()`
 /// — unlike `RevisionDifferTests` (M2/M3, which call `RevisionDiffer` directly against

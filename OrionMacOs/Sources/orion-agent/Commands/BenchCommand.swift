@@ -173,7 +173,7 @@ struct Bench: AsyncParsableCommand {
             maxBudgetUsd: maxBudgetUsd, timeoutSeconds: timeoutSeconds, localBackend: localBackend)
         let start = ContinuousClock.now
         do {
-            let result = try await AgentSession(config: config).ask(question.question)
+            let result = try await Ask.agentSession(config: config).ask(question.question)
             let elapsedMs = Self.milliseconds(since: start)
             return BenchResultRow(
                 id: question.id, category: question.category, question: question.question,

@@ -496,7 +496,7 @@ struct AskEntryView: View {
             }
         }
         .sheet(item: $selectedEvidence) { evidence in
-            EvidenceView(repoRoot: repoRoot, evidence: evidence)
+            EvidenceView(evidence: evidence, source: CheckoutEvidenceSource(repoRoot: repoRoot))
         }
     }
 
@@ -587,34 +587,9 @@ struct AskEntryView: View {
     /// decline gets its own neutral treatment, checked first -- it is a correct, complete result,
     /// never the orange "partial" warning nor the green verified seal, since neither of those
     /// mean anything for a question that was never actually investigated.
-    @ViewBuilder
+    /// Shared with the iOS companion (`AskOutcomeLabel`, Docs/19 M6).
     private func outcomeLabel(_ summary: AskResultSummary) -> some View {
-        if summary.isDeclined {
-            Label("Outside this repository's scope", systemImage: "arrow.turn.up.left")
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-        } else if summary.isUngroundedVerified {
-            Label("Not independently checked", systemImage: "questionmark.circle")
-                .font(.caption.bold())
-                .foregroundStyle(.orange)
-        } else if summary.partial {
-            // Docs/13 M8: name the real outcome (rejected/incomplete/unverified/
-            // partially_verified) rather than a single generic "Partial" -- Docs/06 §7's
-            // failure-transparency rule applies to *which* failure, not just that one happened.
-            Label(
-                "Partial — \(summary.outcome.replacingOccurrences(of: "_", with: " "))",
-                systemImage: "exclamationmark.circle"
-            )
-            .font(.caption.bold())
-            .foregroundStyle(.orange)
-        } else {
-            Label(
-                summary.outcome.replacingOccurrences(of: "_", with: " ").capitalized,
-                systemImage: "checkmark.seal.fill"
-            )
-            .font(.caption.bold())
-            .foregroundStyle(.green)
-        }
+        AskOutcomeLabel(summary: summary)
     }
 
     private func explainDetail(_ summary: AskResultSummary) -> some View {

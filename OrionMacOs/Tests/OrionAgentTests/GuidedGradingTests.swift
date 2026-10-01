@@ -213,4 +213,50 @@ final class GuidedGradingTests: XCTestCase {
             ).contains("Reply with EXACTLY one JSON object"))
         XCTAssertTrue(LocalAnswerComparer.buildPrompt("a", "b").hasSuffix(#"{"same": true or false}"#))
     }
+
+    // MARK: - Single-call judge (Docs/19 M7)
+
+    func testSingleCallJudgeDecidesInOneTurnWithTheReasoningBeforeTheVerdict() async throws {
+        let (agent, model) = agent([
+            "CriterionJudgement": #"{"evidenceQuote": "routes are tried in order", "reasoning": "states first-match order", "answerStatesThisIdea": true, "confidence": "high"}"#,
+        ])
+        let judge = SingleCallCriterionJudge(model: agent, source: .device)
+        let verdict = try await judge.judge(
+            criterionText: "Routes are checked in registration order.", criterionKind: .required,
+            answer: "routes are tried in order", conceptEvidence: [])
+
+        XCTAssertEqual(
+            verdict,
+            CriterionVerdict(met: true, confidence: .high, evidenceQuote: "routes are tried in order", note: "states first-match order"))
+        XCTAssertEqual(judge.source, .device, "the phone's attempts are recorded as the device's")
+        let seen = model.seen
+        XCTAssertEqual(seen.map(\.schemaTitle), ["CriterionJudgement"], "one call, not two")
+        XCTAssertTrue(seen[0].instructions.contains("Copy the sentence"), "the skill's steps for the reasoning field")
+        XCTAssertTrue(seen[0].prompt.contains("IDEA BEING JUDGED: Routes are checked in registration order."))
+
+        // Declaration order is generation order on the system model (Docs/19 M0): quote and
+        // reasoning must come before the verdict.
+        let schema = try XCTUnwrap(seen[0].schemaJSON)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(schema.utf8)) as? [String: Any])
+        XCTAssertEqual(object["x-order"] as? [String], ["evidenceQuote", "reasoning", "answerStatesThisIdea", "confidence"])
+    }
+
+    func testSingleCallJudgeMakesAnUngroundedVerdictUnconfident() async throws {
+        let (agent, _) = agent([
+            "CriterionJudgement": #"{"evidenceQuote": "the router sorts by specificity", "reasoning": "it says so", "answerStatesThisIdea": true, "confidence": "high"}"#,
+        ])
+        let verdict = try await SingleCallCriterionJudge(model: agent).judge(
+            criterionText: "Routes are ranked by specificity.", criterionKind: .anti,
+            answer: "Routes are tried in declaration order.", conceptEvidence: [])
+        XCTAssertTrue(verdict.met)
+        XCTAssertEqual(verdict.confidence, .low)
+        XCTAssertTrue(verdict.note.hasPrefix(GuidedCriterionJudge.ungroundedNotePrefix), verdict.note)
+    }
+
+    func testLocalGradingBuildsTheSingleCallJudge() throws {
+        let (agent, _) = agent([:])
+        XCTAssertTrue(try LocalGrading.judge(agent: agent, output: .single) is SingleCallCriterionJudge)
+        XCTAssertTrue(try LocalGrading.comparer(agent: agent, output: .single) is GuidedAnswerComparer)
+        XCTAssertEqual(JudgeOutput(rawValue: "single"), .single)
+    }
 }

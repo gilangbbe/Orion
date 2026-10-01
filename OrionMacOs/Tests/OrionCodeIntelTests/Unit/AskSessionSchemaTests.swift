@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/15 M0: `v4_phase5_schema` applies cleanly on top of `v1_phase1_schema`/
 /// `v2_phase2_schema`/`v3_phase3_schema`, `ask_sessions`/`ask_session_turns` round-trip through

@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M2: `TeachingQuestionVerifier` against fixture data — real `Store`, hand-built rows,
 /// no model. This is the load-bearing "make the LLM's output safe before it's shown" gate, so it
@@ -203,7 +204,10 @@ final class TeachingQuestionVerifierTests: XCTestCase {
                            anchor: "m/a.py::Route", startLine: nil, endLine: nil, evidenceType: "source"),
         ])
         guard case .rejected(let reasons) = try verify(candidate(), f) else { return XCTFail() }
-        XCTAssertTrue(reasons.contains { $0.code == TeachingQuestionVerifier.codeReferenceContradicted })
+        let reason = try XCTUnwrap(reasons.first { $0.code == TeachingQuestionVerifier.codeReferenceContradicted })
+        // Fed back to the drafter on its retry (Docs/19 M7): which claim to stay off.
+        XCTAssertTrue(reason.message.contains("Router matches by specificity."), reason.message)
+        XCTAssertTrue(reason.message.contains("a different part of the concept than m/a.py::Route, m/a.py::Router"), reason.message)
     }
 
     func testReferenceMatchingNonContradictedClaimPasses() throws {

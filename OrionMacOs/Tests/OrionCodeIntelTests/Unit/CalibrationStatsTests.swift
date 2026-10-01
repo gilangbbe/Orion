@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M7 / §12.2: the pure calibration statistics — Cohen's κ, score error, and the
 /// verdict-tier confusion matrix — the grader-calibration gate is read off. No model, no `Store`.

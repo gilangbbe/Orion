@@ -106,33 +106,15 @@ struct ModelChangesView: View {
         }
     }
 
+    /// The row's content is shared with the iOS companion (`ModelChangeRowLabel`, Docs/19 M4).
     private func row(_ entry: ModelChangeSummary) -> some View {
         Button {
             selectedID = entry.id
         } label: {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.caption)
-                    .foregroundStyle(DesignTokens.accent)
-                    .padding(.top, 1)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                    Text("Updated \(entry.when)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text(preview(entry))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .contentShape(Rectangle())
+            ModelChangeRowLabel(entry: entry)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
@@ -140,73 +122,18 @@ struct ModelChangesView: View {
             in: RoundedRectangle(cornerRadius: 6))
     }
 
-    /// A one-line teaser of where the model landed. Truncating *here* is fine -- it's a preview,
-    /// and the full, un-clamped text is one click away in the detail pane. That's the whole point
-    /// of the master/detail split.
-    private func preview(_ entry: ModelChangeSummary) -> String {
-        let candidate = isPresent(entry.after) ? entry.after : entry.reason
-        return candidate.replacingOccurrences(of: "\n", with: " ")
-    }
-
     // MARK: - Right: the selected change in full
 
+    /// The detail itself is shared with the iOS companion (`ModelChangeDetailView`, Docs/19 M4).
     @ViewBuilder
     private var detail: some View {
         if let entry = entries?.first(where: { $0.id == selectedID }) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.title)
-                            .font(.title3.bold())
-                        Label("Updated \(entry.when)", systemImage: "clock.arrow.circlepath")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if isPresent(entry.before) {
-                        field("Previously", entry.before, tint: .secondary, ruled: false)
-                    }
-                    field("Now", entry.after, tint: DesignTokens.fact, ruled: true)
-                    field("Reason", entry.reason, tint: .secondary, ruled: false)
-                }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            ModelChangeDetailView(entry: entry)
         } else {
             ContentUnavailableView(
                 "Select a change", systemImage: "clock.arrow.circlepath",
                 description: Text("Choose an entry on the left to see what changed and why."))
         }
-    }
-
-    /// A labelled prose block. The *label* carries the color cue (`tint`); the body text stays
-    /// `.primary` so it's always readable -- the pre-redesign screenshot rendered whole paragraphs
-    /// in monospaced green, which a colored label + a thin leading rule communicates without
-    /// fighting legibility. `MarkdownText` renders the inline `` `code` `` spans real statements
-    /// carry (e.g. a `` `_TestClientTransport` `` reference) instead of showing the backticks.
-    private func field(_ label: String, _ value: String, tint: Color, ruled: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(tint)
-                .textCase(.uppercase)
-            MarkdownText(raw: value)
-                .font(.callout)
-                .textSelection(.enabled)
-                .padding(.leading, ruled ? 10 : 0)
-                .overlay(alignment: .leading) {
-                    if ruled {
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(tint.opacity(0.5))
-                            .frame(width: 3)
-                    }
-                }
-        }
-    }
-
-    /// The loader writes `"—"` when a field has nothing to show (an `.added` entry has no
-    /// "Previously"); treat that and the empty string as absent.
-    private func isPresent(_ value: String) -> Bool {
-        !value.isEmpty && value != "—"
     }
 
     // MARK: - Load / initial selection

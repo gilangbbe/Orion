@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/11 M3: `SemanticExporter` — `components.jsonl`/`claims.jsonl`/`evidence.jsonl`/
 /// `investigations.jsonl`/`semantic_model.json`, regenerable from the DB without re-ingesting.

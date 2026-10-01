@@ -1,5 +1,5 @@
 import Foundation
-import OrionCodeIntel
+import OrionCore
 
 /// The local (Qwen3 on Core AI) drafting path — a single plain-chat generation. Docs/17 §6.2: band
 /// 1–2 questions are drafted locally. Wraps a closure rather than a model directly so the CLI
@@ -26,6 +26,8 @@ public struct LocalTeachingDrafter: TeachingQuestionDrafting {
         """
 }
 
+// The Claude drafter runs the `claude` CLI as a subprocess: Mac only (Docs/19 M1).
+#if os(macOS)
 public enum ClaudeTeachingDrafterError: Error, CustomStringConvertible {
     case schemaEncodingFailed
     case timedOut(Double)
@@ -122,3 +124,4 @@ public struct ClaudeTeachingDrafter: TeachingQuestionDrafting {
         throw ClaudeTeachingDrafterError.noCandidate(stderrTail: reason)
     }
 }
+#endif

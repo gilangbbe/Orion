@@ -46,6 +46,8 @@ public enum CoreAIModelLocator {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String] {
         var seen: Set<String> = []
+        // The system model has no bundle to export (Docs/19 M1).
+        guard case .coreAI = backend else { return [] }
         return roles.map { backend.resolved(for: $0).backend.variant }.filter { variant in
             guard seen.insert(variant).inserted else { return false }
             return (try? bundleURL(variant: variant, environment: environment)) == nil

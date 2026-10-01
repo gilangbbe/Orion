@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/11 M0: `v2_phase2_schema` applies cleanly on top of `v1_phase1_schema`, all six new
 /// tables round-trip through their typed records, and the constraints the validation pipeline

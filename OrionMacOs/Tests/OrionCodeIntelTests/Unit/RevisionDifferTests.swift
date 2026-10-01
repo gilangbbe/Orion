@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/16 M2: `RevisionDiffer` against fixture data — no real analyzed repo, no `claude` CLI
 /// call, matching this codebase's own established fixture-driven pattern for schema-adjacent

@@ -7,7 +7,7 @@ struct JudgeOutputOption: ParsableArguments {
         name: .customLong("judge-output"),
         help: """
             How the local grader returns verdicts: text (thinking, then a tolerant JSON parse) or \
-            guided (Core AI guided-generation schemas). Falls back to ORION_JUDGE_OUTPUT, then text.
+            guided (two guided turns, for Core AI) or single (one guided turn, for the system model). Falls back to ORION_JUDGE_OUTPUT, then text.
             """
     )
     var judgeOutput: String?
@@ -15,7 +15,7 @@ struct JudgeOutputOption: ParsableArguments {
     func resolve() throws -> JudgeOutput {
         guard let judgeOutput else { return .current }
         guard let parsed = JudgeOutput(rawValue: judgeOutput.lowercased()) else {
-            throw ValidationError("--judge-output must be text or guided (got \(judgeOutput))")
+            throw ValidationError("--judge-output must be text, guided or single (got \(judgeOutput))")
         }
         return parsed
     }

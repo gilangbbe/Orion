@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M6 against vendored Starlette: `tested_by` edges from test symbols to production symbols.
 final class StarletteTestMappingTests: XCTestCase {

@@ -1,0 +1,165 @@
+# xcodegen spec for OrionMobile.xcodeproj -- the iOS companion (Docs/19_ios_companion.md).
+#
+# Source of truth for the Xcode project -- regenerate after any change here with:
+#   cd OrionMobile && xcodegen generate
+#
+# Signing mirrors OrionApp/project.yml: same team, bundle IDs under com.gilangbbe.orion.
+# Unlike the Mac app, the iOS app signs with a real Apple Development identity (a device
+# install needs one), provisioned automatically -- pass -allowProvisioningUpdates to xcodebuild.
+
+name: OrionMobile
+options:
+  createIntermediateGroups: true
+  # FoundationModels OS 27 (`LanguageModel`, `contextSize`, `variant`, `Usage`) -- Docs/19 M0.
+  deploymentTarget:
+    iOS: "27.0"
+    macOS: "27.0"
+  bundleIdPrefix: com.gilangbbe.orion
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: S3AP74B5TH
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+
+# The same local packages OrionApp uses (Docs/19 M4): the portable Codebase Model, and the vendored
+# Grape for the architecture map (see OrionApp/project.yml for why Grape is vendored).
+packages:
+  OrionMacOs:
+    path: ../OrionMacOs
+  Grape:
+    path: ../Vendor/Grape
+
+targets:
+  OrionMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: OrionMobile
+      - path: Probe
+      # Loaders, models and views shared with the Mac app (Docs/19 M4).
+      - path: ../OrionApp/Shared
+      # The grader-calibration gold set, for the on-device Learn benchmark (Docs/19 M7) -- one
+      # copy, bundled from where the Mac's `teach bench` reads it.
+      - path: "../Agent Feasibility Study/benchmark/starlette_teaching_grader.gold.json"
+        buildPhase: resources
+    dependencies:
+      - package: OrionMacOs
+        product: OrionCore
+      - package: OrionMacOs
+        product: OrionSync
+      # On-device Ask (Docs/19 M6): AgentSession over the system model. Core AI isn't linked
+      # on iOS (Docs/19 M1).
+      - package: OrionMacOs
+        product: OrionAgent
+      - package: Grape
+        product: Grape
+    # Docs/19 M5: knowledge arrives from the Mac through CloudKit (private database, container
+    # shared with OrionApp). `aps-environment` lets CKSyncEngine's subscription pushes wake the app.
+    entitlements:
+      path: OrionMobile/OrionMobile.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.gilangbbe.orion
+        com.apple.developer.icloud-services:
+          - CloudKit
+    settings:
+      base:
+        PRODUCT_NAME: Orion
+        # Silent CloudKit pushes deliver new snapshots in the background (Docs/19 M5).
+        INFOPLIST_KEY_UIBackgroundModes: remote-notification
+        # Swift 5 mode, like OrionApp: the shared sources come from it and haven't been through
+        # Swift 6 strict concurrency (the package itself is also Swift 5 mode).
+        SWIFT_VERSION: "5.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.gilangbbe.orion.mobile
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Orion
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        # The probe report lands in Documents; Files-app access makes it retrievable without Xcode.
+        INFOPLIST_KEY_UIFileSharingEnabled: YES
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_IDENTITY: "Apple Development"
+
+  OrionMobileTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: OrionMobileTests
+    dependencies:
+      - target: OrionMobile
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gilangbbe.orion.mobile.tests
+        CODE_SIGN_IDENTITY: "Apple Development"
+        # xcodegen derives the host from the target name (OrionMobile.app), but the app's
+        # PRODUCT_NAME is Orion.
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Orion.app/Orion
+        BUNDLE_LOADER: $(TEST_HOST)
+
+  # Docs/19 M4: a screenshot walkthrough of Explore against the simulator's library -- a visual
+  # check run on demand through its own scheme (OrionMobileWalkthrough), not the default test action.
+  OrionMobileUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: OrionMobileUITests
+    dependencies:
+      - target: OrionMobile
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gilangbbe.orion.mobile.uitests
+        CODE_SIGN_IDENTITY: "Apple Development"
+        TEST_TARGET_NAME: OrionMobile
+
+  # The same probe on the Mac (Docs/19 M0 / Risk 6: does the Mac's system model predict the
+  # phone's?). Sign to run locally, like the Mac app.
+  fm-probe:
+    type: tool
+    platform: macOS
+    sources:
+      - path: fm-probe
+      - path: Probe
+    settings:
+      base:
+        PRODUCT_NAME: fm-probe
+        PRODUCT_BUNDLE_IDENTIFIER: com.gilangbbe.orion.fm-probe
+        CODE_SIGN_IDENTITY: "-"
+
+schemes:
+  OrionMobile:
+    build:
+      targets:
+        OrionMobile: all
+        OrionMobileTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - OrionMobileTests
+  OrionMobileWalkthrough:
+    build:
+      targets:
+        OrionMobile: all
+        OrionMobileUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - OrionMobileUITests
+  fm-probe:
+    build:
+      targets:
+        fm-probe: all
+    run:
+      config: Release

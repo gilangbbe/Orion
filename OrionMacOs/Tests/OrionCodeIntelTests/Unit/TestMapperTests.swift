@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 final class TestDetectorSymbolTests: XCTestCase {
     func testTestFunctionInTestFile() {

@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M5 against vendored Starlette: the SCIP-derived call graph and inheritance edges.
 final class StarletteResolutionTests: XCTestCase {

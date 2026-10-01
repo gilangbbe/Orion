@@ -1,5 +1,6 @@
 import Foundation
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Minimal record builders for unit tests that exercise a builder in isolation.
 enum Make {

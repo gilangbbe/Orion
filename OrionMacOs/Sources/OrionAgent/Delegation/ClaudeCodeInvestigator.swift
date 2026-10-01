@@ -1,5 +1,7 @@
+// Mac only (Docs/19 M1): runs a subprocess (`Process`), which iOS doesn't have.
+#if os(macOS)
 import Foundation
-import OrionCodeIntel
+import OrionCore
 
 /// One headless Claude Code CLI investigation over a repository checkout, answering a single
 /// question — Docs/12_phase3_mlx_agent.md "Claude delegation (L3)". Ports the exact contract
@@ -312,3 +314,4 @@ public struct ClaudeCodeInvestigationResult: Sendable {
         )
     }
 }
+#endif

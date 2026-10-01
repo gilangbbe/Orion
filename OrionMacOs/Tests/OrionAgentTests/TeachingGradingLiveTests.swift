@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 @testable import OrionAgent
 
 /// Docs/17 M3's "one live grade of a good/bad answer pair". Costs a real Core AI model load, so

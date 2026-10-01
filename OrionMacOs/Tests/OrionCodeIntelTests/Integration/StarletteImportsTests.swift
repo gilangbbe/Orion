@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// M4 against vendored Starlette: the module dependency graph and external-dependency
 /// classification.

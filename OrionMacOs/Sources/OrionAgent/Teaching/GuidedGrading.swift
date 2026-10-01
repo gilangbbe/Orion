@@ -1,6 +1,6 @@
 import Foundation
 import FoundationModels
-import OrionCodeIntel
+import OrionCore
 
 // Guided-generation grading on Core AI (Docs/18 M5).
 //
@@ -122,6 +122,69 @@ public struct GuidedCriterionJudge: CriterionJudging {
     }
 }
 
+/// The whole judgement in one guided turn (Docs/19 M7). Fields are generated top to bottom, so the
+/// quote and the reasoning come before the verdict -- a place for the model's working that the
+/// system model can't otherwise have (it doesn't think, Docs/19 M0).
+@Generable
+struct CriterionJudgement {
+    @Guide(description: "The exact sentence from the developer's answer that states this idea, copied character for character, or an empty string if no sentence in the answer states it.")
+    let evidenceQuote: String
+
+    @Guide(description: "One or two sentences: what the answer actually says on this topic, and whether that is the same idea as the one being judged.")
+    let reasoning: String
+
+    @Guide(description: "true only if the answer itself states the idea being judged; false if it states something different, contradicts it, or never addresses it.")
+    let answerStatesThisIdea: Bool
+
+    /// Left undescribed on purpose. Described as "how sure you are of your verdict", the phone's
+    /// model stopped hedging (unconfident points 35% → 9%) but started calling correct points
+    /// "not stated": on the iPhone, κ 0.62 → 0.51 greedy and 0.69 → 0.58 sampled, same gold set
+    /// (Docs/19 M7 finding 3).
+    @Guide(.anyOf(["high", "medium", "low"]))
+    let confidence: String
+}
+
+/// `CriterionJudging` in a single guided call (Docs/19 M7) -- the phone's judge.
+///
+/// `GuidedCriterionJudge` needs two turns because Core AI's grammar ignores field order (Docs/18
+/// M5). The system model keeps declaration order (Docs/19 M0 finding 4), so quote → reasoning →
+/// verdict → confidence fits in one `CriterionJudgement`: half the calls, and no second prefill on
+/// a phone whose KV reuse across turns is unreliable. Same kind-neutral prompt and the same quote
+/// grounding as `GuidedCriterionJudge`, plus the Foundation Models skill's "say how to use the
+/// reasoning field" steps.
+public struct SingleCallCriterionJudge: CriterionJudging {
+    public let source: TeachingQuestionSource
+    private let makeSession: @Sendable () -> any GuidedTurnGenerating
+
+    public init(model: any GuidedGenerating, source: TeachingQuestionSource = .local) {
+        self.source = source
+        self.makeSession = { model.makeGuidedSession(instructions: Self.instructions) }
+    }
+
+    static let instructions = LocalCriterionJudge.guidedSystemInstruction + """
+
+        1. Copy the sentence from the answer that states the idea into evidenceQuote, or leave it empty.
+        2. In reasoning, say what the answer says on this topic and whether it is the same idea.
+        3. Decide answerStatesThisIdea from your reasoning.
+        """
+
+    public func judge(
+        criterionText: String, criterionKind: RubricCriterionKind,
+        answer: String, conceptEvidence: [String]
+    ) async throws -> CriterionVerdict {
+        let judgement = try await makeSession().respond(
+            to: GuidedCriterionJudge.buildPrompt(idea: criterionText, answer: answer, conceptEvidence: conceptEvidence),
+            generating: CriterionJudgement.self)
+        let confidence = GraderConfidence(rawValue: judgement.confidence) ?? .low
+        let grounded = !judgement.answerStatesThisIdea
+            || GuidedCriterionJudge.answer(answer, contains: judgement.evidenceQuote)
+        return CriterionVerdict(
+            met: judgement.answerStatesThisIdea, confidence: grounded ? confidence : .low,
+            evidenceQuote: judgement.evidenceQuote,
+            note: grounded ? judgement.reasoning : GuidedCriterionJudge.ungroundedNotePrefix + judgement.reasoning)
+    }
+}
+
 /// `AnswerComparing` over guided generation (Docs/18 M5), analysis then decision.
 public struct GuidedAnswerComparer: AnswerComparing {
     static let decisionPrompt = "Based on that, do the two answers make the same central point?"
@@ -144,10 +207,12 @@ public struct GuidedAnswerComparer: AnswerComparing {
 public enum JudgeOutput: String, CaseIterable, Sendable {
     /// Free text with the model's thinking, then a tolerant JSON parse (`LocalCriterionJudge`).
     case text
-    /// Guided-generation schemas (`GuidedCriterionJudge`); Core AI only.
+    /// Guided-generation schemas in two turns (`GuidedCriterionJudge`), for Core AI.
     case guided
+    /// One guided turn (`SingleCallCriterionJudge`), for the system model (Docs/19 M7).
+    case single
 
-    /// `text` | `guided`.
+    /// `text` | `guided` | `single`.
     public static let environmentKey = "ORION_JUDGE_OUTPUT"
 
     /// `ORION_JUDGE_OUTPUT` when it parses, else `text`.
@@ -177,6 +242,11 @@ public enum LocalGrading {
                 throw GuidedOutputUnsupported(model: agent.modelIdentifier)
             }
             return GuidedCriterionJudge(model: guided)
+        case .single:
+            guard let guided = agent as? any GuidedGenerating else {
+                throw GuidedOutputUnsupported(model: agent.modelIdentifier)
+            }
+            return SingleCallCriterionJudge(model: guided)
         }
     }
 
@@ -184,7 +254,7 @@ public enum LocalGrading {
         switch output {
         case .text:
             return LocalAnswerComparer { p in try await agent.respond(to: p) }
-        case .guided:
+        case .guided, .single:
             guard let guided = agent as? any GuidedGenerating else {
                 throw GuidedOutputUnsupported(model: agent.modelIdentifier)
             }

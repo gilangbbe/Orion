@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/12 M1/M2: `v3_phase3_schema` applies cleanly on top of `v1_phase1_schema`/
 /// `v2_phase2_schema`, `routing_decisions` (M1) and `agent_tool_calls` (M2) round-trip through

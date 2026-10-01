@@ -7,6 +7,18 @@ public protocol ToolCallingTurnGenerating {
     /// - Parameter toolsAllowed: `false` forbids tool calls for this turn
     ///   (`GenerationOptions.toolCallingMode = .disallowed`), for the forced final answer.
     func respond(to message: String, toolsAllowed: Bool) async throws -> String
+
+    /// The same turn, reporting the answer text as it streams (Docs/19 M6: the phone shows the
+    /// answer arriving). The default runs `respond(to:toolsAllowed:)` and reports the result once.
+    func respond(to message: String, toolsAllowed: Bool, onPartial: ((String) -> Void)?) async throws -> String
+}
+
+extension ToolCallingTurnGenerating {
+    public func respond(to message: String, toolsAllowed: Bool, onPartial: ((String) -> Void)?) async throws -> String {
+        let text = try await respond(to: message, toolsAllowed: toolsAllowed)
+        onPartial?(text)
+        return text
+    }
 }
 
 /// Depth 2 over FoundationModels' native tool calling (Docs/18 M3.5; the only depth-2 path since
@@ -24,12 +36,17 @@ public final class NativeToolLoop {
     private let budget: Int
     private let ledger: ToolCallLedger
 
-    public init(tools: [AgentTool], budget: Int) throws {
+    /// - Parameter resultCharLimit: caps each tool result the model reads (and the ledger
+    ///   records). `nil` on the Mac; the iPhone's 4,096-token window can't absorb three long
+    ///   results (Docs/19 M6).
+    public init(tools: [AgentTool], budget: Int, resultCharLimit: Int? = nil) throws {
         let ledger = ToolCallLedger(budget: budget, refusalsBeforeStop: Self.refusalsBeforeForcedAnswer)
         self.ledger = ledger
         self.budget = budget
         self.hasTools = !tools.isEmpty
-        self.foundationModelsTools = try tools.map { try AgentToolAdapter(tool: $0, ledger: ledger) }
+        self.foundationModelsTools = try tools.map {
+            try AgentToolAdapter(tool: $0, ledger: ledger, resultCharLimit: resultCharLimit)
+        }
     }
 
     /// Primed context plus the investigation rules. No JSON contract: the tool schemas reach
@@ -48,11 +65,14 @@ public final class NativeToolLoop {
         return parts.joined(separator: "\n\n")
     }
 
-    public func run(question: String, session: any ToolCallingTurnGenerating) async throws -> AgentAnswer {
+    /// - Parameter onPartial: the answer text so far, as it streams (Docs/19 M6).
+    public func run(
+        question: String, session: any ToolCallingTurnGenerating, onPartial: ((String) -> Void)? = nil
+    ) async throws -> AgentAnswer {
         // One corrective re-prompt, shared by both failure modes, then accept what comes back
         // (marked partial) rather than nudging forever.
         var nudgesLeft = 1
-        var text = try await respond(to: question, session: session)
+        var text = try await respond(to: question, session: session, onPartial: onPartial)
 
         while nudgesLeft > 0 {
             if text.isEmpty {
@@ -61,12 +81,12 @@ public final class NativeToolLoop {
                 text = try await respond(
                     to: "Your last reply was empty. Either call one of your tools, or give your "
                         + "final answer in plain prose.",
-                    session: session)
+                    session: session, onPartial: onPartial)
             } else if hasTools && ledger.executed.isEmpty {
                 text = try await respond(
                     to: "You have not called a tool yet. You must call at least one tool before "
                         + "answering.",
-                    session: session)
+                    session: session, onPartial: onPartial)
             } else {
                 break
             }
@@ -82,14 +102,16 @@ public final class NativeToolLoop {
 
     /// One turn, recovering from the ledger stopping a model that kept calling tools past its
     /// budget: the session's turn is abandoned, and one tool-free turn asks for the answer.
-    private func respond(to message: String, session: any ToolCallingTurnGenerating) async throws -> String {
+    private func respond(
+        to message: String, session: any ToolCallingTurnGenerating, onPartial: ((String) -> Void)?
+    ) async throws -> String {
         do {
-            return try await session.respond(to: message, toolsAllowed: true).trimmed
+            return try await session.respond(to: message, toolsAllowed: true, onPartial: onPartial).trimmed
         } catch let error as LanguageModelSession.ToolCallError where error.underlyingError is ToolBudgetExhausted {
             return try await session.respond(
                 to: "Your tool budget is exhausted. Answer the question now, in plain prose, using "
                     + "the tool results you already have.",
-                toolsAllowed: false
+                toolsAllowed: false, onPartial: onPartial
             ).trimmed
         }
     }
@@ -147,10 +169,12 @@ struct AgentToolAdapter: Tool {
     /// Only ever executed under `ledger`'s lock, which is what makes sharing it safe.
     nonisolated(unsafe) private let tool: AgentTool
     private let ledger: ToolCallLedger
+    private let resultCharLimit: Int?
 
-    init(tool: AgentTool, ledger: ToolCallLedger) throws {
+    init(tool: AgentTool, ledger: ToolCallLedger, resultCharLimit: Int? = nil) throws {
         self.tool = tool
         self.ledger = ledger
+        self.resultCharLimit = resultCharLimit
         self.name = tool.name
         self.description = tool.description
         let root = DynamicGenerationSchema(
@@ -167,8 +191,11 @@ struct AgentToolAdapter: Tool {
         let json = arguments.jsonString
         let parsed = json.data(using: .utf8)
             .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        let limit = resultCharLimit
         return try ledger.call(toolName: name, argumentsDescription: Self.describe(parsed)) {
-            tool.execute(arguments: parsed)
+            let result = tool.execute(arguments: parsed)
+            guard let limit, result.count > limit else { return result }
+            return String(result.prefix(limit)) + "\n…(shortened)"
         }
     }
 

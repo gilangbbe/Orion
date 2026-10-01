@@ -1,0 +1,277 @@
+[
+ {
+  "id": "CU-01",
+  "category": "code_understanding",
+  "question": "What does Starlette.build_middleware_stack() do, and in what order are the middleware layers applied to an incoming request?"
+ },
+ {
+  "id": "CU-02",
+  "category": "code_understanding",
+  "question": "What does ServerErrorMiddleware do when the app it wraps raises an exception, and how does its behaviour differ between debug=True and debug=False?"
+ },
+ {
+  "id": "CU-03",
+  "category": "code_understanding",
+  "question": "What is ExceptionMiddleware responsible for, and which exceptions does it handle by default?"
+ },
+ {
+  "id": "CU-04",
+  "category": "code_understanding",
+  "question": "What does Route.matches(scope) return, and what specifically does a Match.PARTIAL result indicate?"
+ },
+ {
+  "id": "CU-05",
+  "category": "code_understanding",
+  "question": "What does Request.stream() do, and how does it prevent the request body from being consumed twice?"
+ },
+ {
+  "id": "CU-06",
+  "category": "code_understanding",
+  "question": "How does Request.body() behave differently from Request.stream() when called more than once?"
+ },
+ {
+  "id": "CU-07",
+  "category": "code_understanding",
+  "question": "What does BackgroundTasks.__call__ do, and how are synchronous vs asynchronous task functions executed?"
+ },
+ {
+  "id": "CU-08",
+  "category": "code_understanding",
+  "question": "What HTTP status code does RedirectResponse use by default, and why does that particular choice matter?"
+ },
+ {
+  "id": "CU-09",
+  "category": "code_understanding",
+  "question": "When Config is given both an environment variable and an entry in the .env file for the same key, which value wins, and how does Config.__call__ resolve it?"
+ },
+ {
+  "id": "XF-01",
+  "category": "cross_file_reasoning",
+  "question": "Trace, across files, how an unhandled ValueError raised inside an HTTP endpoint becomes a 500 response."
+ },
+ {
+  "id": "XF-02",
+  "category": "cross_file_reasoning",
+  "question": "How do ExceptionMiddleware and routing.py cooperate to turn a raised HTTPException into an HTTP response?"
+ },
+ {
+  "id": "XF-03",
+  "category": "cross_file_reasoning",
+  "question": "How does Mount interact with Router so that a mounted sub-application only sees its own sub-path?"
+ },
+ {
+  "id": "XF-04",
+  "category": "cross_file_reasoning",
+  "question": "How does Starlette.add_middleware relate to build_middleware_stack, and why does calling add_middleware after the application has started serving raise a RuntimeError?"
+ },
+ {
+  "id": "XF-05",
+  "category": "cross_file_reasoning",
+  "question": "How does a class-based HTTPEndpoint end up being invoked by a Route?"
+ },
+ {
+  "id": "XF-06",
+  "category": "cross_file_reasoning",
+  "question": "How does request.state relate to state yielded by a lifespan context and to scope['state']?"
+ },
+ {
+  "id": "XF-07",
+  "category": "cross_file_reasoning",
+  "question": "How does TestClient run the ASGI app, and at what point is the application lifespan actually executed?"
+ },
+ {
+  "id": "XF-08",
+  "category": "cross_file_reasoning",
+  "question": "How does CORSMiddleware short-circuit a CORS preflight request before the routing layer runs?"
+ },
+ {
+  "id": "AR-01",
+  "category": "architecture",
+  "question": "What are the major components of Starlette, and how are they layered when handling an HTTP request?"
+ },
+ {
+  "id": "AR-02",
+  "category": "architecture",
+  "question": "Describe the primary data flow from the ASGI scope/receive/send triple to an endpoint and back to the client."
+ },
+ {
+  "id": "AR-03",
+  "category": "architecture",
+  "question": "Where are Starlette's system boundaries? Specifically, what does it delegate to the ASGI server and what does it delegate to anyio?"
+ },
+ {
+  "id": "AR-04",
+  "category": "architecture",
+  "question": "The middleware stack and the routing tree are two different mechanisms. What is each responsible for, and why are they not the same thing?"
+ },
+ {
+  "id": "AR-05",
+  "category": "architecture",
+  "question": "How does the WebSocket request path diverge from the HTTP path while going through the same application stack?"
+ },
+ {
+  "id": "AR-06",
+  "category": "architecture",
+  "question": "Which three or four files should a new maintainer read first to understand Starlette, and why those?"
+ },
+ {
+  "id": "DC-01",
+  "category": "dependency_change_impact",
+  "question": "Suppose Request.__init__ were changed to require a non-empty, always-callable receive channel (today it defaults receive to a stub that is only valid if the body is never read). What in the codebase would break or need updating?"
+ },
+ {
+  "id": "DC-02",
+  "category": "dependency_change_impact",
+  "question": "If ServerErrorMiddleware stopped re-raising the exception after sending the 500 response, what downstream behaviour would change?"
+ },
+ {
+  "id": "DC-03",
+  "category": "dependency_change_impact",
+  "question": "What in routing.py depends on Match being an ordered enum where FULL > PARTIAL > NONE?"
+ },
+ {
+  "id": "DC-04",
+  "category": "dependency_change_impact",
+  "question": "If BackgroundTasks were changed to run its tasks concurrently (e.g. in an anyio task group) instead of sequentially, what could break in existing applications?"
+ },
+ {
+  "id": "DC-05",
+  "category": "dependency_change_impact",
+  "question": "What is the blast radius of changing JSONResponse's default separators (currently compact ',' ':') or its media_type?"
+ },
+ {
+  "id": "DC-06",
+  "category": "dependency_change_impact",
+  "question": "If build_middleware_stack were changed so ExceptionMiddleware wrapped the OUTSIDE of user middleware (instead of the inside), what would change for application authors?"
+ },
+ {
+  "id": "BR-01",
+  "category": "behavioral_reasoning",
+  "question": "An endpoint raises HTTPException(status_code=404). Separately, a plain-ASGI user middleware above routing raises HTTPException(status_code=400) on some requests. Which case yields a clean 4xx response and which yields a 500, and why?"
+ },
+ {
+  "id": "BR-02",
+  "category": "behavioral_reasoning",
+  "question": "A request's path matches a route registered with methods=['GET'], but the request method is DELETE. What status code and what headers are returned, and through which code path?"
+ },
+ {
+  "id": "BR-03",
+  "category": "behavioral_reasoning",
+  "question": "A client requests GET /items but the only route is /items/ (with a trailing slash). With default settings, what does the client get? What changes if the Router is created with redirect_slashes=False?"
+ },
+ {
+  "id": "BR-04",
+  "category": "behavioral_reasoning",
+  "question": "An endpoint returns a Response with three BackgroundTasks attached. The second task raises an exception. What does the client see, and do the first and third tasks run?"
+ },
+ {
+  "id": "BR-05",
+  "category": "behavioral_reasoning",
+  "question": "Inside one endpoint, the code does `await request.json()` and then later `await request.body()`. Does the second call fail? Separately, what happens if the code iterates `request.stream()` twice?"
+ },
+ {
+  "id": "BR-06",
+  "category": "behavioral_reasoning",
+  "question": "A contextvar.ContextVar is set inside a BaseHTTPMiddleware.dispatch() implementation (after calling call_next). Is that value visible to code running outside/above that middleware, or to a later request? Why?"
+ },
+ {
+  "id": "BR-07",
+  "category": "behavioral_reasoning",
+  "question": "GZipMiddleware is installed with defaults. A handler returns a 120-byte JSON body and the request has 'Accept-Encoding: gzip'. Is the response compressed?"
+ },
+ {
+  "id": "BR-08",
+  "category": "behavioral_reasoning",
+  "question": "CORSMiddleware is configured with allow_origins=['*'] and allow_credentials=True. A browser sends a credentialed cross-origin request from https://app.example.com. What Access-Control-Allow-Origin header does Starlette send, and can the browser use the response?"
+ },
+ {
+  "id": "BR-09",
+  "category": "behavioral_reasoning",
+  "question": "An app is defined with a lifespan async context manager that raises RuntimeError during startup (before its yield). What happens when the app is served by an ASGI server, and what happens under TestClient?"
+ },
+ {
+  "id": "CD-01",
+  "category": "contradiction_detection",
+  "question": "docs/middleware.md presents the execution order as 'ServerErrorMiddleware -> [user middleware] -> ExceptionMiddleware -> Routing -> Endpoint'. Does build_middleware_stack implement exactly that, and is there anything the docs omit?"
+ },
+ {
+  "id": "CD-02",
+  "category": "contradiction_detection",
+  "question": "Do the Starlette docs anywhere explicitly warn that an exception raised inside a middleware bypasses ExceptionMiddleware and the registered exception handlers? Does the implementation behave that way regardless of whether the docs warn?"
+ },
+ {
+  "id": "CD-03",
+  "category": "contradiction_detection",
+  "question": "Compare docs/background.md with background.py: is the documented behaviour (tasks run after the response; error handling) fully accurate?"
+ },
+ {
+  "id": "CD-04",
+  "category": "contradiction_detection",
+  "question": "Does docs/requests.md accurately describe Request.body()/stream() caching, or is there a mismatch or omission?"
+ },
+ {
+  "id": "CD-05",
+  "category": "contradiction_detection",
+  "question": "docs/middleware.md has a 'BaseHTTPMiddleware - Limitations' section stating contextvar changes don't propagate upward. Is that the only practically-relevant limitation, judged against middleware/base.py?"
+ },
+ {
+  "id": "EV-01",
+  "category": "evidence",
+  "question": "What evidence in the repository supports the claim 'ServerErrorMiddleware is always the outermost middleware layer'? Cite source, docs, and tests."
+ },
+ {
+  "id": "EV-02",
+  "category": "evidence",
+  "question": "What evidence supports the claim 'a partial route match (path matches, method does not) produces a 405 with an Allow header'? Cite source and tests."
+ },
+ {
+  "id": "EV-03",
+  "category": "evidence",
+  "question": "What evidence supports 'background tasks run after the response body is sent'? Cite source and tests."
+ },
+ {
+  "id": "EV-04",
+  "category": "evidence",
+  "question": "What evidence supports 'TestClient runs the application lifespan only when it is used as a context manager'? Cite source and tests."
+ },
+ {
+  "id": "TE-01",
+  "category": "teaching",
+  "question": "Assess this developer's explanation for correctness, and correct any misconception: 'If I register @app.exception_handler(HTTPException), it will catch any HTTPException raised anywhere in my app, including ones I raise from my own custom middleware.'"
+ },
+ {
+  "id": "TE-02",
+  "category": "teaching",
+  "question": "Assess for correctness and correct any misconception: 'Background tasks are a good place to decide whether to send the user a different response -- e.g. if the task fails, return a 500 to the client instead.'"
+ },
+ {
+  "id": "TE-03",
+  "category": "teaching",
+  "question": "Assess for correctness and correct any misconception: 'redirect_slashes sends a 301 so the browser caches the corrected URL and future requests skip the redirect.'"
+ },
+ {
+  "id": "TE-04",
+  "category": "teaching",
+  "question": "Assess for correctness and correct any misconception: 'When I Mount a sub-application at /v1, the routes inside that sub-application have to be declared with the /v1 prefix, like Route(\"/v1/users\", ...).'"
+ },
+ {
+  "id": "TR-01",
+  "category": "transfer",
+  "question": "Novel scenario: 'In production, one of my endpoints sees a request header that a middleware of mine is supposed to have deleted. Reason about where a header deletion can and cannot take effect in Starlette, and where I should look.'"
+ },
+ {
+  "id": "TR-02",
+  "category": "transfer",
+  "question": "Novel scenario: 'We want unhandled 500s to return a JSON error body for API clients instead of the default plain text. Where do we hook in Starlette, and what must we be careful about?'"
+ },
+ {
+  "id": "TR-03",
+  "category": "transfer",
+  "question": "Novel scenario: 'Under load, a small fraction of responses are missing a custom header that our BaseHTTPMiddleware adds after call_next. Generate plausible hypotheses grounded in how Starlette works.'"
+ },
+ {
+  "id": "TR-04",
+  "category": "transfer",
+  "question": "Novel scenario: 'We deployed our app behind a proxy that serves it under /api, and we mount a sub-app at /v2 inside it. request.url_for() in the sub-app now produces URLs missing the /api prefix. Reason about root_path.'"
+ }
+]

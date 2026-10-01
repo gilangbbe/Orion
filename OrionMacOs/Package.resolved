@@ -1,5 +1,5 @@
 {
-  "originHash" : "8e4fd1f4022137d098950aa67d3af0e61fe5645dfcf6ef790a609b32a2f8a4b0",
+  "originHash" : "b1a0268253cdb1d58d1cc6c6b6b7a66a4e9d59e1d2889d6de2d28275add0fda1",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-asn1.git",
       "state" : {
-        "revision" : "d9a5b37470adc940d22c3bcd5ca6953a516b727f",
-        "version" : "1.7.2"
+        "revision" : "3b6410f7dee09eb33cdd26260c5fd47fda19b0e2",
+        "version" : "1.7.3"
       }
     },
     {
@@ -66,10 +66,10 @@
     {
       "identity" : "swift-huggingface",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/huggingface/swift-huggingface",
+      "location" : "https://github.com/huggingface/swift-huggingface.git",
       "state" : {
-        "revision" : "9ebe9cb568ff9ebe2f1bcd3ae7d925fbb45ec8d2",
-        "version" : "0.10.0"
+        "revision" : "f2f99991f2d7d8fdb3187e4fd539cd2facf5c13d",
+        "version" : "0.11.0"
       }
     },
     {
@@ -77,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-jinja.git",
       "state" : {
-        "revision" : "7d0b8880ef8e567dd4e0089f8b99fb354129017c",
-        "version" : "2.4.2"
+        "revision" : "4588064a20f3fc093c95f2f7d3359999bf30cae5",
+        "version" : "2.5.1"
       }
     },
     {

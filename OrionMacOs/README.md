@@ -8,8 +8,15 @@ Design: [`../Docs/10_phase1_deterministic_code_intelligence.md`](../Docs/10_phas
 
 ## Layout
 
-- `Sources/OrionCodeIntel/` — the analysis library (no AppKit/SwiftUI; no stdout/`exit`).
-- `Sources/orion-index/` — the CLI (`analyze`, `stats`, `export`, `query`).
+- `Sources/OrionCore/` — the portable Codebase Model: records, `Store`, migrations, queries, the
+  semantic/revision layer and teaching logic. GRDB only; builds for macOS and iOS (Docs/19 M1).
+- `Sources/OrionCodeIntel/` — the analysis library (no AppKit/SwiftUI; no stdout/`exit`). Mac only
+  in practice (it shells out to git/npx); re-exports `OrionCore`.
+- `Sources/OrionAgent/` — the local agent and teaching model calls, over `OrionCore`. Builds for iOS
+  too: Core AI and the Claude/`Process` paths are Mac-only, and `--local-backend system` (the
+  on-device Apple model) works on both.
+- `Sources/orion-index/` — the CLI (`analyze`, `stats`, `export`, `query`, … and `snapshot`, which
+  packs a knowledge snapshot for the iOS companion, Docs/19 M2).
 - `Tests/OrionCodeIntelTests/` — unit + integration + snapshot tests.
 - `EXPORT.md` — the `export/` schema and the Phase 2 join contract.
 

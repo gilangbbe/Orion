@@ -70,10 +70,26 @@ struct ContentView: View {
                     // than live during analysis -- `AnalysisProgressView`'s own disclosure already
                     // shows it live; Diagnostics is where it survives after that screen is gone.
                     diagnosticsSession.recordAnalysis(stageHistory: progressTracker.stageHistory)
+                case .ready(let summary):
+                    // Docs/19 M5: a fresh analysis, or a reopened repository, republishes to the
+                    // iPhone when this repository syncs and its knowledge changed.
+                    await IPhoneSync.shared.publishIfEnabled(
+                        repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory)
                 default:
                     break
                 }
             }
+            .onChange(of: semanticSession.state) { _, newState in
+                // Docs/19 M5: a new architecture model is exactly what the phone should get.
+                guard case .completed = newState, case .ready(let summary) = session.state else { return }
+                Task {
+                    await IPhoneSync.shared.publishIfEnabled(
+                        repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory)
+                }
+            }
+            #if DEBUG
+            .task { await IPhoneSync.shared.publishFromLaunchEnvironment() }
+            #endif
     }
 
     @ViewBuilder
@@ -259,9 +275,34 @@ struct ContentView: View {
                     // `@State detail` keeps showing the previously selected node. Giving the view
                     // explicit per-node identity makes SwiftUI tear it down and recreate it --
                     // and every `@State` on it -- on every selection instead.
+                    //
+                    // "Ask about": Docs/14 §8 M4's original hand-off asked a canned question
+                    // immediately -- §8 M8.5 item 6 replaced that with a scoped-question hand-off,
+                    // and Docs/15 §5/M6 replaces *that* with the finalized resume-or-create session
+                    // decision (`AskHistory.askAbout(_:componentId:outputDirectory:)`'s own doc
+                    // comment has the full reasoning): switch to Ask, and either resume this
+                    // component's most recently active session or scope the next "New session" to
+                    // it -- either way filing nothing until the developer submits a question.
+                    // `detail.id` is passed straight through as the real `components` row id (a
+                    // live bug had `AskHistory` re-derive it from the *name*); `nil` for a
+                    // structural node, which has no `ComponentRecord`. The closures live here, not
+                    // in the view, since Docs/19 M4 shares `ComponentDetailView` with iOS.
                     ComponentDetailView(
-                        outputDirectory: summary.outputDirectory, repoRoot: summary.repoRoot,
-                        node: node, layer: layer, shellState: shellState, askHistory: askHistory
+                        outputDirectory: summary.outputDirectory, node: node, layer: layer,
+                        evidenceSource: CheckoutEvidenceSource(repoRoot: summary.repoRoot),
+                        onAskAbout: { detail in
+                            shellState.destination = .ask
+                            let componentId = detail.isStructural ? nil : detail.id
+                            Task {
+                                await askHistory.askAbout(
+                                    detail.name, componentId: componentId,
+                                    outputDirectory: summary.outputDirectory)
+                            }
+                        },
+                        onShowRevision: { revisionId in
+                            shellState.focusedModelChangeRevisionId = revisionId
+                            shellState.destination = .changes
+                        }
                     )
                     .id(node.id)
                 case .openQuestions(let uncertainties):
@@ -295,7 +336,7 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .top) { sidebarHeader(summary) }
-        .safeAreaInset(edge: .bottom) { sidebarFooter }
+        .safeAreaInset(edge: .bottom) { sidebarFooter(summary) }
     }
 
     /// Docs/14 §4.7/§8 M6: Model Changes is the first destination that needs an unread-style
@@ -406,10 +447,12 @@ struct ContentView: View {
     /// identity block in a horizontal header; a vertical sidebar footer wants `.leading`, so that
     /// one alignment value changed, nothing else) plus "Open Another Repository," pinned below
     /// the destination list so both persist across every destination instead of only Overview.
-    private var sidebarFooter: some View {
+    private func sidebarFooter(_ summary: RepositorySummary) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
             semanticInvestigationSection
+            // Docs/19 M5: per-repository iCloud publishing for the iOS companion.
+            IPhoneSyncSection(repoRoot: summary.repoRoot, outputDirectory: summary.outputDirectory)
             Button {
                 isPresentingOpenSheet = true
             } label: {

@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/17 M3: `RubricGrader` orchestration — k-sampled judging, aggregation, misconception
 /// lifecycle, persistence — with a scripted judge/comparer, no model.

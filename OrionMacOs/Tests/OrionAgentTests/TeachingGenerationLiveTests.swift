@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 @testable import OrionAgent
 
 /// Docs/17 M2's "one live generation confirmed by hand". Costs a real Core AI model load (and,

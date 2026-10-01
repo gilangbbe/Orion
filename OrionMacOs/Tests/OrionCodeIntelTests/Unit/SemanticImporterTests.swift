@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/11: `SemanticImporter`, the full validation pipeline — schema (step 1), evidence
 /// (step 2, M0), consistency check (step 3, M2), and Codebase Model persistence (step 4, M2).

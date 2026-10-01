@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Full ingestion pipeline over a synthetic repo (no network, no vendored corpus).
 final class IngestionPipelineTests: XCTestCase {

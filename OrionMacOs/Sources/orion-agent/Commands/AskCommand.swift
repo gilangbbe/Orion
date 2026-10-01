@@ -75,7 +75,7 @@ struct Ask: AsyncParsableCommand {
 
         let result: AgentSessionResult
         do {
-            result = try await AgentSession(config: config).ask(question, sessionId: session)
+            result = try await Self.agentSession(config: config).ask(question, sessionId: session)
         } catch let error as AgentSessionError {
             FileHandle.standardError.write(Data("\(error)\n".utf8))
             throw ExitCode(3)
@@ -170,5 +170,11 @@ struct Ask: AsyncParsableCommand {
         }
         let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .prettyPrinted])
         print(String(data: data, encoding: .utf8) ?? "{}")
+    }
+
+    /// `--local-backend system` runs the iPhone's Ask path (Docs/19 M6: compact context, snapshot
+    /// tools, token budget) so the Mac can check it; every other backend is the Mac's own.
+    static func agentSession(config: AgentSessionConfig) -> AgentSession {
+        config.localBackend == .system ? SystemModelAsk.session(config: config) : AgentSession(config: config)
     }
 }

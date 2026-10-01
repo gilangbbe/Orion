@@ -1,6 +1,7 @@
 import XCTest
 import SwiftTreeSitter
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Guards the pinned `tree-sitter-python` grammar: verifies it loads with an ABI compatible
 /// with the pinned `SwiftTreeSitter` runtime, and that the node types our `.scm` queries and

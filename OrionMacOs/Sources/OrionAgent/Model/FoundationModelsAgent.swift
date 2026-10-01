@@ -20,6 +20,9 @@ public final class FoundationModelsAgent<Model: LanguageModel>: AgentModel {
     private let options: GenerationOptions
     /// Carries the role's reasoning level (Docs/18 M4); the default leaves thinking on.
     private let contextOptions: ContextOptions
+    /// Whether `model` accepts a `reasoningLevel`. The system model doesn't, and rejects *any*
+    /// level -- even `.custom("none")` -- with "does not support reasoning" (Docs/19 M0).
+    private let supportsReasoning: Bool
 
     public init(
         model: Model, modelIdentifier: String, options: GenerationOptions = LocalGenerationDefaults.options,
@@ -28,7 +31,18 @@ public final class FoundationModelsAgent<Model: LanguageModel>: AgentModel {
         self.model = model
         self.modelIdentifier = modelIdentifier
         self.options = options
-        self.contextOptions = contextOptions
+        self.supportsReasoning = model.capabilities.contains(.reasoning)
+        self.contextOptions = Self.supported(contextOptions, reasoning: supportsReasoning)
+    }
+
+    /// `options` minus a reasoning level the model can't take (Docs/19 M1). Every session this
+    /// agent builds goes through it, so a no-think role, a guided turn or a benchmark asking to
+    /// turn thinking off is a no-op on a model that never thinks, not a thrown error.
+    static func supported(_ options: ContextOptions, reasoning supportsReasoning: Bool) -> ContextOptions {
+        guard !supportsReasoning else { return options }
+        var stripped = options
+        stripped.reasoningLevel = nil
+        return stripped
     }
 
     /// The same loaded model under different context options -- how `LocalModelLoader` serves a
@@ -61,7 +75,8 @@ extension FoundationModelsAgent: NativeToolCallingModel {
 extension FoundationModelsAgent: GuidedGenerating {
     public func makeGuidedSession(instructions: String?) -> any GuidedTurnGenerating {
         FoundationModelsGuidedSession(
-            session: LanguageModelSession(model: model, instructions: instructions), options: options)
+            session: LanguageModelSession(model: model, instructions: instructions), options: options,
+            contextOptions: Self.supported(FoundationModelsGuidedSession.contextOptions, reasoning: supportsReasoning))
     }
 }
 
@@ -76,17 +91,21 @@ final class FoundationModelsGuidedSession: GuidedTurnGenerating {
     static let maximumResponseTokens = 512
     private let session: LanguageModelSession
     private let options: GenerationOptions
+    private let contextOptions: ContextOptions
 
-    init(session: LanguageModelSession, options: GenerationOptions) {
+    /// - Parameter contextOptions: `Self.contextOptions`, minus the reasoning level on a model
+    ///   that doesn't take one (`FoundationModelsAgent.supported`).
+    init(session: LanguageModelSession, options: GenerationOptions, contextOptions: ContextOptions = FoundationModelsGuidedSession.contextOptions) {
         self.session = session
         var capped = options
         capped.maximumResponseTokens = min(options.maximumResponseTokens ?? Self.maximumResponseTokens, Self.maximumResponseTokens)
         self.options = capped
+        self.contextOptions = contextOptions
     }
 
     func respond<Content: Generable>(to message: String, generating type: Content.Type) async throws -> Content {
         try await session.respond(
-            to: message, generating: type, options: options, contextOptions: Self.contextOptions
+            to: message, generating: type, options: options, contextOptions: contextOptions
         ).content
     }
 }
@@ -98,7 +117,7 @@ extension FoundationModelsAgent: RuntimeBenchmarking {
     public func benchmarkTurns(_ prompts: [String], maxTokens: Int) async throws -> [RuntimeSample] {
         let session = LanguageModelSession(model: model)
         let options = GenerationOptions(samplingMode: .greedy, maximumResponseTokens: maxTokens)
-        let context = ContextOptions(reasoningLevel: .custom("none"))
+        let context = Self.supported(ContextOptions(reasoningLevel: .custom("none")), reasoning: supportsReasoning)
         var samples: [RuntimeSample] = []
         for prompt in prompts {
             let start = ContinuousClock.now
@@ -153,5 +172,19 @@ final class FoundationModelsToolSession: ToolCallingTurnGenerating {
         var turnOptions = options
         if !toolsAllowed { turnOptions.toolCallingMode = .disallowed }
         return try await session.respond(to: message, options: turnOptions, contextOptions: contextOptions).content
+    }
+
+    /// Streams the turn (Docs/19 M6). The session still runs any tool calls inside; snapshots
+    /// carry the answer text as it's generated.
+    func respond(to message: String, toolsAllowed: Bool, onPartial: ((String) -> Void)?) async throws -> String {
+        guard let onPartial else { return try await respond(to: message, toolsAllowed: toolsAllowed) }
+        var turnOptions = options
+        if !toolsAllowed { turnOptions.toolCallingMode = .disallowed }
+        var text = ""
+        for try await snapshot in session.streamResponse(to: message, options: turnOptions, contextOptions: contextOptions) {
+            text = snapshot.content
+            onPartial(text)
+        }
+        return text
     }
 }

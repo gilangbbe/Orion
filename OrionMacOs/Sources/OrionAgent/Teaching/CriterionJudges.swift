@@ -1,5 +1,5 @@
 import Foundation
-import OrionCodeIntel
+import OrionCore
 
 /// The local per-criterion judge (Docs/17 §7.1) — one plain generation per call, tolerant JSON
 /// parse. Wraps a closure so the CLI owns model loading and this stays testable; `RubricGrader`

@@ -1,5 +1,5 @@
 import Foundation
-import OrionCodeIntel
+import OrionCore
 
 /// Produces a raw candidate-JSON string for a question-generation prompt. A protocol so
 /// `TeachingQuestionGenerator`'s orchestration (gather context -> prompt -> parse -> verify ->
@@ -8,6 +8,16 @@ public protocol TeachingQuestionDrafting: Sendable {
     /// Which model authored the draft — recorded on the persisted `teaching_questions` row.
     var source: TeachingQuestionSource { get }
     func draft(prompt: String, band: Int) async throws -> String
+    /// Drafts from the prompt's inputs. The default builds `TeachingPromptBuilder`'s prompt and
+    /// calls `draft(prompt:band:)`; a drafter that shapes its own prompt and output -- the guided
+    /// one, whose schema allows only the concept's anchors (Docs/19 M7) -- implements this.
+    func draft(inputs: TeachingPromptInputs) async throws -> String
+}
+
+extension TeachingQuestionDrafting {
+    public func draft(inputs: TeachingPromptInputs) async throws -> String {
+        try await draft(prompt: TeachingPromptBuilder.build(inputs), band: inputs.band)
+    }
 }
 
 /// Docs/17_phase7_teaching_mode.md §6 — turns one `teaching_concepts` row into a verified,
@@ -48,12 +58,18 @@ public struct TeachingQuestionGenerator {
 
         // --- Gather grounding: one line per member anchor, resolved to its signature/docstring.
         var evidenceLines: [String] = []
+        var anchors: [String] = []
+        var codeExcerpts: [String: String] = [:]
         for anchor in concept.evidenceAnchors.sorted() {
             guard let sym = try store.symbol(runId: run.id, anchor: anchor) else { continue }
             let detail = sym.signature
                 ?? sym.docstring?.split(separator: "\n").first.map(String.init)
                 ?? sym.kind
             evidenceLines.append("\(anchor) — \(detail)")
+            anchors.append(anchor)
+            if let slice = try store.evidenceSlice(anchor: anchor, startLine: sym.startLine, endLine: sym.endLine) {
+                codeExcerpts[anchor] = Self.excerpt(slice)
+            }
         }
         if evidenceLines.isEmpty {
             return .draftUnusable(detail: "concept has no resolvable evidence anchors", attempts: 0)
@@ -70,12 +86,10 @@ public struct TeachingQuestionGenerator {
         var priorReasons: [String] = []
         var lastDetail = ""
         for attempt in 1...Self.maxAttempts {
-            let prompt = TeachingPromptBuilder.build(TeachingPromptInputs(
+            let raw = try await drafter.draft(inputs: TeachingPromptInputs(
                 conceptId: concept.id, conceptKind: concept.kind, conceptLabel: concept.subjectLabel,
                 band: targetBand, evidenceLines: evidenceLines, relatedConceptLabels: relatedLabels,
-                priorRejectionReasons: priorReasons))
-
-            let raw = try await drafter.draft(prompt: prompt, band: targetBand)
+                priorRejectionReasons: priorReasons, evidenceAnchors: anchors, codeExcerpts: codeExcerpts))
 
             guard let jsonText = Self.extractJSONObject(raw) else {
                 lastDetail = "model output contained no JSON object"
@@ -110,6 +124,23 @@ public struct TeachingQuestionGenerator {
             }
         }
         return .draftUnusable(detail: lastDetail, attempts: Self.maxAttempts)
+    }
+
+    /// Lines of a symbol's code given to a drafter -- its head, which is where a question's facts
+    /// usually are (signature, docstring, the first branches).
+    static let excerptLines = 14
+
+    /// The cited lines of a slice (its highlighted range, without the surrounding context), capped.
+    static func excerpt(_ slice: EvidenceSlice.Slice) -> String {
+        let lines: ArraySlice<String>
+        if let highlight = slice.highlight {
+            let start = max(0, highlight.lowerBound - slice.firstLine)
+            let end = min(slice.lines.count, highlight.upperBound - slice.firstLine + 1)
+            lines = start < end ? slice.lines[start..<end] : slice.lines[...]
+        } else {
+            lines = slice.lines[...]
+        }
+        return lines.prefix(excerptLines).joined(separator: "\n")
     }
 
     /// Tolerant extraction: first `{` to last `}`, matching the "don't trust the model to format

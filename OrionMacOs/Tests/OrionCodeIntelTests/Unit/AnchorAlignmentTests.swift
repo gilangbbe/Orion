@@ -1,5 +1,6 @@
 import XCTest
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/16 M1: `AnchorAlignment` ported from Phase 2 M5's `score.py`
 /// (`Agent Feasibility Study/harness/orion_eval/semantic/score.py`) — these cases are ported

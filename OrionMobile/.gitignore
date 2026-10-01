@@ -1,0 +1,11 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# xcodebuild -derivedDataPath output
+.build/
+
+# Scratch output of local probe runs; the kept copies live in
+# "Agent Feasibility Study/results/ios_companion/".
+results/

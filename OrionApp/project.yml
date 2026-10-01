@@ -13,7 +13,7 @@ options:
   # APIs + Core AI) -- OrionAgent can't be linked below this anyway.
   deploymentTarget:
     macOS: "27.0"
-  bundleIdPrefix: com.orion
+  bundleIdPrefix: com.gilangbbe.orion
 
 packages:
   OrionMacOs:
@@ -39,10 +39,13 @@ targets:
     platform: macOS
     sources:
       - path: Orion
+      # Loaders, models and views shared with the iOS companion (Docs/19 M4); its own
+      # OrionMobile/project.yml compiles the same folder.
+      - path: Shared
     settings:
       base:
         PRODUCT_NAME: Orion
-        PRODUCT_BUNDLE_IDENTIFIER: com.orion.OrionApp
+        PRODUCT_BUNDLE_IDENTIFIER: com.gilangbbe.orion.mac
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
@@ -59,19 +62,32 @@ targets:
         # out of scope for this phase (Docs/13 Risk 1).
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
-        # No Apple Developer Team configured in this environment -- sign for local execution
-        # only ("Sign to Run Locally" equivalent) so `xcodebuild build` succeeds without one.
-        # Switch to a real team + Developer ID in Xcode's Signing & Capabilities tab whenever
-        # distribution is actually needed (Docs/13 Decision 4).
-        CODE_SIGN_IDENTITY: "-"
+        # Team set 2026-09-30 (Docs/19 M0), shared with OrionMobile/project.yml. Since Docs/19 M5
+        # the app signs with a real Apple Development identity: CloudKit entitlements need a
+        # provisioning profile (automatic -- pass -allowProvisioningUpdates to xcodebuild). Still
+        # unsandboxed (Decision 4 above); CloudKit doesn't require the sandbox.
+        DEVELOPMENT_TEAM: S3AP74B5TH
+        CODE_SIGN_IDENTITY: "Apple Development"
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_REQUIRED: YES
         CODE_SIGNING_ALLOWED: YES
+    # Docs/19 M5: "Sync to iPhone" publishes knowledge snapshots to the user's private CloudKit
+    # database; the iOS companion (OrionMobile) receives them from the same container.
+    entitlements:
+      path: Orion/Orion.entitlements
+      properties:
+        com.apple.developer.aps-environment: development
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.gilangbbe.orion
+        com.apple.developer.icloud-services:
+          - CloudKit
     dependencies:
       - package: OrionMacOs
         product: OrionCodeIntel
       - package: OrionMacOs
         product: OrionAgent
+      - package: OrionMacOs
+        product: OrionSync
       - package: Grape
         product: Grape
 
@@ -86,6 +102,7 @@ targets:
       base:
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gilangbbe.orion.mac.tests
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGNING_REQUIRED: NO

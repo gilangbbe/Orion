@@ -1,6 +1,7 @@
 import XCTest
 import GRDB
 @testable import OrionCodeIntel
+@testable import OrionCore
 
 /// Docs/15_phase5_adaptive_exploration.md M3: the real lifecycle logic composed out of M0's bare
 /// CRUD primitives -- `createAskSession`'s scope/`componentId` invariant, `recordSessionTurn`'s

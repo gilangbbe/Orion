@@ -18,6 +18,35 @@ final class LocalModelBackendTests: XCTestCase {
         }
     }
 
+    /// Docs/19 M1: the on-device system model as a backend.
+    func testSystemBackend() throws {
+        XCTAssertEqual(try LocalModelBackend(parsing: " System "), .system)
+        XCTAssertEqual(
+            try LocalModelBackend.fromEnvironment([LocalModelBackend.environmentKey: "system"]), .system)
+        XCTAssertTrue(LocalModelBackend.system.modelIdentifier.hasPrefix("system:"))
+        // One model: no variants, and no reasoning mode to switch -- every role resolves to it as-is,
+        // whatever `ORION_LOCAL_ROLES` says.
+        let roles = try LocalModelRoles(parsing: "*=qwen3-4b-4bit:off")
+        for role in LocalModelRole.allCases {
+            XCTAssertEqual(
+                LocalModelBackend.system.resolved(for: role, roles: roles),
+                ResolvedLocalModel(backend: .system, reasoning: .on))
+        }
+        // Nothing to export.
+        XCTAssertEqual(CoreAIModelLocator.missingVariants(for: .system, roles: LocalModelRole.allCases), [])
+    }
+
+    func testTheMacDefaultIsCoreAI() {
+        XCTAssertEqual(LocalModelBackend.platformDefault, .defaultCoreAI)
+    }
+
+    func testSystemBackendNeedsNoLoad() async throws {
+        let model = try await LocalModelLoader.shared.model(for: .system, role: .judging)
+        XCTAssertEqual(model.modelIdentifier, LocalModelBackend.system.modelIdentifier)
+        XCTAssertTrue(model is any NativeToolCallingModel)
+        XCTAssertTrue(model is any GuidedGenerating)
+    }
+
     func testDefaultIsTheDefaultCoreAIBundle() {
         XCTAssertEqual(LocalModelBackend.defaultCoreAI, .coreAI(variant: CoreAIModelLocator.defaultVariant))
     }

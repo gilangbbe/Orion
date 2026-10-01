@@ -149,6 +149,9 @@ public struct ResolvedLocalModel: Hashable, Sendable {
 extension LocalModelBackend {
     /// The model `role` runs on under `roles` (`nil`: `LocalModelRoles.current(for: self)`).
     public func resolved(for role: LocalModelRole, roles: LocalModelRoles? = nil) -> ResolvedLocalModel {
+        // The system model is one model with no variants and no reasoning (Docs/19 M0), so every
+        // role runs on it unchanged; `on` just means "don't touch its context options".
+        if case .system = self { return ResolvedLocalModel(backend: .system, reasoning: .on) }
         let setting = (roles ?? LocalModelRoles.current(for: self)).setting(for: role)
         return ResolvedLocalModel(
             backend: .coreAI(variant: setting.variant ?? variant), reasoning: setting.reasoning)
