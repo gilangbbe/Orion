@@ -61,17 +61,39 @@ final class IPhoneSync {
             persist()
             await publish(libraryKey: libraryKey, repoRoot: repoRoot, outputDirectory: outputDirectory, force: true)
         } else {
-            enabled.remove(libraryKey)
-            persist()
-            states[libraryKey] = .off
-            // Not `publisher?`: on a fresh launch nothing has started the publisher yet, and
-            // switching off must still delete the iCloud record (a Docs/19 M5 bug, caught live).
-            guard (try? await container.accountStatus()) == .available else { return }
-            let publisher = publisherOrStart()
-            publisher.unpublish(libraryKey: libraryKey)
-            try? await publisher.sendNow()
-            states[libraryKey] = .off
+            await stopSyncing(libraryKey: libraryKey)
         }
+    }
+
+    /// Switching off needs no checkout, so Settings can stop a repository that isn't open
+    /// (Docs/20 R1). The iPhone keeps its copy, marked "no longer synced".
+    func stopSyncing(libraryKey: String) async {
+        enabled.remove(libraryKey)
+        persist()
+        states[libraryKey] = .off
+        // Not `publisher?`: on a fresh launch nothing has started the publisher yet, and
+        // switching off must still delete the iCloud record (a Docs/19 M5 bug, caught live).
+        guard (try? await container.accountStatus()) == .available else { return }
+        let publisher = publisherOrStart()
+        publisher.unpublish(libraryKey: libraryKey)
+        try? await publisher.sendNow()
+        states[libraryKey] = .off
+    }
+
+    // MARK: - Settings
+
+    /// Every repository that syncs, by record name.
+    var enabledKeys: [String] { enabled.sorted() }
+
+    /// The name a syncing repository was last uploaded under, from the outbox's manifest. Reading
+    /// the outbox doesn't touch CloudKit. `nil` until its first snapshot is staged.
+    func repositoryName(libraryKey: String) -> String? {
+        try? SnapshotOutbox(directory: Self.syncDirectory).entry(libraryKey: libraryKey).manifest.repositoryName
+    }
+
+    /// Whether this Mac can reach iCloud at all.
+    func isICloudAvailable() async -> Bool {
+        (try? await container.accountStatus()) == .available
     }
 
     /// After an analysis, a Build Architecture Model run, or opening the repository: republish if
@@ -161,9 +183,8 @@ final class IPhoneSync {
 
     private func publisherOrStart() -> SnapshotPublisher {
         if let publisher { return publisher }
-        let directory = AppPaths.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
         let publisher = SnapshotPublisher(
-            directory: directory, database: container.privateCloudDatabase
+            directory: Self.syncDirectory, database: container.privateCloudDatabase
         ) { [weak self] key, status in
             Task { @MainActor in
                 switch status {
@@ -175,6 +196,10 @@ final class IPhoneSync {
         }
         self.publisher = publisher
         return publisher
+    }
+
+    private static var syncDirectory: URL {
+        AppPaths.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
     }
 
     private func persist() {

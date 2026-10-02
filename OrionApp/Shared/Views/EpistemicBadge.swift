@@ -17,17 +17,23 @@ struct EpistemicBadge: View {
     }
 
     var body: some View {
-        Label(tag.label, systemImage: tag.systemImage)
-            .font(.caption2.bold())
-            // One line: at large text sizes a wrapped badge became a circle of syllables
-            // (Docs/19 M8).
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .foregroundStyle(tag.color)
-            .background(tag.color.opacity(0.15))
-            .clipShape(Capsule())
+        Label {
+            // One line: at large text sizes a wrapped badge became a circle of syllables. The
+            // fixed size belongs on the title, not the whole `Label` -- there it stopped the
+            // title from drawing at all, leaving the icon alone in an empty capsule (Docs/19 M8).
+            Text(tag.label)
+                .lineLimit(1)
+                .fixedSize()
+        } icon: {
+            Image(systemName: tag.systemImage)
+        }
+        .labelStyle(.badge)
+        .font(.caption2.bold())
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .foregroundStyle(tag.color)
+        .background(tag.color.opacity(0.15))
+        .clipShape(Capsule())
     }
 }
 

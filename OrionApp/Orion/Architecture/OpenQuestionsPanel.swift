@@ -1,30 +1,28 @@
 import SwiftUI
 
-/// Docs/14_phase4_5_ui_ux_redesign.md §4.4/§8 M3: the inspector's other case besides component
-/// detail -- every investigation-wide uncertainty (Docs/13 M6's "Open questions" list) shown in
-/// full. Moved off `ArchitectureOverviewView`'s own always-expanded banner, which didn't scale to
-/// a real investigation's actual shape: production data has around 6 of these, some 150-220 words
-/// each -- inlined above the diagram, that's over a thousand words sitting on top of the graph
-/// it's supposed to summarize (see this doc's revision note). Reached through a slim, always-visible
-/// summary strip instead (`ArchitectureOverviewView.openQuestionsStrip(_:)`), full text lives here.
+/// Everything the investigation couldn't settle (Docs/13 M6), in Architecture's inspector. Some
+/// run to 200 words, so they live here, reached from the layer bar, not above the diagram
+/// (Docs/14 §8 M3).
 struct OpenQuestionsPanel: View {
     let uncertainties: [String]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(Array(uncertainties.enumerated()), id: \.offset) { index, statement in
-                    VStack(alignment: .leading, spacing: 6) {
-                        EpistemicBadge(.unknown)
-                        Text(statement)
-                            .font(.callout)
-                    }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    Text(ArchitectureLayerBar.openQuestionsTitle(uncertainties.count))
+                        .font(.title2.bold())
+                    EpistemicBadge(.unknown)
+                }
+                ForEach(uncertainties.indices, id: \.self) { index in
+                    Text(uncertainties[index])
+                        .textSelection(.enabled)
                     if index < uncertainties.count - 1 {
                         Divider()
                     }
                 }
             }
-            .padding(16)
+            .padding(DesignTokens.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

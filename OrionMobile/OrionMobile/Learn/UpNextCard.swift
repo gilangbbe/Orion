@@ -22,8 +22,10 @@ struct UpNextCard: View {
             // Solid, not glass: an action inside content, where glass dilutes the tint under the
             // white label below the contrast the audit expects (Docs/19 M8). Glass is for the
             // floating bars.
+            // Text only: in a list row a `Label`'s icon takes the row's tint, so the play symbol
+            // drew teal on the teal button -- invisible, but still pushing the word off centre.
             Button(action: start) {
-                Label("Practise", systemImage: "play.fill")
+                Text("Practise")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)

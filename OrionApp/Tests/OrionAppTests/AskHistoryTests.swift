@@ -9,6 +9,7 @@ import OrionCodeIntel
 /// DB-backed session model -- these tests replace that file's coverage entirely, against a real
 /// analyzed fixture repo (the same `AnalysisPipeline`-against-a-temp-repo pattern
 /// `SemanticInvestigationRunnerTests` already established), not a mock.
+@MainActor
 final class AskHistoryTests: XCTestCase {
 
     private func makeAnalyzedFixtureRepo() throws -> (repoRoot: URL, outputDirectory: URL) {

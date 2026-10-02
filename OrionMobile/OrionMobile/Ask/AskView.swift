@@ -41,7 +41,10 @@ struct AskView: View {
         .onChange(of: selection) { _, newValue in
             guard newValue != model.selectedSessionId else { return }
             model.select(newValue)
-            compactColumn = .detail
+            // Only a chosen conversation opens the detail. Going Back on iPhone clears the
+            // selection too; forcing the detail then bounced straight into a new conversation,
+            // so reaching the list took two Backs.
+            if newValue != nil { compactColumn = .detail }
         }
         .onChange(of: model.selectedSessionId) { _, newValue in selection = newValue }
     }

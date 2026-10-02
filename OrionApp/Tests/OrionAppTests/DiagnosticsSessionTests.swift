@@ -6,6 +6,7 @@ import XCTest
 /// Docs/14_phase4_5_ui_ux_redesign.md §8 M8's own testing plan: a regression test confirming a
 /// second Ask/analysis overwrites rather than accumulates -- the same shape of test Docs/13 M2
 /// used for the SQLite reopen-crash fix, pinning §7 Decision 2 ("last-only, never a rolling log").
+@MainActor
 final class DiagnosticsSessionTests: XCTestCase {
     func testRecordAskOverwritesRatherThanAccumulates() {
         let session = DiagnosticsSession()

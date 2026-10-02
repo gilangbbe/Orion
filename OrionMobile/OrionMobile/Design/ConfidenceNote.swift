@@ -19,6 +19,8 @@ struct ConfidenceNote: View {
             } icon: {
                 Image(systemName: "cellularbars", variableValue: Self.level(tier))
             }
+            // Tight, not the list row's icon column: it sits under a row's text.
+            .labelStyle(.badge)
             .font(.footnote)
             .foregroundStyle(ConfidenceBadge.color(forTier: tier))
         }

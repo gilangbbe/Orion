@@ -1,15 +1,5 @@
 import Foundation
 
-/// One entry in the recently-opened list -- `input` is the raw string the user typed/picked (a
-/// local path or a GitHub URL), used both to display and to re-derive a `RepositorySession.Input`
-/// on reopen.
-struct RecentRepositoryEntry: Codable, Identifiable, Equatable {
-    var id: String { input }
-    let input: String
-    let displayName: String
-    let lastOpened: Date
-}
-
 /// A small JSON file under Application Support -- app-shell convenience state (Docs/13
 /// M1's own distinction), not the Codebase Model. Losing this file loses only the recents list,
 /// never anything about a repository's own analysis.
@@ -43,6 +33,11 @@ struct RecentRepositories {
             entries.removeLast(entries.count - maxEntries)
         }
         save(entries)
+    }
+
+    /// File > Open Recent > Clear Menu.
+    func clear() {
+        try? fileManager.removeItem(at: fileURL)
     }
 
     private func save(_ entries: [RecentRepositoryEntry]) {

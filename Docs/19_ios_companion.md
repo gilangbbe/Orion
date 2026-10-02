@@ -1557,7 +1557,21 @@ for fixes both apps want.
 6. **The manifest's component count disagreed with the screen** (33 against 11: it counts every
    investigation's components). The Library and Explore summaries show files, concepts and claims
    instead.
-7. **Not done:**
+7. **Fixed after you reviewed it on the phone (2026-10-02):**
+   - **Ask needed two Backs to reach the conversation list.** On iPhone, Back clears the list's
+     selection, and that change forced the detail column open again, into a new conversation. Now
+     only choosing a conversation opens the detail. `AskNavigationUITests` covers this: it fails
+     with the old code and passes with the fix.
+   - **Badges showed only their icon, off-centre in an empty capsule.** This was my own M8
+     regression. `.fixedSize()` on the whole `Label` stopped the title from drawing, and inside list
+     rows the list's label style put the icon in a wide column.
+     - The fixed size is now on the title `Text`.
+     - Badges and `ConfidenceNote` use a compact `BadgeLabelStyle`.
+     - This affected the Mac's badges too.
+   - **"Practise" was off-centre.** In a list row a `Label`'s icon takes the row tint, so the play
+     symbol drew teal on the teal button: invisible but still taking space. The button is now text
+     only.
+8. **Not done:**
    - **Push wake.** Verifying that a silent CloudKit push wakes a suspended app needs the Mac to
      publish while the phone is locked; that's left as a manual check, since it changes what's
      synced.

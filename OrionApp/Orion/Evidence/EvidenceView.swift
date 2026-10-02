@@ -1,59 +1,57 @@
 import SwiftUI
 
-/// Docs/13_phase4_architecture_ui.md M5's source-snippet panel: shows the cited range highlighted
-/// -- plain monospace + line numbers (Docs/08 asks for an "evidence view," not a code editor).
-/// Docs/19 M4: shared with the iOS companion. The lines come from `source` -- the analyzed checkout
-/// on the Mac (`CheckoutEvidenceSource`), the knowledge snapshot's snippets on iOS
-/// (`SnapshotEvidenceSource`), which may be shortened.
-///
-/// Docs/14_phase4_5_ui_ux_redesign.md §4.11/§8 M5: visual-only restyle -- the highlighted range
-/// now uses the app's own accent tint (`DesignTokens.accent`) instead of a plain yellow, matching
-/// every other "this is what's being pointed at" treatment in the redesign rather than reading as
-/// an unrelated editor-warning color; a close button was added, since a modal sheet with no
-/// visible way to dismiss it (previously reliant on Escape alone) was a real, if minor, gap. No
-/// logic changed at the time.
+/// The code a claim or member cites (Docs/13 M5), as a sheet: the symbol and its file and lines
+/// at the top, the lines with the cited range highlighted, and Done (HIG, Sheets). Plain
+/// monospace with line numbers -- an evidence view, not an editor (Docs/08). Lines come from the
+/// analyzed checkout.
 struct EvidenceView: View {
-    @Environment(\.dismiss) private var dismiss
     let evidence: EvidenceDetail
-    /// The checkout on the Mac, the snapshot's snippets on iOS (Docs/19 M4).
     let source: any EvidenceSourceProviding
 
+    @Environment(\.dismiss) private var dismiss
     @State private var snippet: EvidenceSnippet?
     @State private var loadError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(evidence.anchor)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Self.title(evidence.anchor))
                     .font(.headline.monospaced())
+                Text(Self.subtitle(evidence))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            .padding(DesignTokens.Spacing.lg)
+            Divider()
+            Group {
+                if let loadError {
+                    ContentUnavailableView(
+                        "Couldn't Load the Code", systemImage: "doc.questionmark",
+                        description: Text(loadError))
+                } else if let snippet {
+                    EvidenceLinesView(snippet: snippet)
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
             }
             Divider()
-            if let loadError {
-                ContentUnavailableView(
-                    "Couldn't load source", systemImage: "doc.questionmark",
-                    description: Text(loadError))
-            } else if let snippet {
-                sourceView(snippet)
-            } else {
-                ProgressView()
+            HStack {
+                Spacer()
+                Button("Done", action: close)
+                    .keyboardShortcut(.defaultAction)
             }
+            .padding(DesignTokens.Spacing.md)
         }
-        .padding(16)
-        #if os(macOS)
-        .frame(minWidth: 560, minHeight: 420)
-        #endif
+        .frame(minWidth: 620, idealWidth: 720, minHeight: 440, idealHeight: 560)
         .task { load() }
+    }
+
+    private func close() {
+        dismiss()
     }
 
     private func load() {
@@ -64,36 +62,21 @@ struct EvidenceView: View {
         }
     }
 
-    private func sourceView(_ snippet: EvidenceSnippet) -> some View {
-        ScrollView([.horizontal, .vertical]) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(snippet.lines) { line in
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("\(line.number)")
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.tertiary)
-                            .frame(width: 40, alignment: .trailing)
-                        Text(line.text)
-                            .font(.callout.monospaced())
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(
-                        isHighlighted(line.number, in: snippet.highlightRange)
-                            ? DesignTokens.accent.opacity(0.15) : Color.clear)
-                }
-                if snippet.truncated {
-                    Label("Shortened — the full code is in Orion on your Mac.", systemImage: "scissors")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 8)
-                }
-            }
+    /// `pkg/app.py::Router.add_route` → `Router.add_route`; a bare path → its file name.
+    static func title(_ anchor: String) -> String {
+        if let range = anchor.range(of: "::") {
+            return String(anchor[range.upperBound...])
         }
+        return (anchor as NSString).lastPathComponent
     }
 
-    private func isHighlighted(_ number: Int, in range: ClosedRange<Int>?) -> Bool {
-        range?.contains(number) ?? false
+    /// `pkg/app.py · lines 20–50`.
+    static func subtitle(_ evidence: EvidenceDetail) -> String {
+        let path = evidence.anchor.components(separatedBy: "::").first ?? evidence.anchor
+        switch (evidence.startLine, evidence.endLine) {
+        case let (start?, end?) where start != end: return "\(path) · lines \(start)–\(end)"
+        case let (start?, _): return "\(path) · line \(start)"
+        default: return path
+        }
     }
 }

@@ -51,6 +51,11 @@ public final class OrionDatabase {
 
         var config = Configuration()
         config.foreignKeysEnabled = true
+        // Wait for another connection instead of failing at once. Opening a repository opens it
+        // several times in parallel (architecture, badges, the sync key), and other processes
+        // (the CLI, a second Orion) may hold it: without a timeout, `journal_mode = WAL` below
+        // failed with "database is locked" (Docs/20 R1).
+        config.busyMode = .timeout(5)
         config.prepareDatabase { db in
             try db.execute(sql: "PRAGMA journal_mode = WAL;")
             try db.execute(sql: "PRAGMA synchronous = NORMAL;")

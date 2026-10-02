@@ -6,6 +6,7 @@ import OrionCodeIntel
 
 /// Docs/17 M6: `TeachingSession`'s phase machine, driven with scripted generation/grading stubs
 /// so no MLX model or `claude` CLI is needed — the same seam `AskRunnerTests` uses.
+@MainActor
 final class TeachingSessionTests: XCTestCase {
 
     /// A drafter that returns a canned candidate JSON for the concept it's asked about.

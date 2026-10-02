@@ -51,3 +51,4 @@ See:
 - `17_phase7_teaching_mode.md` — Phase 7 plan (teaching mode; plan only, not started)
 - `18_os27_foundation_models_coreai.md` — OS 27 Foundation Models + Core AI backend
 - `19_ios_companion.md` — iOS companion app (explore + learn on iPhone via on-device Foundation Models; M0–M8 done)
+- `20_mac_redesign.md` — Mac app redesign with the Apple HIG and SwiftUI Pro (R1–R7 done)

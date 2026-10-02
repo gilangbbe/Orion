@@ -1,37 +1,5 @@
 import SwiftUI
 
-/// The pieces of the Model Changes screen both apps share (Docs/19 M4): one change's list row and
-/// its full Previously / Now / Reason detail. The Mac arranges them as a split view
-/// (`ModelChangesView`); the iOS companion as a list that pushes the detail.
-
-/// A change's row: subject, when, and a one-line teaser of where the model landed.
-struct ModelChangeRowLabel: View {
-    let entry: ModelChangeSummary
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.caption)
-                .foregroundStyle(DesignTokens.accent)
-                .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                Text("Updated \(entry.when)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(entry.preview)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-}
-
 /// One change in full: freely-wrapping, selectable prose -- nothing truncated.
 struct ModelChangeDetailView: View {
     let entry: ModelChangeSummary

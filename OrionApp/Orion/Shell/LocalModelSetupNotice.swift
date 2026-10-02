@@ -41,7 +41,7 @@ struct LocalModelSetupNotice: View {
             }
             HStack {
                 Text("Each export takes about 5–25 minutes and needs ~15 GB of free memory.")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Button("Check again", action: recheck)

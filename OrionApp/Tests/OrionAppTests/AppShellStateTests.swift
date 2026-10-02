@@ -4,6 +4,7 @@ import XCTest
 
 /// Docs/14_phase4_5_ui_ux_redesign.md §8 M3's own testing plan: `InspectorContent`'s two cases are
 /// mutually exclusive, and switching destinations closes whichever one is open.
+@MainActor
 final class AppShellStateTests: XCTestCase {
     private func sampleNode(id: String = "n1") -> ArchitectureNode {
         ArchitectureNode(

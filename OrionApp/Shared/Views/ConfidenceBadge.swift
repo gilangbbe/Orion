@@ -53,13 +53,15 @@ struct ConfidenceBadge: View {
     var body: some View {
         let color = Self.color(forTier: tier)
         Label {
+            // One line, sized on the title -- see `EpistemicBadge` for why not on the `Label`.
             Text(tier.capitalized)
+                .lineLimit(1)
+                .fixedSize()
         } icon: {
             SignalBars(filled: Self.barsFilled(forTier: tier), color: color)
         }
+        .labelStyle(.badge)
         .font(.caption2.bold())
-        .lineLimit(1)
-        .fixedSize()
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
         .foregroundStyle(color)

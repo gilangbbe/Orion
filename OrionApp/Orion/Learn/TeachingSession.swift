@@ -6,6 +6,7 @@ import OrionCodeIntel
 /// worked through (Docs/17_phase7_teaching_mode.md §11). Owned by `ContentView`, recreated per
 /// repository open (same lifetime as `AskHistory` / `AppShellState`), so a concept picked in one
 /// repository never leaks into the next.
+@MainActor
 @Observable
 final class TeachingSession {
 
